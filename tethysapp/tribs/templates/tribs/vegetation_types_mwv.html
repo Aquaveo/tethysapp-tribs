@@ -1,0 +1,107 @@
+{% extends "atcore/resource_workflows/map_workflow_view.html" %}
+{% load tethys_gizmos static django_bootstrap5 %}
+
+{% block app_actions %}
+  {{ block.super }}
+{% endblock %}
+
+{% block custom_map_tabs %}
+  <li class="nav-item" role="presentation">
+    <a class="nav-link" 
+        id="legend-tab-toggle" 
+        href="#legend-tab-panel" 
+        aria-controls="legend-tab-panel" 
+        aria-selected="true" 
+        role="tab" 
+        data-bs-toggle="tab">Legend</a>
+  </li>
+  {{ block.super }}
+{% endblock %}
+
+{% block custom_map_tab_panels %}
+    {{ block.super }}
+    <div class="tab-pane" 
+      id="legend-tab-panel" 
+      role="tabpanel" 
+      aria-labelledby="legend-tab-toggle">
+      <div id="legend-div"></div>
+    </div>
+    <div id="extent" data-value="{{ extent }}"></div>
+    <div id="vegetation-types" data-value="{{ vegetation_types}}"></div>
+    <input id="categories" name="categories-data" class="d-none" form="workflow-form">
+{% endblock %}
+
+{% block map %}
+  {{ block.super }}
+  <div class="container-fluid" style="height: 50%">
+    <div class="row" style="height: 100%">
+      <div class="col-md custom-center-align-items">
+        <div class="card">
+          <div class="card-header custom-center-align-items">
+            <h5>Available Types</h5>
+            <button class="btn btn-secondary" id="quick-assign-btn">Quick Assign</button>
+          </div>
+          <div class="card-body">
+            <div id="available-types-div"></div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-1 d-flex flex-column justify-content-center align-items-center">
+        <div class="mb-5">
+          <button type="button" class="btn btn-light btn-lg" id="assign-btn"><i class="bi bi-arrow-right-square"></i></button>
+        </div>
+        <div>
+          <button type="button" class="btn btn-light btn-lg" id="remove-btn"><i class="bi bi-arrow-left-square"></i></button>
+        </div>
+      </div>
+      <div class="col-md custom-center-align-items">
+        <div class="card">
+          <div class="card-header custom-center-align-items">
+            <h5>Categories</h5>
+          </div>
+          <div class="card-body">
+            <div id="categories-div">
+              <div id="new-category-div" class="item-div custom-center-align-items">
+                <input id="new-category-input" type="text" placeholder="Add New Category"></input>
+                <button class="btn icon-btn" id="add-btn"><i class="fa fa-plus"></i></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  {{ block.super }}
+  <script src="{% static 'tribs/js/vegetation_types_mwv.js' %}" type="text/javascript"></script>
+{% endblock %}
+
+{% block content_dependent_styles %}
+  {{ block.super }}
+  <link href="{% static 'tribs/css/vegetation_types_mwv.css' %}" rel="stylesheet"/>
+{% endblock %}
+
+{% block after_app_content %}
+  {{ block.super }}
+  {# Attributes Form #}
+  {% if attributes_form %}
+  <div id="spatial-attributes-template">
+    <form class="spatial-attributes-form">
+      <div class="form-group has-error">
+        <p class="help-block spatial-attributes-error"></p>
+      </div>
+      {% csrf_token %}
+      {% bootstrap_form attributes_form %}
+    </form>
+    <a class="btn btn-outline-secondary spatial-attributes-ok" href="javscript:void(0)">Save</a>
+  </div>
+  {% endif %}
+
+  {# MAP ATTRIBUTES #}
+  <div id="atcore-spatial-input-attributes"
+       data-allow-edit-attributes="{{ allow_edit_attributes|jsonify }}"
+       style="display: none;"
+  ></div>
+{% endblock %}

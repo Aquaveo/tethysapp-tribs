@@ -1,0 +1,15 @@
+{% extends "tribs/base.html" %}
+{% load tethys_gizmos static %}
+
+{% block app_content %}
+  {% gizmo cesium_map_view %}
+{% endblock %}
+
+{% block global_scripts %}
+  {{ block.super }}
+{% endblock %}
+
+{% block scripts %}
+  {{ block.super }}
+  <script src="{% static 'tribs/js/mesh_map.js' %}" type="text/javascript"></script>
+{% endblock %}

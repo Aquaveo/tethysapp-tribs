@@ -1,0 +1,23 @@
+	List
+		List
+		List
+			Tuple[0]:				Related Resources
+			Tuple[1]:					Dictionary
+				Key:					Parent Project
+				Values:						
+				Key:					<a href="<MagicMock name='reverse()' id=>">Test FDB Project</a>
+				Values:						Initialized Project with File Database.
+				Key:					Linked Scenarios
+				Values:						
+				Key:					Scenario Count
+				Values:						1
+				Key:					<a href="<MagicMock name='reverse()' id=>">test_scenario</a>
+				Values:						(Not Recognized)
+			Tuple[0]:				File Collection Details
+			Tuple[1]:					Dictionary
+				Key:					File Collection ID
+				Values:						(Not Recognized)
+				Key:					File Count
+				Values:						1
+				Key:					Total Size (KB)
+				Values:						6.36

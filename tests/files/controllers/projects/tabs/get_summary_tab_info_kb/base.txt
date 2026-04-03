@@ -1,0 +1,19 @@
+	List
+		List
+		List
+			Tuple[0]:				Related Resources
+			Tuple[1]:					Dictionary
+				Key:					Scenario Count
+				Values:						1
+				Key:					Dataset Count
+				Values:						12
+			Tuple[0]:				File Database Details
+			Tuple[1]:					Dictionary
+				Key:					File Database ID
+				Values:						(Not Recognized)
+				Key:					File Collection Count
+				Values:						12
+				Key:					File Count
+				Values:						20
+				Key:					Total Size (KB)
+				Values:						200.0

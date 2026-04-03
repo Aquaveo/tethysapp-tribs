@@ -1,0 +1,57 @@
+# Python
+*.pydevproject
+*.project
+*.egg-info
+*.class
+*.pyo
+*.pyc
+*.db
+.pytest_cache
+
+# Vi
+*.swp
+
+# System
+*.DS_Store
+
+# Helm
+helm/*/charts/
+helm/*/requirements.lock
+values-local.yaml
+values-staging.yaml
+values-production.yaml
+helm/*/*.lock
+helm/tribs/*.tgz
+helm/tribs/secrets.yaml.*
+helm/tribs/secrets.yaml
+helm/tribs/.sops.yaml
+helm/**condor
+helm/gs-cloud
+
+# Tethys
+tethysapp/*/workspaces/*
+tethysapp/*/job_executables/modflow_*
+home/*
+
+# Misc
+*.sqlite
+*.idea
+*.vscode
+*.coverage
+*.swp
+condorkey
+condorkey.pub
+tethysapp/tribs/workspaces/*
+services.yml
+dist/*
+build/*
+docker/data/
+
+# PDM
+.pdm-python
+
+# Node/React
+node_modules*
+tethysapp/tribs/public/project-editor/
+reactapp/config/production.env
+coverage

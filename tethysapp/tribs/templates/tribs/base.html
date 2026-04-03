@@ -1,0 +1,55 @@
+{% extends "tethys_apps/app_base.html" %}
+
+{% load static %}
+
+{% block title %}{{ tethys_app.name }}{% endblock %}
+
+{% block app_icon %}
+  {# The path you provided in your app.py is accessible through the tethys_app.icon context variable #}
+  <img src="{% if 'http' in tethys_app.icon %}{{ tethys_app.icon }}{% else %}{% static tethys_app.icon %}{% endif %}" />
+{% endblock %}
+
+{# The name you provided in your app.py is accessible through the tethys_app.name context variable #}
+{% block app_title %}{{ tethys_app.name }}{% endblock %}
+
+{% block app_navigation_items %}
+  {% url 'tribs:projects_manage_resources' as manage_projects_url %}
+  {% url 'tribs:scenarios_manage_resources' as manage_scenarios_url %}
+  {% url 'tribs:datasets_manage_resources' as manage_datasets_url %}
+  {% url 'tribs:realizations_manage_resources' as manage_realizations_url %}
+  {% url 'tribs:tutorials_manage_resources' as manage_tutorials_url %}
+  {% url 'tribs:app_users_manage_users' as manage_users_url %}
+  {% url 'tribs:app_users_manage_organizations' as manage_organizations_url %}
+  {% url 'tribs:app_users_user_account' as user_account_url %}
+
+  <li class="nav-item title">App Navigation</li>
+  <li class="nav-item"><a class="nav-link{% if request.path == manage_projects_url %} active{% endif %}" href="{{ manage_projects_url }}">Projects</a></li>
+  <li class="nav-item"><a class="nav-link{% if request.path == manage_scenarios_url %} active{% endif %}" href="{{ manage_scenarios_url }}">Scenarios</a></li>
+  <li class="nav-item"><a class="nav-link{% if request.path == manage_datasets_url %} active{% endif %}" href="{{ manage_datasets_url }}">Datasets</a></li>
+  <li class="nav-item"><a class="nav-link{% if request.path == manage_realizations_url %} active{% endif %}" href="{{ manage_realizations_url }}">Realizations</a></li>
+  <li class="nav-item"><a class="nav-link{% if request.path == manage_tutorials_url %} active{% endif %}" href="{{ manage_tutorials_url }}">Tutorials</a></li>
+  {% if show_users_link %}
+    <li class="nav-item"><a class="nav-link{% if request.path == manage_users_url %} active{% endif %}" href="{{ manage_users_url }}">Users</a></li>
+  {% endif %}
+  {% if show_organizations_link %}
+    <li class="nav-item"><a class="nav-link{% if request.path == manage_organizations_url %} active{% endif %}" href="{{ manage_organizations_url }}">Organizations</a></li>
+  {% endif %}
+  <li class="nav-item"><a class="nav-link{% if request.path == user_account_url %} active{% endif %}" href="{{ user_account_url }}">My Account</a></li>
+
+{% endblock %}
+
+{% block app_content %}
+{% endblock %}
+
+{% block app_actions %}
+{% endblock %}
+
+{% block content_dependent_styles %}
+  {{ block.super }}
+  <link href="{% static 'tribs/css/main.css' %}" rel="stylesheet"/>
+{% endblock %}
+
+{% block scripts %}
+  {{ block.super }}
+  <script src="{% static 'tribs/js/main.js' %}" type="text/javascript"></script>
+{% endblock %}

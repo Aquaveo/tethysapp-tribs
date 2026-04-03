@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tethys-persist-pvc
+  labels:
+{{ include "tribs.labels" . | indent 4 }}
+spec:
+  accessModes:
+  {{- range .Values.persistentVolumeClaim.accessModes }}
+    - {{ . | quote }}
+  {{- end }}
+  {{- if .Values.storageClass.enabled }}
+  storageClassName: {{ .Values.storageClass.storageClassName | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.tethys.workspace_size | quote }}

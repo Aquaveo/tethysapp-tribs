@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: apply-acls-script
+data:
+  apply_acls.sh: |
+    #!/bin/sh
+    LOGFILE="/tmp/monitor_acl.log"
+    target=$1
+
+    if [ -d "$target" ]; then
+      echo "Applying ACLs to directory: $target at $(date)" >> $LOGFILE
+      setfacl -m u::rwx "$target"
+      setfacl -m g::rwx "$target"
+      setfacl -m o::rwx "$target"
+      setfacl -m m::rwx "$target"
+      find "$target" -type f -exec setfacl -m u::rwx {} \;
+      find "$target" -type f -exec setfacl -m g::rwx {} \;
+      find "$target" -type f -exec setfacl -m o::rwx {} \;
+      find "$target" -type f -exec setfacl -m m::rwx {} \;
+      find "$target" -type d -exec setfacl -m u::rwx {} \;
+      find "$target" -type d -exec setfacl -m g::rwx {} \;
+      find "$target" -type d -exec setfacl -m o::rwx {} \;
+      find "$target" -type d -exec setfacl -m m::rwx {} \;
+    elif [ -f "$target" ]; then
+      echo "Applying ACLs to file: $target at $(date)" >> $LOGFILE
+      setfacl -m u::rwx "$target"
+      setfacl -m g::rwx "$target"
+      setfacl -m o::rwx "$target"
+      setfacl -m m::rwx "$target"
+    fi
+    echo "ACLs set for $target at $(date)" >> $LOGFILE

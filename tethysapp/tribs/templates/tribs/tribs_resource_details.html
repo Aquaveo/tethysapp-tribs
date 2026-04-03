@@ -1,0 +1,12 @@
+{% extends 'atcore/resources/tabbed_resource_details.html' %}
+
+{% load tethys_gizmos %}
+{% block import_gizmos %}
+    {% import_gizmo_dependency plotly_view %}
+{% endblock %}
+
+{% block app_navigation_items %}
+    {% if can_manage_resources %}
+        <li class="nav-item"><a class="nav-link" href="{{ back_url }}"><span class="bi bi-chevron-left"></span> All {{ resource.DISPLAY_TYPE_PLURAL }}</a></li>
+    {% endif %}
+{% endblock %}

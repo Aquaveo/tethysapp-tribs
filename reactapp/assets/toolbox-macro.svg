@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generator: Adobe Illustrator 25.4.1, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+	 viewBox="0 0 64 64" style="enable-background:new 0 0 64 64;" xml:space="preserve">
+<style type="text/css">
+	.st0{fill:url(#SVGID_1_);}
+	.st1{fill:#231F20;}
+	.st2{fill:#FFFFFF;}
+	.st3{fill:url(#SVGID_00000134232754609220854340000013511434339153330350_);}
+	.st4{fill:#232021;}
+	.st5{fill:url(#SVGID_00000140728434679405904910000011870451631155727767_);}
+</style>
+<g>
+	<linearGradient id="SVGID_1_" gradientUnits="userSpaceOnUse" x1="32.0002" y1="22" x2="32.0002" y2="53.9995">
+		<stop  offset="0.325" style="stop-color:#BE1E2D"/>
+		<stop  offset="0.4695" style="stop-color:#871826"/>
+	</linearGradient>
+	<path class="st0" d="M8,54c-1.1,0-2-0.9-2-2V24c0-1.1,0.9-2,2-2h48c1.1,0,2,0.9,2,2v28c0,1.1-0.9,2-2,2H8z"/>
+	<path class="st1" d="M56,24v28H8V24H56 M56,20H8c-2.2,0-4,1.8-4,4v28c0,2.2,1.8,4,4,4h48c2.2,0,4-1.8,4-4V24C60,21.8,58.2,20,56,20
+		L56,20z"/>
+</g>
+<g>
+	<rect x="8" y="34" class="st2" width="48" height="2"/>
+	<polygon class="st1" points="56,34 8,34 8,36 56,36 56,34 	"/>
+</g>
+<g>
+	<path class="st2" d="M24,22c-1.1,0-2-0.9-2-2v-4c0-1.1,0.9-2,2-2h16c1.1,0,2,0.9,2,2v4c0,1.1-0.9,2-2,2H24z"/>
+	<path class="st1" d="M40,16v4H24v-4H40 M40,12H24c-2.2,0-4,1.8-4,4v4c0,2.2,1.8,4,4,4h16c2.2,0,4-1.8,4-4v-4C44,13.8,42.2,12,40,12
+		L40,12z"/>
+</g>
+<g>
+	
+		<linearGradient id="SVGID_00000013184649911028111140000002701675661807717295_" gradientUnits="userSpaceOnUse" x1="16" y1="36" x2="16" y2="40">
+		<stop  offset="0" style="stop-color:#BE3E4A"/>
+		<stop  offset="0.5094" style="stop-color:#872E39"/>
+	</linearGradient>
+	<rect x="12" y="36" style="fill:url(#SVGID_00000013184649911028111140000002701675661807717295_);" width="8" height="4"/>
+	<polygon class="st4" points="20,36 12,36 12,40 20,40 20,36 	"/>
+</g>
+<g>
+	
+		<linearGradient id="SVGID_00000015316870450942148910000016819785899878172582_" gradientUnits="userSpaceOnUse" x1="48" y1="36" x2="48" y2="40">
+		<stop  offset="0" style="stop-color:#BE3E4A"/>
+		<stop  offset="0.5094" style="stop-color:#872E39"/>
+	</linearGradient>
+	<rect x="44" y="36" style="fill:url(#SVGID_00000015316870450942148910000016819785899878172582_);" width="8" height="4"/>
+	<polygon class="st4" points="52,36 44,36 44,40 52,40 52,36 	"/>
+</g>
+</svg>

@@ -1,0 +1,26 @@
+apiVersion: v2
+name: tribs
+description: 'A Tethys app for building tRIBS models for SRP studies.'
+type: application
+version: 0.3.2
+appVersion: '0.0.1'
+dependencies:
+- name: 'postgis'
+  repository: 'oci://ghcr.io/aquaveo'
+  version: '0.2.3'
+
+- name: 'gs-cloud'
+  alias: 'geoserver'
+  repository: 'oci://ghcr.io/aquaveo'
+  version: '*'
+  condition: gs-cloud.enabled
+
+- name: 'tribs-condor'
+  alias: 'condor'
+  repository: 'oci://ghcr.io/aquaveo'  # TODO update to correct repo when published
+  version: '*'
+
+- name: 'redis'
+  repository: 'https://charts.bitnami.com/bitnami'
+  version: '*'
+  condition: redis.enabled

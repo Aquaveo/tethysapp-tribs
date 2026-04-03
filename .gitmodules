@@ -1,0 +1,4 @@
+[submodule "tribs-adapter"]
+	path = tribs-adapter
+	url = ../tribs-adapter
+	branch = main

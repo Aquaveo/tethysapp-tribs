@@ -1,0 +1,13 @@
+	List
+		List
+		List
+			Tuple[0]:				File Database Details
+			Tuple[1]:					Dictionary
+				Key:					File Database ID
+				Values:						(Not Recognized)
+				Key:					File Collection Count
+				Values:						0
+				Key:					File Count
+				Values:						0
+				Key:					Total Size (B)
+				Values:						0

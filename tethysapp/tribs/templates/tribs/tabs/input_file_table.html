@@ -1,0 +1,17 @@
+<div class="col-md-{{ column_width }} summary-col">
+    {% for table_name, table in column %}
+      <div>
+        <h6 class="resource-details table-header  fw-bold">{{ table_name }}</h6>
+        <table class="table table-hover">
+          <tbody>
+            {% for key, value in table.items %}
+              <tr>
+                <td class="name">{{ key | safe }}</td>
+                <td>{{ value | safe }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endfor %}
+</div>

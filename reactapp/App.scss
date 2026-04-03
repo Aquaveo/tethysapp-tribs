@@ -1,0 +1,17 @@
+@import "custom-bootstrap";
+
+:root {
+  --ts-header-height: 56px;
+  --ts-border-radius: calc(0.3rem - 1px);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+.Toastify__toast-container--top-right {
+  z-index: 999;
+  top: 56px;
+}

@@ -1,0 +1,22 @@
+{% extends 'atcore/components/resource_row.html' %}
+{% load static %}
+
+{% block name_td %}
+<td class="name">
+    <a href="{{ resource.attributes.link }}" target="_blank">{{ resource.name }}</a>
+</td>
+{% endblock %}
+
+{% block buttons_td %}
+<td class="btn-td">
+    <div class="btn-toolbar float-end">
+        {% if resource.editable and is_app_admin %}
+            <a class="btn btn-outline-secondary btn-edit btn-flat" href="{% url base_resource_href|add:'_edit_resource' resource.id %}" data-bs-toggle="tooltip" data-bs-placement="top" title="Edit"><span class="bi bi-pencil-square"></span></a>
+        {% endif %}
+        {% if resource.deletable and is_app_admin %}
+            <a class="btn btn-outline-secondary btn-delete-manage btn-delete btn-flat" href="javascript:void(0);" data-id="{{ resource.id }}" data-bs-toggle="tooltip" data-bs-placement="top" title="Delete"><span class="bi bi-trash"></span></a>
+        {% endif %}
+        <a class="btn btn-outline-secondary btn-download btn-flat" href="{{ resource.attributes.link }}" target="_blank" data-bs-toggle="tooltip" data-bs-placement="top" title="Download"><span class="bi bi-file-earmark-arrow-down"></span></a>
+    </div>
+</td>
+{% endblock %}

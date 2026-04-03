@@ -1,0 +1,385 @@
+##############################################################################
+##
+##                    tRIBS Distributed Hydrologic Model
+##
+##              TIN-based Real-time Integrated Basin Simulator
+##                       Ralph M. Parsons Laboratory
+##                  Massachusetts Institute of Technology
+## 
+##
+##  template.in		Input File Template for Generation of tRIBS *.in
+##                      files used for model parameters and file path names.
+##
+##############################################################################
+
+
+##=========================================================================
+##
+##
+##			Section 1: Model Run Parameters
+##
+##
+##=========================================================================
+
+## Time Variables
+## --------------
+
+STARTDATE:      Starting time 			 	 (#MM/DD/YYYY/HH#)
+06/01/2004/00
+
+RUNTIME:     	Run duration				 (#hours#)
+700
+
+TIMESTEP:    	Unsaturated zone computational time step (#mins#)
+3.75
+
+GWSTEP:      	Saturated zone computational time step 	 (#mins#)
+7.5
+
+METSTEP:     	Meteorological data time step 		 (#mins#)
+60.0
+
+ETISTEP:	Evapotran/Interception computational time step (hours)
+60.0
+
+RAININTRVL:  	Time interval in rainfall input 	 (#hours#)
+1
+
+OPINTRVL:    	Output interval 			 (#hours#)
+1
+
+SPOPINTRVL:   	Spatial output interval 		 (#hours#)
+10
+
+INTSTORMMAX: 	Interstorm interval 			 (#hours#)
+8760
+
+RAINSEARCH:	Rainfall search interval (hours)
+2400
+
+
+## Routing Variables
+## -----------------
+
+
+BASEFLOW:    	Baseflow discharge 			 (#m3/s#)  
+0.01
+
+VELOCITYCOEF: 	Discharge-velocity coefficient 		 (#m/s#)
+0.5
+
+VELOCITYRATIO: 	Stream to hillslope velocity coefficient (#D/L#)
+5
+
+KINEMVELCOEF:   Coefficient in power law for non-linear routing
+0.1
+
+FLOWEXP: 	Nonlinear discharge coefficient		 (#D/L#)
+0.0000001
+
+CHANNELROUGHNESS: Uniform channel roughness value        (#D/L#)
+0.15
+
+CHANNELWIDTH:     Uniform channel width                  (# m #)
+10
+
+CHANNELWIDTHCOEFF:	Coefficient in width-area relationship 
+1.0
+
+CHANNELWIDTHEXPNT:	Exponent in width-area relationship 
+0.3
+
+CHANNELWIDTHFILE:	Filename that contains channel widths
+
+## Radiation Variable
+## ------------------
+
+
+TLINKE:			Atmospheric turbidity parameter
+2.5
+
+##=========================================================================
+##
+##
+##			Section 2: Model Run Options
+##
+##
+##  OPTMESHINPUT:	1  tMesh data		5  Arc/Info *.net
+##			2  Point file		6  Arc/Info *.lin,*.pnt
+##			3  ArcGrid (random)	7  Scratch
+##			4  ArcGrid (hex)	8  Point Triangulator
+##
+##  RAINSOURCE:		1  Stage III radar
+##			2  WSI radar
+##                      3  Rain gauges
+##
+##  RAINDISTRIBUTION:	0  Spatially-distributed Radar
+##			1  Mean Areal Precipitation Radar
+##
+##  OPTEVAPOTRANS:	0  Inactive evapotranspiration
+##			1  Penman-Monteith method
+##                      2  Deardorff method
+##  			3  Priestley-Taylor method
+##                      4  Pan evaporation measurements
+##
+##  OPTINTERCEPT:	0  Inactive interception 
+## 			1  Canopy storage method
+##			2  Canopy water balance method
+##  
+##  GFLUXOPTION:	0  Inactive ground heat flux
+##			1  Temperature gradient method
+##                      2  Force_Restore method
+##
+##  METDATAOPTION:	0  Inactive meteorological data
+##			1  Weather station point data
+##			2  Gridded meteorological data
+##
+##  CONVERTDATA:	0  Inactive data preprocessing
+##			1  Active met data preprocessing
+##     			2  Active rain gauge data preprocessing
+##			3  Active DMIP met data preprocessing
+##
+##  OPTBEDROCK:		0  Uniform bedrock depth (double)
+##			1  Variable bedrock depth (grid)
+##
+##  WIDTHINTERPOLATION: 0  Interpolate between measured and observed
+##	                1  Interpolate only between measured
+##
+##  OPTGWFILE:		0  Resample ASCII grid file in GWATERFILE
+##		      	1  Read in Voronoi polygon file with GW levels
+##
+##  OPTRUNON:		0  No Runon
+##			1  Runon 
+##
+##=========================================================================
+
+
+OPTMESHINPUT:   Mesh input data option
+2
+
+RAINSOURCE:  	Rainfall data source option 
+2
+
+OPTEVAPOTRANS: 	Option for evapoTranspiration scheme
+1
+
+OPTINTERCEPT: 	Option for interception scheme
+2
+
+GFLUXOPTION: 	Option for ground heat flux
+2
+
+METDATAOPTION:  Option for meteorological data
+1
+
+CONVERTDATA:   	Option to convert met data format
+0
+
+OPTBEDROCK:	Option for uniform or variable depth
+0
+
+WIDTHINTERPOLATION:  Option for interpolating width values
+0
+
+OPTGWFILE: 	Option for groundwater initial file
+0
+
+OPTRUNON:	Option for runon in overland flow paths
+0
+
+##=========================================================================
+##
+##
+##			Section 3: Model Input Files and Pathnames
+##
+##
+##=========================================================================
+
+## Mesh Generation
+## -----------------
+
+
+INPUTDATAFILE:    tMesh input file base name for Mesh files
+Output/voronoi/salas
+
+INPUTTIME:	  tMesh input time slice (Option 1)
+
+
+ARCINFOFILENAME:  tMesh input file base name Arc files
+
+
+POINTFILENAME:    tMesh input file name Points files
+Input/salas.points
+
+
+## Resampling Grids
+## -----------------
+
+
+SOILTABLENAME:    Soil parameter reference table (*.sdt)
+Input/salas.sdt
+
+SOILMAPNAME:      Soil texture ASCII grid (*.soi)
+Input/salas.soi
+
+LANDTABLENAME:    Land use parameter reference table (*.ldt)
+Input/salas.ldt
+
+LANDMAPNAME:  	  Land use ASCII grid (*.lan)
+Input/salas.lan
+
+GWATERFILE:       Ground water ASCII grid (*.iwt) 
+Input/salas.iwt
+
+RAINFILE:         Base name of the radar ASCII grid
+Rain/p
+
+RAINEXTENSION:    Extension for the radar ASCII grid 
+txt
+
+DEPTHTOBEDROCK:   Uniform depth to bedrock (meters)
+5
+
+BEDROCKFILE:      Bedrock depth ASCII grid (*.brd)
+Input/salas.brd
+
+
+## Meterological Data
+## ------------------
+
+
+HYDROMETSTATIONS:  Hydrometeorological station file (*.sdf)
+Weather/weatherC1601_2004.sdf
+
+HYDROMETGRID:  	   Hydrometeorological ASCII grid (*.gdf)
+Weather/
+
+HYDROMETCONVERT:   Hydrometeorological data input file (*.mdi)
+Weather/
+
+HYDROMETBASENAME:  Hydrometeorological data file (*.mdf)
+Weather/weatherField
+
+GAUGESTATIONS: 	   Rain Gauge station file (*.sdf)
+Rain/rainGauge.sdf
+
+GAUGECONVERT:      Rain Gauge data conversion file (*.mdi)
+
+
+GAUGEBASENAME:	   Rain Gauge data BASE name (*.mdf)
+
+
+
+## Output Data
+## -----------
+
+
+OUTFILENAME:	   Base name of the tMesh and dynamic variable output
+Output/voronoi/salas
+
+OUTHYDROFILENAME:  Base name for hydrograph output
+Output/hyd/salas
+
+OUTHYDROEXTENSION: Extension for hydrograph output
+mrf
+
+RIBSHYDOUTPUT:     RIBS comp-ty: Opt 0: basin lumped quant, Opt 1: prev+curr 
+0
+
+NODEOUTPUTLIST
+Input/Nodes/pNodes.dat
+
+HYDRONODELIST
+Input/Nodes/hNodes.dat
+
+OUTLETNODELIST
+Input/Nodes/oNodes.dat
+
+##=========================================================================
+##
+##
+##			Section 4: Model Modes
+##
+##
+##  FORECASTMODE:	0  No Forecasting		
+##			1  Single or Updating QPF Forecast
+##			2  Persistence Forecast
+## 	                3  Climatological Forecast
+##
+##  RAINDISTRIBUTION:	0  Spatially-distributed Radar
+##			1  Mean Areal Precipitation Radar
+##
+##  STOCHASTICMODE:	0  No Stochastic Mode	 4  Mean+Sine Forcing
+##                      1  Mean Forcing     	 5  Random+Sine Forcing
+##                      2  Random Forcing	 6  Weather Generator
+##                      3  Sinusoidal Forcing
+##                      
+##=========================================================================
+
+
+## Rainfall Forecasting
+## --------------------
+
+
+FORECASTMODE:	   Rainfall Forecasting Mode Option
+0
+
+FORECASTTIME:	   Forecast Time (hours from start)
+
+
+FORECASTLEADTIME:  Forecast Lead Time (hours) 
+
+
+FORECASTLENGTH:	   Forecast Window Length (hours)
+
+
+FORECASTFILE:	   Base name of the radar QPF grids
+
+
+CLIMATOLOGY:	   Rainfall climatology (mm/hr)
+
+
+RAINDISTRIBUTION:  Distributed or MAP radar rainfall	
+0
+
+## Stochastic Climate Forcing
+## --------------------------
+
+STOCHASTICMODE:	   Stochastic Climate Mode Option
+0
+
+PMEAN:		   Mean rainfall intensity (mm/hr)	
+0.0
+
+STDUR:		   Mean storm duration (hours)
+0.0
+
+ISTDUR:		   Mean time interval between storms (hours) 
+0.0
+
+SEED:		   Random seed
+11
+
+PERIOD:		   Period of variation (hours) 
+0
+
+MAXPMEAN:	   Maximum value of mean rainfall intensity (mm/hr) 
+0
+
+MAXSTDURMN:        Maximum value of mean storm duration (hours) 
+0
+
+MAXISTDURMN: 	   Maximum value of mean interstorm period (hours) 
+0
+
+WEATHERTABLENAME:  File with input parameters for weather generator
+Input/pramsWG.T
+
+##=========================================================================
+##
+##
+##			End of Template.in
+##
+##
+##=========================================================================
+

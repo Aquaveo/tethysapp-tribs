@@ -1,0 +1,317 @@
+replicaCount: 1
+
+image:
+  repository: your-registry.example.com/your-org/tethysapp-tribs/dev@sha256  # TODO update to correct repo when published
+  pullPolicy: Always
+  tag: latest
+
+imagePullSecrets:
+  - name: 'github-registry'
+
+nameOverride: ''
+fullnameOverride: ''
+
+redis:
+  enabled: true
+  fullnameOverride: 'tribs-redis'
+  architecture: standalone
+  auth:
+    enabled: false
+  master:
+    containerPorts:
+      redis: 6379
+
+postgis:
+  image:
+    tag: 14-3.4
+  fullnameOverride: 'tribs-db'
+  postgres_user: ''
+  postgres_password: ''
+  extra_config:
+    max_connections: '500'
+    shared_buffers: '512MB'
+    work_mem: '5MB'
+    autovacuum: 'on'
+
+  service:
+    type: ClusterIP
+    port: 5432
+  storage_size: 2Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 2
+      memory: 512Mi
+
+tethys:
+  workspace_size: '5Gi'
+  settings:
+    asgi_processes: 4
+    tethys_settings_flags: '--production, --overwrite, --bypass-portal-home'
+    portal_title: 'SRP Portal'
+    primary_color: '#256291'
+    secondary_color: '#7C99AC'
+    background_color: '#D7D3C7'
+    client_max_body_size: '1G'
+    file_upload_max_memory_size: '1073741824'
+    data_upload_max_memory_size: '1073741824'
+    copyright: 'Copyright © 2023 SRP'
+    recaptcha_public_key: ''
+    recaptcha_private_key: ''
+    other_settings: '--set ENABLE_CAPTCHA False --set DATA_UPLOAD_MAX_NUMBER_FIELD 10000'
+    media_root: '/fdbs'
+    multiple_app_mode: false
+    standalone_app: tribs
+    channels_layers_backend: channels_redis.core.RedisChannelLayer
+    home_env_asgi_supervisor: ''
+    earthdata_username: ''
+    earthdata_password: ''
+
+  database:
+    tethys_db_name: 'tethys_platform'
+    tethys_db_username: 'tethys_default'
+    tethys_db_password: 'pass'
+    tethys_db_superuser: 'tethys_super'
+    tethys_db_superuser_pass: 'pass'
+  super_user:
+    username: 'admin'
+    password: 'pass'
+    email: 'none@none.com'
+  condorPrivateKeySecret:
+    name: 'condor-ssh-key'
+  updateStrategy: 'Recreate'
+  app:
+    condor_fdb_root:
+      mountPath: '/fdbs'
+    cesium_api_key: ''
+
+
+condor:
+  secrets:
+    condor_pool_password: ''
+    authorized_keys: ''
+    condor_private_key: ''
+  scheduler:
+    name: 'condor-scheduler'
+  worker:
+    condor_fdb_root:
+      mountPath: '/fdbs'
+    condor_proj_lib: '/var/lib/condor/micromamba/envs/tethys/share/proj/'
+    persistentVolumeClaim:
+      name: 'condor-workers-pvc'
+
+geoserver:
+  enabled: true
+    
+  service: &common-service-definition
+    type: ClusterIP
+    servicePort: 8080
+    ports:
+      - name: http
+        port: 8080
+        protocol: TCP
+        targetPort: http
+
+  persistent:
+    config:
+      storageClassName: 'enterprise-multishare-rwx'
+      storage: 50Gi
+    cache:
+      storageClassName: 'enterprise-multishare-rwx'
+      storage: 50Gi
+
+
+  pdb: &common-pdb
+    enabled: false
+
+  # tweak the resources here
+  resources: &common-resources
+    requests:
+      memory: 512Mi
+      cpu: 0.1
+    limits:
+      memory: 4Gi
+      cpu: 4.0
+
+  # Override env values
+  env: &env-override
+    RABBITMQ_HOST:
+      value: 'gs-cloud-rabbitmq'
+    RABBITMQ_USER:
+      value: 'geoserver'
+    RABBITMQ_PASSWORD:
+      type: secret
+      name: 'gs-cloud-rabbitmq'
+      key: 'password'
+    # Create Secrets in the CI for these values
+    GEOSERVER_ADMIN_USERNAME:
+      value: tribs
+    GEOSERVER_ADMIN_PASSWORD:
+      value: pass
+    GEOSERVER_BASE_PATH:
+      value: /geoserver
+    SPRING_PROFILES_ACTIVE:
+      value: standalone,datadir
+    JAVA_OPTS_DEFAULT:
+      value: '-DALLOW_ENV_PARAMETRIZATION=true -XX:MaxRAMPercentage=80 -XX:InitialRAMPercentage=20'
+
+  # this should make sure that the containers are started after the database is started
+  containers_additional_conf: &containers-additional-conf
+    resources:
+      <<: *common-resources
+    livenessProbe:
+      initialDelaySeconds: 60
+      periodSeconds: 10
+    readinessProbe:
+      periodSeconds: 5
+      initialDelaySeconds: 60
+    env:
+      <<: *env-override
+
+
+  geoservercloud:
+    global:
+      profile: standalone,datadir
+      image:
+        pullSecrets:
+          - name: github-registry
+    geoserver:
+      ingress:
+        enabled: false
+      services:
+        gateway:
+          pdb:
+            <<: *common-pdb
+          ingress:
+            enabled: false
+          ## Override this value to know the host of the GeoServer that we need to use in the deployments
+          service:
+            name: tribs-gsc-gateway
+            <<: *common-service-definition
+          containers:
+            spring:
+              env:
+                <<: *env-override
+              <<: *containers-additional-conf
+        webui:
+          service:
+            <<: *common-service-definition
+          pdb:
+            <<: *common-pdb
+          containers:
+            spring:
+              env:
+                <<: *env-override
+              <<: *containers-additional-conf
+        rest:
+          service:
+            <<: *common-service-definition
+          pdb:
+            <<: *common-pdb
+          containers:
+            spring:
+              env:
+                <<: *env-override
+              <<: *containers-additional-conf
+        wms:
+          service:
+            <<: *common-service-definition
+          pdb:
+            <<: *common-pdb
+          containers:
+            spring:
+              env:
+                <<: *env-override
+              <<: *containers-additional-conf
+        wcs:
+          service:
+            <<: *common-service-definition
+          pdb:
+            <<: *common-pdb
+          containers:
+            spring:
+              env:
+                <<: *env-override
+              <<: *containers-additional-conf
+        wfs:
+          service:
+            <<: *common-service-definition
+          pdb:
+            <<: *common-pdb
+          containers:
+            spring:
+              env:
+                <<: *env-override
+              <<: *containers-additional-conf
+        gwc:
+          service:
+            <<: *common-service-definition
+          pdb:
+            <<: *common-pdb
+          containers:
+            spring:
+              env:
+                <<: *env-override
+              <<: *containers-additional-conf
+
+        acl:
+          enabled: false
+
+  rabbitmq:
+    resources:
+      limits:
+        cpu: 2
+        memory: 2Gi
+      requests:
+        cpu: 0.5
+        memory: 512Mi
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext: {}
+
+securityContext: {}
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: true
+  className: ''
+  annotations: {}
+  hosts:
+    - host: localhost
+  tls: []
+
+resources:
+  requests:
+    cpu: 1
+    memory: 512Mi
+  limits:
+    cpu: 4
+    memory: 4Gi
+
+volumes: []
+
+volumeMounts: []
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+persistentVolumeClaim:
+  accessModes: []
+
+storageClass:
+  enabled: false
+  provisioner: ''
+  storageClassName: 'tribs-storage'
+  annotations: {}
+  reclaimPolicy: Delete
+  parameters: {}

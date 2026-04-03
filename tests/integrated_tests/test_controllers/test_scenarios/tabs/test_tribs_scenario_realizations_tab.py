@@ -1,0 +1,63 @@
+# """
+# ********************************************************************************
+# * Name: test_tribs_project_details.py
+# * Author: EJones
+# * Created On: Nov 2, 2023
+# * Copyright: (c) Aquaveo 2023
+# ********************************************************************************
+# """
+import os
+import filecmp
+
+from tethysapp.tribs.controllers.scenarios.tabs.tribs_scenario_realizations_tab import TribsScenarioRealizationsTab
+from tests.utilities.write_test_data import write_test_data_to_file
+
+
+def test_scenarios_get_resources(
+    db_session,
+    mock_request,
+    project_with_fdb,
+    scenario_with_project_with_fdb,
+    realization_with_scenario_and_project,
+    test_files,
+    tmp_path,
+):
+    salas_in_file = os.path.join(test_files, 'controllers', 'realizations', 'SALAS', 'salas.in')
+    scenario_with_project_with_fdb.init(project_with_fdb, salas_in_file)
+    realization_with_scenario_and_project
+
+    mtpd_controller = TribsScenarioRealizationsTab()
+    resource_datasets = mtpd_controller.get_resources(
+        request=mock_request,
+        resource=scenario_with_project_with_fdb,
+        session=db_session,
+    )
+
+    # sort the list, to be sure that we have all the datasets accounted for in our test
+    resource_datasets_sorted = sorted(resource_datasets, key=lambda obj: obj.name)
+
+    summary_file_out = os.path.join(
+        tmp_path, 'controllers', 'scenarios', 'tabs', 'realizations_get_resources', 'out.txt'
+    )
+    os.makedirs(os.path.dirname(summary_file_out))
+    summary_file_base = os.path.join(
+        test_files, 'controllers', 'scenarios', 'tabs', 'realizations_get_resources', 'base.txt'
+    )
+    with open(summary_file_out, 'w+') as fp:
+        write_test_data_to_file(resource_datasets_sorted, fp)
+
+    assert filecmp.cmp(summary_file_base, summary_file_out, shallow=False) != 0
+
+
+def test_get_href_for_resource(
+    project_with_fdb,
+    mocker,
+):
+    mock_reverse = mocker.patch('tethysapp.tribs.controllers.scenarios.tabs.tribs_scenario_realizations_tab.reverse')
+
+    mtpd_controller = TribsScenarioRealizationsTab()
+    mtpd_controller.get_href_for_resource(
+        app_namespace='tribs',
+        resource=project_with_fdb,
+    )
+    mock_reverse.assert_called_with('tribs:tribs_realization_details_tab', args=[project_with_fdb.id, 'summary'])

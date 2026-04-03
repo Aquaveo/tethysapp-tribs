@@ -1,0 +1,38 @@
+#spatial-attributes-template {
+    display: none;
+}
+
+#spatial-attributes form {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+#spatial-attributes form label {
+    margin-top: 10px;
+}
+
+#spatial-attributes form .form-group {
+    margin: 0;
+}
+
+#spatial-attributes .spatial-attributes-error {
+    margin: 0;
+}
+
+#spatial-attributes .btn {
+    margin-top: 10px;
+}
+
+.ol-popup-content {
+    max-height: 400px;
+}
+
+.form-range {
+    width: auto;
+    flex-grow: 2;
+}
+
+.slider-after {
+    text-align: left;
+    padding-left: 10px;
+}

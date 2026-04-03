@@ -1,0 +1,241 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tribs.fullname" . }}
+  labels:
+{{ include "tribs.labels" . | indent 4 }}
+spec:
+  strategy:
+    type: {{ .Values.tethys.updateStrategy | quote }}
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "tribs.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "tribs.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      initContainers:
+        # Initial permissions (NO ACLs: setfacl not supported on this volume)
+        - name: init-set-permissions
+          image: alpine:latest
+          command:
+            - "sh"
+            - "-c"
+          args:
+            - |
+              set -eux
+              # POSIX perms only (ACLs not supported)
+              chmod -R a+rwX /fdbs
+              # Optional: ensure group inheritance on directories
+              find /fdbs -type d -exec chmod g+s {} + || true
+          volumeMounts:
+            - name: condor-fdb-root
+              mountPath: {{ .Values.tethys.app.condor_fdb_root.mountPath }}
+
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: HOME_ENV_ASGI_SUPERVISOR
+              value: {{ .Values.tethys.settings.home_env_asgi_supervisor | default "" | quote }}
+            - name: CHANNEL_LAYERS_BACKEND
+              value:  {{ .Values.tethys.settings.channels_layers_backend | quote }}
+            - name: CHANNEL_LAYERS_CONFIG
+              value: "\"{'hosts':[{'host':\ {{ .Values.redis.fullnameOverride }}-master,\ 'port':\ {{ .Values.redis.master.containerPorts.redis }}}]}\""
+            - name: MULTIPLE_APP_MODE
+              value: {{ .Values.tethys.settings.multiple_app_mode | quote }}
+            - name: STANDALONE_APP
+              value: {{ .Values.tethys.settings.standalone_app | quote }}
+            - name: MEDIA_ROOT
+              value: {{ .Values.tethys.settings.media_root | quote }}
+            - name: CESIUM_API_KEY
+              value: {{ .Values.tethys.app.cesium_api_key | quote }}
+            - name: FDB_ROOT_DIR
+              value: {{ .Values.tethys.app.condor_fdb_root.mountPath | quote }}
+            - name: CONDOR_FDB_ROOT_DIR
+              value: {{ .Values.condor.worker.condor_fdb_root.mountPath | quote }}
+            - name: ALLOWED_HOSTS
+              value: "\"[{{- range .Values.ingress.hosts }}{{ .host }},{{- end }}]\""
+            - name: TETHYS_PUBLIC_HOST
+              value: {{ (index .Values.ingress.hosts 0).host | quote }}
+            - name: POSTGRES_PASSWORD
+              value: {{ .Values.postgis.postgres_password | quote }}
+            - name: TETHYS_DB_NAME
+              value: {{ .Values.tethys.database.tethys_db_name | quote }}
+            - name: TETHYS_DB_USERNAME
+              value: {{ .Values.tethys.database.tethys_db_username | quote }}
+            - name: TETHYS_DB_PASSWORD
+              value: {{ .Values.tethys.database.tethys_db_password | quote }}
+            - name: TETHYS_DB_HOST
+              value: {{ .Values.postgis.fullnameOverride | quote }}
+            - name: TETHYS_DB_PORT
+              value: "5432"
+            - name: TETHYS_DB_SUPERUSER
+              value: {{ .Values.tethys.database.tethys_db_superuser | quote }}
+            - name: TETHYS_DB_SUPERUSER_PASS
+              value: {{ .Values.tethys.database.tethys_db_superuser_pass | quote }}
+            - name: PORTAL_SUPERUSER_NAME
+              value: {{ .Values.tethys.super_user.username | quote }}
+            - name: PORTAL_SUPERUSER_EMAIL
+              value: {{ .Values.tethys.super_user.email | quote }}
+            - name: PORTAL_SUPERUSER_PASSWORD
+              value: {{ .Values.tethys.super_user.password | quote }}
+            - name: APP_DB_HOST
+              value: {{ .Values.postgis.fullnameOverride | quote }}
+            - name: APP_DB_PORT
+              value: "5432"
+            - name: APP_DB_USERNAME
+              value: {{ .Values.tethys.database.tethys_db_superuser | quote }}
+            - name: APP_DB_PASSWORD
+              value: {{ .Values.tethys.database.tethys_db_superuser_pass | quote }}
+            - name: TETHYS_GS_USERNAME
+              value: {{ .Values.geoserver.env.GEOSERVER_ADMIN_USERNAME.value | quote }}
+            - name: TETHYS_GS_PASSWORD
+              value: {{ .Values.geoserver.env.GEOSERVER_ADMIN_PASSWORD.value | quote }}
+            - name: TETHYS_GS_PROTOCOL
+              value: 'http'
+            - name: TETHYS_GS_HOST
+              value: {{ index .Values "geoserver" "geoservercloud" "geoserver" "services" "gateway" "service" "name" }}
+            - name: TETHYS_GS_PORT
+              value: {{ index .Values "geoserver" "geoservercloud" "geoserver" "services" "gateway" "service" "ports" 0 "port" | quote }}
+            - name: TETHYS_GS_HOST_PUB
+              value: {{ (index .Values.ingress.hosts 0).host | quote }}
+            - name: TETHYS_GS_PORT_PUB
+              value: {{ if ne (index .Values.ingress.hosts 0).host "localhost" }}""{{ else }}{{ index .Values "geoserver" "geoservercloud" "geoserver" "services" "gateway" "service" "ports" 0 "port" | quote }}{{ end }}
+            - name: PORT_SEPARATOR
+              value: {{ if ne (index .Values.ingress.hosts 0).host "localhost" }}""{{ else }}":"{{ end }}
+            - name: TETHYS_GS_PROTOCOL_PUB
+              value: "http{{ if $.Values.ingress.tls }}s{{ end }}"
+            - name: GEOSERVER_CLUSTER_PORTS
+              value: "[{{ index .Values "geoserver" "geoservercloud" "geoserver" "services" "gateway" "service" "ports" 0 "port" }}]"
+            - name: TETHYS_CLUSTER_IP
+              value: {{ .Values.condor.scheduler.name | quote }}
+            - name: TETHYS_CLUSTER_USERNAME
+              value: "condor"
+            - name: TETHYS_CLUSTER_PKEY_FILE
+              value: "/var/lib/tethys_persist/keys/condorkey"
+            - name: CONDOR_PROJ_LIB
+              value: {{ .Values.condor.worker.condor_proj_lib | quote }}
+            - name: TETHYS_CLUSTER_PKEY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: condor-pool-password
+                  key: password
+            - name: TETHYS_SETTINGS_FLAGS
+              value: {{ .Values.tethys.settings.tethys_settings_flags | quote }}
+            - name: CLIENT_MAX_BODY_SIZE
+              value: {{ .Values.tethys.settings.client_max_body_size | quote }}
+            - name: DATA_UPLOAD_MAX_MEMORY_SIZE
+              value: {{ .Values.tethys.settings.data_upload_max_memory_size | quote }}
+            - name: FILE_UPLOAD_MAX_MEMORY_SIZE
+              value: {{ .Values.tethys.settings.file_upload_max_memory_size | quote }}
+            - name: COPYRIGHT
+              value: {{ .Values.tethys.settings.copyright | quote }}
+            - name: NGINX_PORT
+              value: "8080"
+            - name: RECAPTCHA_PUBLIC_KEY
+              value: {{ .Values.tethys.settings.recaptcha_public_key | quote }}
+            - name: RECAPTCHA_PRIVATE_KEY
+              value: {{ .Values.tethys.settings.recaptcha_private_key | quote }}
+            - name: OTHER_SETTINGS
+              value: {{ .Values.tethys.settings.other_settings | quote }}
+            - name: ASGI_PROCESSES
+              value: {{ .Values.tethys.settings.asgi_processes | quote }}
+            - name: EARTHDATA_USERNAME
+              value: {{ .Values.tethys.settings.earthdata_username | quote }}
+            - name: EARTHDATA_PASSWORD
+              value: {{ .Values.tethys.settings.earthdata_password | quote }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - /usr/lib/tethys/liveness-probe.sh
+            initialDelaySeconds: 300
+            periodSeconds: 60
+            failureThreshold: 3
+          volumeMounts:
+            - name: condor-ssh-key
+              readOnly: true
+              mountPath: /tmp/keys
+            - name: tethys-persist-pv
+              mountPath: '/var/lib/tethys_persist'
+            - name: condor-fdb-root
+              mountPath: {{ .Values.tethys.app.condor_fdb_root.mountPath }}
+
+        # sidecar to continue changing permissions everytime a new file is created in the shared volume
+        - name: acl-permissions-sidecar
+          image: alpine:latest
+          command:
+            - "/bin/sh"
+            - "-c"
+          args:
+            - |
+              set -eux
+              apk --no-cache add bash inotify-tools >/dev/null
+              DIRECTORY="/fdbs"
+
+              # One-time fix on startup
+              chmod -R a+rwX "$DIRECTORY" || true
+              find "$DIRECTORY" -type d -exec chmod g+s {} + || true
+
+              # Monitor new files/dirs and apply POSIX perms (ACLs not supported)
+              inotifywait -m -r -e create,move --format "%w%f" "$DIRECTORY" |
+              while read -r NEWPATH; do
+                if [ -d "$NEWPATH" ]; then
+                  chmod -R a+rwX "$NEWPATH" 2>/dev/null || true
+                  find "$NEWPATH" -type d -exec chmod g+s {} + 2>/dev/null || true
+                else
+                  chmod a+rw "$NEWPATH" 2>/dev/null || true
+                fi
+              done
+          volumeMounts:
+            - name: condor-fdb-root
+              mountPath: {{ .Values.tethys.app.condor_fdb_root.mountPath }}
+            - name: apply-acls-script-volume
+              mountPath: /usr/local/bin/apply_acls.sh
+              subPath: apply_acls.sh
+
+      volumes:
+        - name: condor-ssh-key
+          secret:
+            defaultMode: 0600
+            secretName: {{ .Values.tethys.condorPrivateKeySecret.name | quote }}
+        - name: tethys-persist-pv
+          persistentVolumeClaim:
+            claimName: tethys-persist-pvc
+        - name: condor-fdb-root
+          persistentVolumeClaim:
+            claimName: {{ .Values.condor.worker.persistentVolumeClaim.name }}
+        - name: apply-acls-script-volume
+          configMap:
+            name: apply-acls-script
+            defaultMode: 0777
+
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

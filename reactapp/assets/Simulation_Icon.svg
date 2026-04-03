@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="16.933332mm"
+   height="16.933332mm"
+   viewBox="0 0 16.933332 16.933332"
+   version="1.1"
+   id="svg120206"
+   inkscape:version="0.92.1 r15371"
+   sodipodi:docname="Simulation_Icon.svg">
+  <defs
+     id="defs120200">
+    <linearGradient
+       y2="66"
+       x2="11436"
+       y1="30"
+       x1="11436"
+       gradientUnits="userSpaceOnUse"
+       id="SVGID_605_">
+      <stop
+         id="stop9390"
+         style="stop-color:#FFFFFF"
+         offset="0" />
+      <stop
+         id="stop9392"
+         style="stop-color:#4A8CC5"
+         offset="1" />
+    </linearGradient>
+    <linearGradient
+       y2="58.029202"
+       x2="11425.255"
+       y1="22.4303"
+       x1="11404.701"
+       gradientUnits="userSpaceOnUse"
+       id="SVGID_3_">
+      <stop
+         id="stop66"
+         style="stop-color:#FFFFFF"
+         offset="0" />
+      <stop
+         id="stop68"
+         style="stop-color:#FCFCFD"
+         offset="0.2404" />
+      <stop
+         id="stop70"
+         style="stop-color:#F2F2F8"
+         offset="0.4335" />
+      <stop
+         id="stop72"
+         style="stop-color:#E1E1F0"
+         offset="0.6101" />
+      <stop
+         id="stop74"
+         style="stop-color:#C9C9E4"
+         offset="0.7769" />
+      <stop
+         id="stop76"
+         style="stop-color:#ABABD5"
+         offset="0.9355" />
+      <stop
+         id="stop78"
+         style="stop-color:#9C9CCE"
+         offset="1" />
+    </linearGradient>
+    <linearGradient
+       y2="72.392303"
+       x2="11432.393"
+       y1="3.6077001"
+       x1="11392.68"
+       gradientUnits="userSpaceOnUse"
+       id="SVGID_2_">
+      <stop
+         id="stop49"
+         style="stop-color:#9C9CCE"
+         offset="0" />
+      <stop
+         id="stop51"
+         style="stop-color:#9A9ACB"
+         offset="0.2467" />
+      <stop
+         id="stop53"
+         style="stop-color:#9595C1"
+         offset="0.4449" />
+      <stop
+         id="stop55"
+         style="stop-color:#8D8DB0"
+         offset="0.6262" />
+      <stop
+         id="stop57"
+         style="stop-color:#818198"
+         offset="0.7974" />
+      <stop
+         id="stop59"
+         style="stop-color:#71727A"
+         offset="0.9601" />
+      <stop
+         id="stop61"
+         style="stop-color:#6D6E71"
+         offset="1" />
+    </linearGradient>
+  </defs>
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="1.2412791"
+     inkscape:cx="31.428571"
+     inkscape:cy="34.285714"
+     inkscape:document-units="mm"
+     inkscape:current-layer="layer1"
+     showgrid="false"
+     fit-margin-top="0"
+     fit-margin-left="0"
+     fit-margin-right="0"
+     fit-margin-bottom="0"
+     inkscape:window-width="460"
+     inkscape:window-height="403"
+     inkscape:window-x="25"
+     inkscape:window-y="25"
+     inkscape:window-maximized="0" />
+  <metadata
+     id="metadata120203">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(-88.295195,-138.09881)">
+    <polygon
+       id="polygon64"
+       points="11392,4 11424,4 11440,20 11440,68 11392,68 "
+       class="st5"
+       style="fill:url(#SVGID_2_)"
+       transform="matrix(0.26458333,0,0,0.26458333,-2925.8381,137.04048)" />
+    <polygon
+       id="polygon81"
+       points="11436,64 11396,64 11396,8 11424,8 11424,20 11436,20 "
+       class="st6"
+       style="fill:url(#SVGID_3_)"
+       transform="matrix(0.26458333,0,0,0.26458333,-2925.8381,137.04048)" />
+    <g
+       id="g9399"
+       transform="matrix(0.26458333,0,0,0.26458333,-2925.8381,137.04048)">
+      <linearGradient
+         y2="66"
+         x2="11436"
+         y1="30"
+         x1="11436"
+         gradientUnits="userSpaceOnUse"
+         id="linearGradient120195">
+        <stop
+           id="stop120191"
+           style="stop-color:#FFFFFF"
+           offset="0" />
+        <stop
+           id="stop120193"
+           style="stop-color:#4A8CC5"
+           offset="1" />
+      </linearGradient>
+      <path
+         id="path9395"
+         d="m 11436,66 c -9.9,0 -18,-8.1 -18,-18 0,-9.9 8.1,-18 18,-18 9.9,0 18,8.1 18,18 0,9.9 -8.1,18 -18,18 z"
+         class="st750"
+         inkscape:connector-curvature="0"
+         style="fill:url(#SVGID_605_)" />
+      <path
+         id="path9397"
+         d="m 11436,32 c 8.8,0 16,7.2 16,16 0,8.8 -7.2,16 -16,16 -8.8,0 -16,-7.2 -16,-16 0,-8.8 7.2,-16 16,-16 m 0,-4 c -11,0 -20,9 -20,20 0,11 9,20 20,20 11,0 20,-9 20,-20 0,-11 -9,-20 -20,-20 z"
+         inkscape:connector-curvature="0" />
+    </g>
+  </g>
+</svg>

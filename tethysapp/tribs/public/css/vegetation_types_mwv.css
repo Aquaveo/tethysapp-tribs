@@ -1,0 +1,72 @@
+#workflow-form {
+    height: 50%;
+}
+
+/* cards */
+
+.card {
+    height: 40vh;
+    width: 100%;
+    display: flex;
+}
+
+.card-body {
+    padding: 0rem 0rem;
+    overflow-y: auto;
+}
+
+/* list & list items */
+
+.item-div {
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+.assigned-type-div {
+    padding-left: 1.3rem;
+}
+
+.category-div {
+    flex: 0 0 85%; /* Flex-grow: 0, Flex-shrink: 0, Flex-basis: 80% */
+    display: flex;
+    align-items: center; /* Center items vertically */
+}
+
+.category-label {
+    width: 100%;
+}
+
+/* If there is only one item, center them vertically and horizontally.
+If there are multiple items, put equal space in between and center them. */
+.custom-center-align-items {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+input[type="text"] {
+    border: none;
+    outline: none;
+    padding: 0 0.2rem;
+}
+
+label {
+    padding-left: 0.2rem;
+}
+
+.fa.fa-plus {
+    color: green;
+}
+
+.icon-btn {
+    padding: 0rem 0.3rem;
+    border: none;
+    outline: none;
+    box-shadow: none;
+}
+
+.icon-btn:focus {
+    border: none;
+    outline: none;
+    box-shadow: none;
+}

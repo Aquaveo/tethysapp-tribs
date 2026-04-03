@@ -1,0 +1,43 @@
+# Environment file used for building the Tethys Platform Docker image.
+# This file contains the combined dependencies of tethysapp-tribs and tribs-adapter
+# Create ane environment directly with this file:
+# conda env create -f docker_environment.yml
+# Or using the conda-lock.yml that is generated from this file:
+# conda-lock -f docker_environment.yml -p linux-64
+# conda-lock install --name <ENV_NAME> conda-lock.yml
+name: tethys
+
+channels:
+- conda-forge
+
+dependencies:
+- python=3.10
+- cxx-compiler
+- aioshutil
+- asyncpg
+- geoalchemy2>=0.14.1
+- geoserver-restconfig==2.0.9
+- jinja2>=3.1.2
+- libgdal=3.4
+- matplotlib
+- netCDF4
+# - nodejs=20.*  # Installed with NVM in Dockerfile now
+- numpy<2.0.0
+- pandas>=2.2.2
+- pillow
+- psycopg2
+- pydantic
+- pygltflib
+- pygments
+- pyproj
+- pytz
+- pyvista
+- rasterio
+- rioxarray
+- shapely
+- StrEnum
+- sqlalchemy[asyncio]<2
+- timezonefinder
+- whitebox
+- xarray
+- tethys_dataset_services>=2.4.1

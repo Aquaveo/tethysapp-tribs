@@ -1,0 +1,34 @@
+{% extends "tribs/base.html" %}
+{% load static %}
+
+{% block title %}{{ tethys_app.name }} | {{ project.name }}{% endblock title%}
+
+
+{% block app-navigation-toggle-override %}
+    <button class="btn" data-bs-toggle="dropdown" aria-expanded="false">
+        <i class="bi bi-list" style="color: white"></i>
+    </button>
+    <ul class="dropdown-menu">
+        <li><a class="dropdown-item" href="{% url 'tribs:projects_manage_resources' %}"><i class="bi bi-table"></i><span class="ms-2">All Projects</span></a></li>
+        <li><a class="dropdown-item" href="{% url 'tribs:tribs_project_details_tab' project.id 'summary' %}"><i class="bi bi-info-circle"></i><span class="ms-2">Project Details</span></a></li>
+    </ul>
+{% endblock app-navigation-toggle-override %}
+
+{% block app_navigation_items %}{% endblock app_navigation_items %}
+
+{% block app_content %}
+    <noscript>You need to enable JavaScript to use this page.</noscript>
+    <div id="react-root"></div>
+{% endblock app_content %}
+
+{% block app_actions_override %}{% endblock app_actions_override %}
+
+{% block styles %}
+    {{ block.super }}
+    <link rel="stylesheet" href="{% static 'tribs/css/project_editor_reset.css' %}">
+{% endblock styles %}
+
+{% block scripts %}
+    {{ block.super }}
+    <script src="{% static 'tribs/project-editor/main.js' %}"></script>
+{% endblock scripts %}

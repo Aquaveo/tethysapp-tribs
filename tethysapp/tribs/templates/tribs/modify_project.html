@@ -1,0 +1,17 @@
+{% extends 'atcore/app_users/modify_resource.html' %}
+{% load tethys_gizmos %}
+
+{% block custom_field_help %}
+<p style="margin-bottom: 5px;"><b>Project Extent:</b></p>
+<p>The default zoom extent for the Project Map.</p>
+{% endblock %}
+
+{% block custom_app_content %}
+<div class="mb-2">
+  <label for="map_view_geometry" class="mb-1{% if not custom_fields_valid %} is-invalid{% endif %}">Project Extent (Optional)</label>
+  {% gizmo project_extent_field %}
+  {% if project_extent_error %}
+  <div class="invalid-feedback">{{ project_extent_error }}</div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,258 @@
+	Dictionary
+	Key:		run_param_data
+	Values:				List
+				List
+					Tuple[0]:						Time Variables
+					Tuple[1]:							Dictionary
+						Key:							STARTDATE
+						Values:								2004-06-01 00:00:00
+						Key:							RUNTIME
+						Values:								700.0
+						Key:							TIMESTEP
+						Values:								3.75
+						Key:							GWSTEP
+						Values:								7.5
+						Key:							METSTEP
+						Values:								60.0
+						Key:							ETISTEP
+						Values:								60.0
+						Key:							RAININTRVL
+						Values:								1.0
+						Key:							OPINTRVL
+						Values:								1.0
+						Key:							SPOPINTRVL
+						Values:								10.0
+						Key:							INTSTORMMAX
+						Values:								8760.0
+						Key:							RAINSEARCH
+						Values:								2400.0
+					Tuple[0]:						Routing Variables
+					Tuple[1]:							Dictionary
+						Key:							BASEFLOW
+						Values:								0.01
+						Key:							VELOCITYCOEF
+						Values:								0.5
+						Key:							VELOCITYRATIO
+						Values:								5.0
+						Key:							KINEMVELCOEF
+						Values:								0.1
+						Key:							FLOWEXP
+						Values:								1e-07
+						Key:							CHANNELROUGHNESS
+						Values:								0.15
+						Key:							CHANNELWIDTH
+						Values:								10.0
+						Key:							CHANNELWIDTHCOEFF
+						Values:								1.0
+						Key:							CHANNELWIDTHEXPNT
+						Values:								0.3
+						Key:							CHANNELWIDTHFILE
+						Values:								
+					Tuple[0]:						Meteorological Variables
+					Tuple[1]:							Dictionary
+						Key:							TLINKE
+						Values:								2.0
+						Key:							MINSNTEMP
+						Values:								-27.0
+						Key:							TEMPLAPSE
+						Values:								-0.0065
+						Key:							PRECLAPSE
+						Values:								0.0
+						Key:							SNLIQFRAC
+						Values:								0.6
+	Key:		run_options_data
+	Values:				List
+				List
+					Tuple[0]:						Run Options
+					Tuple[1]:							Dictionary
+						Key:							OPTMESHINPUT
+						Values:								Points (2)
+						Key:							RAINSOURCE
+						Values:								Wsiradar (2)
+						Key:							OPTEVAPOTRANS
+						Values:								Penmanmonteith (1)
+						Key:							OPTSNOW
+						Values:								Singlelayer (1)
+						Key:							HILLALBOPT
+						Values:								Dynamic (2)
+						Key:							OPTRADSHELT
+						Values:								Local (0)
+						Key:							OPTINTERCEPT
+						Values:								Canopywaterbalance (2)
+						Key:							OPTLANDUSE
+						Values:								Dynamic (1)
+						Key:							OPTLUINTERP
+						Values:								Constant (0)
+						Key:							GFLUXOPTION
+						Values:								Forcerestore (2)
+						Key:							METDATAOPTION
+						Values:								Stations (1)
+						Key:							CONVERTDATA
+						Values:								Inactive (0)
+						Key:							OPTBEDROCK
+						Values:								Uniform (0)
+						Key:							OPTGROUNDWATER
+						Values:								Moduleon (1)
+						Key:							WIDTHINTERPOLATION
+						Values:								Measuredandobservered (0)
+						Key:							OPTGWFILE
+						Values:								Grid (0)
+						Key:							OPTRUNON
+						Values:								Norunon (0)
+						Key:							OPTRESERVOIR
+						Values:								Inactive (0)
+						Key:							OPTSOILTYPE
+						Values:								Tabular (0)
+						Key:							OPTPERCOLATION
+						Values:								Inactive (0)
+	Key:		mode_data
+	Values:				List
+				List
+					Tuple[0]:						Rainfall Forecasting
+					Tuple[1]:							Dictionary
+						Key:							FORECASTMODE
+						Values:								Inactive (0)
+						Key:							FORECASTTIME
+						Values:								
+						Key:							FORECASTLEADTIME
+						Values:								
+						Key:							FORECASTLENGTH
+						Values:								
+						Key:							FORECASTFILE
+						Values:								
+						Key:							CLIMATOLOGY
+						Values:								
+						Key:							RAINDISTRIBUTION
+						Values:								Spatiallydistradar (0)
+					Tuple[0]:						Stochastic Climate Forcing
+					Tuple[1]:							Dictionary
+						Key:							STOCHASTICMODE
+						Values:								Inactive (0)
+						Key:							PMEAN
+						Values:								0.0
+						Key:							STDUR
+						Values:								0.0
+						Key:							ISTDUR
+						Values:								0.0
+						Key:							SEED
+						Values:								11.0
+						Key:							PERIOD
+						Values:								0.0
+						Key:							MAXPMEAN
+						Values:								0.0
+						Key:							MAXSTDURMN
+						Values:								0.0
+						Key:							MAXISTDURMN
+						Values:								0.0
+						Key:							WEATHERTABLENAME
+						Values:								
+					Tuple[0]:						Restart
+					Tuple[1]:							Dictionary
+						Key:							RESTARTMODE
+						Values:								Inactive (0)
+						Key:							RESTARTINTRVL
+						Values:								8760.0
+						Key:							RESTARTDIR
+						Values:								
+						Key:							RESTARTFILE
+						Values:								
+					Tuple[0]:						Parallel
+					Tuple[1]:							Dictionary
+						Key:							PARALLELMODE
+						Values:								Parallel (1)
+						Key:							GRAPHOPTION
+						Values:								Default (0)
+						Key:							GRAPHFILE
+						Values:								
+	Key:		viz_data
+	Values:				List
+				List
+					Tuple[0]:						Visualization
+					Tuple[1]:							Dictionary
+						Key:							OPTVIZ
+						Values:								Inactive (0)
+						Key:							OUTVIZFILENAME
+						Values:								
+	Key:		files_data
+	Values:				List
+				List
+					Tuple[0]:						Mesh Generation
+					Tuple[1]:							Dictionary
+						Key:							INPUTDATAFILE
+						Values:								<a href="/apps/tribs/datasets/resource_id/details/summary/"> TIN</a>
+						Key:							POINTFILENAME
+						Values:								<a href="/apps/tribs/datasets/resource_id/details/summary/"> Point File</a>
+						Key:							INPUTTIME
+						Values:								0
+						Key:							ARCINFOFILENAME
+						Values:								
+					Tuple[0]:						Resampling Grids
+					Tuple[1]:							Dictionary
+						Key:							SOILTABLENAME
+						Values:								<a href="/apps/tribs/datasets/resource_id/details/summary/"> Soil Reclassification Table</a>
+						Key:							SOILMAPNAME
+						Values:								<a href="/apps/tribs/datasets/resource_id/details/summary/"> Soil Grid</a>
+						Key:							LANDTABLENAME
+						Values:								<a href="/apps/tribs/datasets/resource_id/details/summary/"> Land Use Reclassification Table</a>
+						Key:							LANDMAPNAME
+						Values:								<a href="/apps/tribs/datasets/resource_id/details/summary/"> Land Use Grid</a>
+						Key:							GWATERFILE
+						Values:								<a href="/apps/tribs/datasets/resource_id/details/summary/"> Groundwater Grid</a>
+						Key:							DEMFILE
+						Values:								
+						Key:							RAINFILE
+						Values:								<a href="/apps/tribs/datasets/resource_id/details/summary/"> Radar Rainfall Grids</a>
+						Key:							RAINEXTENSION
+						Values:								txt
+						Key:							DEPTHTOBEDROCK
+						Values:								5.0
+						Key:							BEDROCKFILE
+						Values:								
+						Key:							LUGRID
+						Values:								
+						Key:							SCGRID
+						Values:								
+					Tuple[0]:						Meterological data
+					Tuple[1]:							Dictionary
+						Key:							HYDROMETSTATIONS
+						Values:								<a href="/apps/tribs/datasets/resource_id/details/summary/"> Hydromet Station Data</a>
+						Key:							HYDROMETGRID
+						Values:								
+						Key:							HYDROMETCONVERT
+						Values:								
+						Key:							HYDROMETBASENAME
+						Values:								
+						Key:							GAUGESTATIONS
+						Values:								
+						Key:							GAUGECONVERT
+						Values:								
+						Key:							GAUGEBASENAME
+						Values:								
+					Tuple[0]:						Output data
+					Tuple[1]:							Dictionary
+						Key:							OUTFILENAME
+						Values:								
+						Key:							OUTHYDROFILENAME
+						Values:								
+						Key:							OUTHYDROEXTENSION
+						Values:								mrf
+						Key:							RIBSHYDOUTPUT
+						Values:								0
+						Key:							NODEOUTPUTLIST
+						Values:								<a href="/apps/tribs/datasets/resource_id/details/summary/"> Node Output List</a>
+						Key:							HYDRONODELIST
+						Values:								<a href="/apps/tribs/datasets/resource_id/details/summary/"> Runtime Node Output List</a>
+						Key:							OUTLETNODELIST
+						Values:								<a href="/apps/tribs/datasets/resource_id/details/summary/"> Interior Node Output List</a>
+						Key:							OPTSPATIAL
+						Values:								Spatialoutputon (1)
+						Key:							OPTINTERHYDRO
+						Values:								Intermediatehydrographsoff (0)
+						Key:							OPTHEADER
+						Values:								Outputheaderson (1)
+					Tuple[0]:						Reservoir data
+					Tuple[1]:							Dictionary
+						Key:							RESPOLYGONID
+						Values:								
+						Key:							RESDATA
+						Values:								

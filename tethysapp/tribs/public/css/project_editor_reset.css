@@ -1,0 +1,21 @@
+#app-content-wrapper #app-content.show-app-content {
+    padding-bottom: 0;
+    padding-right: 0;
+    padding-left: 0;
+}
+
+#inner-app-content {
+    padding: 0;
+}
+
+#app-content-wrapper #app-content #app-navigation {
+    display: none;
+}
+
+#app-content-wrapper.show-nav #app-content {
+    transform: none;
+    -webkit-transform: none;
+    -moz-transform: none;
+    -ms-transform: none;
+    -o-transform: none;
+}

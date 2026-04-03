@@ -1,0 +1,15 @@
+	List
+		List
+		List
+			Tuple[0]:				Related Resources
+			Tuple[1]:					Dictionary
+				Key:					Parent Project
+				Values:						
+				Key:					<a href="<MagicMock name='reverse()' id=>">test_project</a>
+				Values:						(Not Recognized)
+				Key:					Parent Scenario
+				Values:						
+				Key:					<a href="<MagicMock name='reverse()' id=>">test_scenario</a>
+				Values:						(Not Recognized)
+				Key:					Dataset Count
+				Values:						0
