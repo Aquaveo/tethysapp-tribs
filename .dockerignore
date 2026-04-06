@@ -2,8 +2,6 @@ Dockerfile
 .dockerignore
 README.md
 .flake8
-.gitlab
-.gitlab-ci.yml
 .pdm-python
 .pytest_cache
 .venv
@@ -17,8 +15,6 @@ build
 **/*.pyc
 **/*.egg-info
 *.ini
-tribs-adapter/.gitlab
-tribs-adapter/.gitlab-ci.yml
 tribs-adapter/.venv
 tribs-adapter/.flake8
 tribs-adapter/build
