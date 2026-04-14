@@ -4,7 +4,7 @@ import logging
 from sqlalchemy.orm.session import make_transient
 from tethysext.atcore.models.app_users import ResourceWorkflow, ResourceWorkflowStep, ResourceWorkflowResult
 
-from tribs_adapter.workflows import TRIBS_WORKFLOWS
+from tethysapp.tribs.workflows.workflow_registry import TRIBS_WORKFLOWS
 from tribs_adapter.services.tribs_spatial_manager import TribsSpatialManager
 from ..backend_actions import BackendActions
 from .resource_backend_handler import ResourceBackendHandler as RBH

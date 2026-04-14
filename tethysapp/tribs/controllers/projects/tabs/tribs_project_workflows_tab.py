@@ -6,9 +6,9 @@
 ********************************************************************************
 """
 from tethysext.atcore.controllers.resources import ResourceWorkflowsTab
-from tribs_adapter.workflows import TRIBS_WORKFLOWS
 from tribs_adapter.services.tribs_spatial_manager import TribsSpatialManager
 from tethysapp.tribs.services.tribs_map_manager import TribsMapManager
+from tethysapp.tribs.workflows.workflow_registry import TRIBS_WORKFLOWS
 
 
 class TribsProjectWorkflowsTab(ResourceWorkflowsTab):

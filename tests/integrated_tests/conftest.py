@@ -16,8 +16,8 @@ from tethys_dataset_services.engines.geoserver_engine import GeoServerSpatialDat
 from tethysext.atcore.models.app_users import AppUser
 
 from tribs_adapter.resources import Project, Scenario, Dataset, Realization
-from tribs_adapter.workflows import TRIBS_WORKFLOWS
 from tethysapp.tribs.models import init_primary_db
+from tribs_adapter.workflows import TRIBS_WORKFLOWS
 from tethysapp.tribs.app import Tribs as app
 from ..integrated_tests import TEST_DB_URL
 
