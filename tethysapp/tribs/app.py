@@ -9,14 +9,14 @@ from tethys_sdk.app_settings import (
 
 class Tribs(TethysAppBase):
     """
-    Tethys app class for Forest Hydrology Model Builder.
+    Tethys app class for tRIBS Model Builder.
     """
 
-    name = "Forest Hydrology Model Builder"
-    description = ("An application for building new tRIBS models to assess forest health.")
+    name = "tRIBS Model Builder"
+    description = ("An application for building new tRIBS models.")
     package = "tribs"  # WARNING: Do not change this value
     index = "projects_manage_resources"
-    icon = f"{package}/images/fhmb-d-166.png"
+    icon = f"{package}/images/fhmb-d-166.png"  # TODO put generic log back in, remove all fhmb references
     root_url = "tribs"
     color = "#1b663b"
     tags = ""
@@ -113,9 +113,7 @@ class Tribs(TethysAppBase):
         from tethysapp.tribs.controllers.tutorials.modify_tribs_tutorials import ModifyTribsTutorial
         from tethysapp.tribs.permissions import TribsPermissionsManager
         from tethysapp.tribs.controllers.workflows.tribs_workflow_view import TribsWorkflowRouter
-        from tribs_adapter.workflows import (
-            BulkDataRetrievalWorkflow, PrepareMetWorkflow, PrepareSoilsWorkflow, RunSimulationWorkflow
-        )
+        from tethysapp.tribs.workflows.workflow_registry import TRIBS_WORKFLOWS
 
         UrlMap = url_map_maker(self.root_url)
         # Get the urls for the app_users extension
@@ -210,16 +208,14 @@ class Tribs(TethysAppBase):
             ]
         )
 
+        workflow_pairs = tuple((workflow_class, TribsWorkflowRouter) for workflow_class in TRIBS_WORKFLOWS.values())
         url_maps.extend(
             resource_workflows.urls(
                 url_map_maker=UrlMap,
                 app=self,
                 persistent_store_name="primary_db",
                 custom_models=[TribsOrganization, TribsAppUser],
-                workflow_pairs=(
-                    (BulkDataRetrievalWorkflow, TribsWorkflowRouter), (PrepareMetWorkflow, TribsWorkflowRouter),
-                    (PrepareSoilsWorkflow, TribsWorkflowRouter), (RunSimulationWorkflow, TribsWorkflowRouter)
-                ),
+                workflow_pairs=workflow_pairs,
                 custom_permissions_manager=TribsPermissionsManager,
                 base_template="tribs/workflows_base.html",
             )
