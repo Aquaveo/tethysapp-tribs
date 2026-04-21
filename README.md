@@ -131,7 +131,7 @@ A Tethys app for building tRIBS models for SRP studies.
 13. Install GDAL libraries and the C/C++ compilers with Conda from conda-forge:
 
     ```bash
-    conda install -c conda-forge libgdal cxx-compiler
+    conda install -c conda-forge libgdal gdal pyproj cxx-compiler
     ```
 
 12. Clone tribs-adapter and install into the Tethys environment in development mode:
