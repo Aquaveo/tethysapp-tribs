@@ -54,3 +54,41 @@ jobs:
 
       - name: Run format
         run: pdm run format
+
+  node-lint:
+    name: Node Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run lint
+        run: npm run lint
+
+  node-test:
+    name: Node Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: npm
+      
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
