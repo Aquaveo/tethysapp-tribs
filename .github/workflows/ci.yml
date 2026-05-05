@@ -98,6 +98,11 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: aquaveollc/tethysext-atcore:1.15.1-ty4.4.3-py3.10-dj4.2
+    defaults:
+      run:
+        # Use a login shell so /etc/profile.d/conda.sh is sourced, putting
+        # /opt/conda/envs/tethys/bin (where python lives) on PATH.
+        shell: bash -el {0}
     services:
       postgis:
         image: postgis/postgis:12-2.5
@@ -113,6 +118,11 @@ jobs:
           --health-retries=5
 
     env:
+      # Put the conda 'tethys' env's bin first on PATH at the OS level so every
+      # subprocess (including /bin/sh spawned by Salt inside run.sh --test) can
+      # find tethys/python/pdm. Login-shell activation alone doesn't propagate
+      # to sub-subprocesses.
+      PATH: /opt/conda/envs/tethys/bin:/opt/conda/condabin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       # Tell pdm to install into the active Python (the conda 'tethys' env in the
       # atcore container) instead of creating a new .venv that wouldn't have Tethys.
       PDM_PYTHON_USE_VENV: "false"
