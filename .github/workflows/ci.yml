@@ -100,9 +100,11 @@ jobs:
       image: aquaveollc/tethysext-atcore:1.15.1-ty4.4.3-py3.10-dj4.2
     defaults:
       run:
-        # Use a login shell so /etc/profile.d/conda.sh is sourced, putting
-        # /opt/conda/envs/tethys/bin (where python lives) on PATH.
-        shell: bash -el {0}
+        # Plain bash, NOT login shell. The atcore image's /etc/profile resets
+        # PATH (wiping the conda env), so we avoid sourcing it. The image's
+        # container-level PATH already includes /opt/conda/envs/tethys/bin,
+        # and our env.PATH below pins it explicitly.
+        shell: bash -e {0}
     services:
       postgis:
         image: postgis/postgis:12-2.5
