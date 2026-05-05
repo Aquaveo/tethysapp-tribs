@@ -3,7 +3,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: main
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
@@ -53,7 +53,7 @@ jobs:
         run: pdm install -G lint
 
       - name: Run format
-        run: pdm run format
+        run: pdm run format-check
 
   node-lint:
     name: Node Lint
@@ -92,3 +92,64 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+  tethys-test:
+    name: Tethys Test
+    runs-on: ubuntu-latest
+    container:
+      image: aquaveollc/tethysext-atcore:1.15.1-ty4.4.3-py3.10-dj4.2
+    services:
+      postgis:
+        image: postgis/postgis:12-2.5
+        env:
+          POSTGRES_DB: tethys_postgis
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: please_dont_use_default_passwords
+          POSTGRES_HOST_AUTH_METHOD: trust
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      # Tell pdm to install into the active Python (the conda 'tethys' env in the
+      # atcore container) instead of creating a new .venv that wouldn't have Tethys.
+      PDM_PYTHON_USE_VENV: "false"
+      # App-level
+      BASENAME: tribs
+      FILE_UPLOAD_MAX_MEMORY_SIZE: "1073741824"
+      DATA_UPLOAD_MAX_MEMORY_SIZE: "1073741824"
+      TRIBSAPP_TEST_DATABASE: postgresql://postgres:please_dont_use_default_passwords@postgis:5432/tethys_postgis
+      # Tethys DB overrides
+      TETHYS_PUBLIC_HOST: 172.17.0.1
+      TETHYS_DB_HOST: postgis
+      TETHYS_DB_USERNAME: tethys_super
+      TETHYS_DB_PASSWORD: please_dont_use_default_passwords
+      TETHYS_DB_SUPERUSER_PASS: please_dont_use_default_passwords
+      # App DB
+      APP_DB_HOST: postgis
+      APP_DB_PORT: "5432"
+      APP_DB_USERNAME: tethys_super
+      APP_DB_PASSWORD: please_dont_use_default_passwords
+    
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: 'recursive'
+
+      - name: Create tests/.env (required by pdm test script)
+        run: |
+          cat > tests/.env <<EOF
+          BASENAME=${BASENAME}
+          FILE_UPLOAD_MAX_MEMORY_SIZE=${FILE_UPLOAD_MAX_MEMORY_SIZE}
+          DATA_UPLOAD_MAX_MEMORY_SIZE=${DATA_UPLOAD_MAX_MEMORY_SIZE}
+          TRIBSAPP_TEST_DATABASE=${TRIBSAPP_TEST_DATABASE}
+          EOF
+
+      - name: Initialize Tethys in test mode
+        run: bash "${TETHYS_HOME}/run.sh" --test
+
+      - run: python -m pip install pdm
+      - run: pdm install -G:test
+      - run: pdm run test -vv
