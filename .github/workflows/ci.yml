@@ -159,9 +159,6 @@ jobs:
         # This whitelists the workspace so setuptools-scm can read it.
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
-      - name: Clean any stale pdm environment dirs
-        run: rm -rf .venv __pypackages__
-
       - name: Create tests/.env (required by pdm test script)
         run: |
           cat > tests/.env <<EOF
@@ -188,5 +185,13 @@ jobs:
           echo "shell flags: $-"
 
       - run: python -m pip install pdm
+
+      - name: Install tribs-adapter (submodule dependency)
+        # Mirrors the Dockerfile: tribs-adapter is bundled as a git submodule
+        # and installed into the env before tethysapp-tribs. Tests import from
+        # tribs_adapter, so it must be on the Python path.
+        working-directory: tribs-adapter
+        run: pdm install --no-editable --production
+
       - run: pdm install -G:test
       - run: pdm run test -vv
