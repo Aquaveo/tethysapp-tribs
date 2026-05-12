@@ -150,6 +150,13 @@ jobs:
         with:
           submodules: 'recursive'
 
+      - name: Mark workspace as safe for git
+        # setuptools-scm reads git history to compute the package version.
+        # Inside container jobs, the workspace is owned by a different user
+        # than the one running git, so git refuses with "dubious ownership".
+        # This whitelists the workspace so setuptools-scm can read it.
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
       - name: Create tests/.env (required by pdm test script)
         run: |
           cat > tests/.env <<EOF
