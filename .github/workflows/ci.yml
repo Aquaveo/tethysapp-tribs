@@ -125,9 +125,11 @@ jobs:
       # find tethys/python/pdm. Login-shell activation alone doesn't propagate
       # to sub-subprocesses.
       PATH: /opt/conda/envs/tethys/bin:/opt/conda/condabin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-      # Tell pdm to install into the active Python (the conda 'tethys' env in the
-      # atcore container) instead of creating a new .venv that wouldn't have Tethys.
-      PDM_PYTHON_USE_VENV: "false"
+      # Point pdm at the conda 'tethys' env as if it were the project's venv.
+      # This makes `pdm install` install test deps + the editable project INTO
+      # the conda env, alongside the pre-installed Tethys/ATCore — instead of
+      # creating an empty .venv/ that wouldn't have Tethys.
+      VIRTUAL_ENV: /opt/conda/envs/tethys
       # App-level
       BASENAME: tribs
       FILE_UPLOAD_MAX_MEMORY_SIZE: "1073741824"
@@ -156,6 +158,9 @@ jobs:
         # than the one running git, so git refuses with "dubious ownership".
         # This whitelists the workspace so setuptools-scm can read it.
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Clean any stale pdm environment dirs
+        run: rm -rf .venv __pypackages__
 
       - name: Create tests/.env (required by pdm test script)
         run: |
