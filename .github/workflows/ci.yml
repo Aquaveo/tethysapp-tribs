@@ -191,7 +191,9 @@ jobs:
         # bindings. tribs-adapter imports osgeo at module load, so test
         # collection fails without it. Install via conda since pip-gdal is
         # notoriously fragile.
-        run: conda install -y -n tethys -c conda-forge gdal=3.4
+        # $CONDA_PREFIX is already /opt/conda/envs/tethys so no need to specify
+        # -n tethys.
+        run: conda install -y -c conda-forge gdal
 
       - name: Install tribs-adapter (submodule dependency)
         # Mirrors the Dockerfile: tribs-adapter is bundled as a git submodule
