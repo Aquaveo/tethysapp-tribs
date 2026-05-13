@@ -1,8 +1,7 @@
 import uuid
-
 import pytest
 
-from tribs_adapter.workflows import TRIBS_WORKFLOWS
+from tethysapp.tribs.workflows.workflow_registry import TRIBS_WORKFLOWS
 from tethysapp.tribs.consumers.backend_actions import BackendActions
 
 
