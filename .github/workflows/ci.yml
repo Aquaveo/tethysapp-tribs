@@ -195,6 +195,11 @@ jobs:
         # -n tethys.
         run: conda install -y -c conda-forge gdal
 
+      - name: Install pip-only deps
+        # bokeh-django is required by the tribs app's Panel/Bokeh handlers.
+        # Pure Python — pip is faster than conda for these.
+        run: pip install bokeh-django
+
       - name: Install tribs-adapter (submodule dependency)
         # Mirrors the Dockerfile: tribs-adapter is bundled as a git submodule
         # and installed into the env before tethysapp-tribs. Tests import from
