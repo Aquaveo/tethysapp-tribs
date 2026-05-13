@@ -1,4 +1,4 @@
 [submodule "tribs-adapter"]
 	path = tribs-adapter
-	url = ../tribs-adapter
+	url = https://github.com/Aquaveo/tribs-adapter.git
 	branch = main
