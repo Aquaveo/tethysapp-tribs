@@ -171,19 +171,6 @@ jobs:
       - name: Initialize Tethys in test mode
         run: bash "${TETHYS_HOME}/run.sh" --test
 
-      - name: Debug environment
-        run: |
-          echo "==== PATH ===="
-          echo "$PATH"
-          echo "==== which python ===="
-          which python || echo "NOT FOUND"
-          which python3 || echo "NOT FOUND"
-          echo "==== ls conda env ===="
-          ls /opt/conda/envs/tethys/bin/python* || true
-          echo "==== shell info ===="
-          echo "shell: $0"
-          echo "shell flags: $-"
-
       - run: python -m pip install pdm
 
       - name: Install conda-only deps (gdal Python bindings)
