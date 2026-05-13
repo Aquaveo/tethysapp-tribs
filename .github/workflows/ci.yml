@@ -93,6 +93,55 @@ jobs:
       - name: Run tests
         run: npm test
 
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ubuntu-latest]
+        tethys-version: ["4.5.1"]
+        python-version: ["3.10"]
+        django-version: ["4.2"]
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set Env
+        run: |
+          echo "KANIKO_CACHE_REGISTRY=aquaveollc/tethysapp-tribs-cache" >> $GITHUB_ENV
+          echo "KANIKO_IMAGE=aquaveollc/tethysapp-tribs" >> $GITHUB_ENV
+      - name: Set Tag
+        run: |
+          echo "TAG=dev${GITHUB_SHA::8}-ty${{ matrix.tethys-version }}-py${{ matrix.python-version }}-dj${{ matrix.django-version }}" >> $GITHUB_ENV
+        # If the branch is stable, we'll overwrite the TAG to include stable.
+      - name: Set Stable Tag
+        if: endsWith(github.ref, '/stable')
+        run: |
+          echo "TAG=stable" >> $GITHUB_ENV
+      - name: Test Tag
+        run: |
+          echo $TAG
+      - name: Build and Push Dev
+        uses: aevea/action-kaniko@v0.14.0
+        with:
+          # Docker registry where the image will be pushed
+          registry: docker.io
+          # Username used for authentication to the Docker registry
+          username: ${{ secrets.DOCKER_BUILDER_USERNAME }}
+          # Password used for authentication to the Docker registry
+          password: ${{ secrets.DOCKER_BUILDER_TOKEN }}
+          # Image name
+          image: ${{ env.KANIKO_IMAGE }}
+          # Image tag
+          tag: ${{ env.TAG }}
+          # Enables build cache
+          cache: true
+          # Docker registry meant to be used as cache
+          cache_registry: ${{ env.KANIKO_CACHE_REGISTRY }}
+          # Dockerfile filename
+          build_file: Dockerfile
+          # Extra kaniko args
+          extra_args: --build-arg TETHYS_VERSION=${{ matrix.tethys-version }} --build-arg PYTHON_VERSION=${{ matrix.python-version }} --build-arg DJANGO_VERSION=${{ matrix.django-version }}
+
   tethys-test:
     name: Tethys Test
     runs-on: ubuntu-latest
