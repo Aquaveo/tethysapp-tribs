@@ -99,10 +99,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu-latest]
         tethys-version: ["4.5.1"]
         python-version: ["3.10"]
         django-version: ["4.2"]
+    outputs:
+      tag: ${{ steps.set-tag.outputs.tag }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -111,13 +112,15 @@ jobs:
       - name: Set Env
         run: echo "IMAGE=aquaveollc/tethysapp-tribs" >> $GITHUB_ENV
 
-      - name: Set Tag
-        run: echo "TAG=dev${GITHUB_SHA::8}-ty${{ matrix.tethys-version }}-py${{ matrix.python-version }}-dj${{ matrix.django-version }}" >> $GITHUB_ENV
-
-      # If the branch is stable, overwrite the TAG.
-      - name: Set Stable Tag
-        if: endsWith(github.ref, '/stable')
-        run: echo "TAG=stable" >> $GITHUB_ENV
+      - id: set-tag
+        name: Set Tag
+        run: |
+          TAG="dev${GITHUB_SHA::8}-ty${{ matrix.tethys-version }}-py${{ matrix.python-version }}-dj${{ matrix.django-version }}"
+          if [[ "${GITHUB_REF}" == */stable ]]; then
+            TAG="stable"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -144,206 +147,80 @@ jobs:
             TETHYS_VERSION=${{ matrix.tethys-version }}
             PYTHON_VERSION=${{ matrix.python-version }}
             DJANGO_VERSION=${{ matrix.django-version }}
+  
+  startup-test:
+    needs: [build]
+    name: Startup Test (ty${{ matrix.tethys-version }}, dj${{ matrix.django-version }}, py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tethys-version: ["4.5.1"]
+        python-version: ["3.10"]
+        django-version: ["4.2"]
+    env:
+      TAG: ${{ needs.build.outputs.tag }}
+      IMAGE: aquaveollc/tethysapp-tribs
+      # Postgres DB (server-side)
+      POSTGRES_DB: tethys_postgis
+      POSTGRES_PASSWORD: please_dont_use_default_passwords
+      POSTGRES_PORT: "5432"
 
-  # startup-test:
-  #   needs: [build]
-  #   name: Startup Test (${{ matrix.platform }}, ty${{ matrix.tethys-version }}, dj${{ matrix.django-version }}, py${{ matrix.python-version }})
-  #   runs-on: ${{ matrix.platform }}
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       platform: [ubuntu-latest]
-  #       tethys-version: ["4.5.1"]
-  #       python-version: ["3.10"]
-  #       django-version: ["4.2"]
-  #   services:
-  #     postgis:
-  #       image: postgis/postgis:12-2.5
-  #       env:
-  #         POSTGRES_HOST: postgis
-  #         POSTGRES_PASSWORD: please_dont_use_default_passwords
-  #         POSTGRES_DB: tethys_postgis
-  #         POSTGRES_PORT: 5432
-  #       options: >-
-  #         --health-cmd pg_isready
-  #         --health-interval 10s
-  #         --health-timeout 5s
-  #         --health-retries 10
-  #       ports:
-  #         - 5432:5432
-  #   steps:
-  #   - name: Check out repository code
-  #     uses: actions/checkout@v4
+      # Tethys (client-side)
+      TETHYS_PUBLIC_HOST: 172.17.0.1
+      TETHYS_DB_HOST: postgis
+      TETHYS_DB_PORT: "5432"
+      TETHYS_DB_USERNAME: tethys_super
+      TETHYS_DB_PASSWORD: please_dont_use_default_passwords
+      TETHYS_DB_SUPERUSER: tethys_super
+      TETHYS_DB_SUPERUSER_PASS: please_dont_use_default_passwords
 
-  #   - name: Docker login
-  #     run: docker login -u ${{ secrets.DOCKER_BUILDER_USERNAME }} -p ${{ secrets.DOCKER_BUILDER_TOKEN }}
+      # App DB
+      APP_DB_HOST: postgis
+      APP_DB_USERNAME: tethys_super
+      APP_DB_PASSWORD: please_dont_use_default_passwords
 
-  #   - name: Pull Docker Image
-  #     run: |
-  #       docker pull ${{ env.DOCKER_URL }}:dev${GITHUB_SHA::8}-ty${{ matrix.tethys-version }}-py${{ matrix.python-version }}-dj${{ matrix.django-version }}
+    services:
+      postgis:
+        image: postgis/postgis:12-2.5
+        env:
+          POSTGRES_PASSWORD: please_dont_use_default_passwords
+          POSTGRES_DB: tethys_postgis
+          POSTGRES_HOST_AUTH_METHOD: trust
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 5432:5432
+    steps:
+      - name: Login to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKER_BUILDER_USERNAME }}
+          password: ${{ secrets.DOCKER_BUILDER_TOKEN }}
 
-  #   - name: Run Salt Test
-  #     run: |
-  #       docker run --rm --name tethysapp-tribs --network ${{ job.services.postgis.network }} -e POSTGRES_DB=${{ env.POSTGRES_DB }} -e POSTGRES_PASSWORD=${{ env.POSTGRES_PASSWORD }} -e POSTGRES_PORT=${{ env.POSTGRES_PORT }} -e TETHYS_PUBLIC_HOST='${{ env.TETHYS_PUBLIC_HOST }}' -e TETHYS_DB_HOST='${{ env.TETHYS_DB_HOST }}' -e TETHYS_DB_PORT=${{ env.TETHYS_DB_PORT }} -e TETHYS_DB_USERNAME=${{ env.TETHYS_DB_USERNAME }} -e TETHYS_DB_PASSWORD=${{ env.TETHYS_DB_PASSWORD }} -e TETHYS_DB_SUPERUSER=${{ env.TETHYS_DB_SUPERUSER }} -e TETHYS_DB_SUPERUSER_PASS=${{ env.TETHYS_DB_SUPERUSER_PASS }} -e APP_DB_HOST=${{ env.APP_DB_HOST }} -e APP_DB_USERNAME=${{ env.APP_DB_USERNAME }} -e APP_DB_PASSWORD=${{ env.APP_DB_PASSWORD }} ${{ env.DOCKER_URL }}:dev${GITHUB_SHA::8}-ty${{ matrix.tethys-version }}-py${{ matrix.python-version }}-dj${{ matrix.django-version }} /bin/bash -c "cd /usr/lib/tethys && source ./run.sh --test"
+      - name: Pull Docker Image
+        run: docker pull "$IMAGE:$TAG"
 
-  # tethys-tests:
-  #   name: Tethys Tests (${{ matrix.platform }}, ty${{ matrix.tethys-version }}, dj${{ matrix.django-version }}, py${{ matrix.python-version }})
-  #   needs: [build]
-  #   runs-on: ${{ matrix.platform }}
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       platform: [ubuntu-latest]
-  #       tethys-version: ["4.5.1"]
-  #       python-version: ["3.10"]
-  #       django-version: ["4.2"]
-  #   services:
-  #     postgis:
-  #       image: postgis/postgis:12-2.5
-  #       env:
-  #         POSTGRES_HOST: postgis
-  #         POSTGRES_PASSWORD: please_dont_use_default_passwords
-  #         POSTGRES_DB: tethys_postgis
-  #         POSTGRES_PORT: 5432
-  #       options: >-
-  #         --health-cmd pg_isready
-  #         --health-interval 10s
-  #         --health-timeout 5s
-  #         --health-retries 10
-  #       ports:
-  #         - 5432:5432
-  #   steps:
-  #   - name: Check out repository code
-  #     uses: actions/checkout@v4
-
-  #   - name: Docker login
-  #     run: docker login -u ${{ secrets.DOCKER_BUILDER_USERNAME }} -p ${{ secrets.DOCKER_BUILDER_TOKEN }}
-
-  #   - name: Pull Docker Image
-  #     run: |
-  #       docker pull ${{ env.DOCKER_URL }}:dev${GITHUB_SHA::8}-ty${{ matrix.tethys-version }}-py${{ matrix.python-version }}-dj${{ matrix.django-version }}
-
-  #   - name: Run Docker Image
-  #     run: |
-  #       docker run -d --name tethys_atcore --network ${{ job.services.postgis.network }} -e ATCORE_TEST_DATABASE=${{ env.ATCORE_TEST_DATABASE }} -e POSTGRES_DB=${{ env.POSTGRES_DB }} -e POSTGRES_PASSWORD=${{ env.POSTGRES_PASSWORD }} -e POSTGRES_PORT=${{ env.POSTGRES_PORT }} -e TETHYS_PUBLIC_HOST='${{ env.TETHYS_PUBLIC_HOST }}' -e TETHYS_DB_HOST='${{ env.TETHYS_DB_HOST }}' -e TETHYS_DB_PORT=${{ env.TETHYS_DB_PORT }} -e TETHYS_DB_USERNAME=${{ env.TETHYS_DB_USERNAME }} -e TETHYS_DB_PASSWORD=${{ env.TETHYS_DB_PASSWORD }} -e TETHYS_DB_SUPERUSER=${{ env.TETHYS_DB_SUPERUSER }} -e TETHYS_DB_SUPERUSER_PASS=${{ env.TETHYS_DB_SUPERUSER_PASS }} -e APP_DB_HOST=${{ env.APP_DB_HOST }} -e APP_DB_USERNAME=${{ env.APP_DB_USERNAME }} -e APP_DB_PASSWORD=${{ env.APP_DB_PASSWORD }} ${{ env.DOCKER_URL }}:dev${GITHUB_SHA::8}-ty${{ matrix.tethys-version }}-py${{ matrix.python-version }}-dj${{ matrix.django-version }}
-  #       sleep 120s
-  #       docker logs tethys_atcore
-
-  #   - name: Tweak Install for Testing
-  #     run: |
-  #       docker exec tethys_atcore bash -c 'micromamba run -n tethys pip list'
-  #       docker exec tethys_atcore bash -c 'cd /var/www/tethys/exts/tethysext-atcore && micromamba run -n tethys tethys install -d -q -w'
-  #       docker exec tethys_atcore bash -c 'touch /var/www/tethys/exts/tethysext-atcore/tethysext/atcore/tests/files/arc_grid/precip30min.*'
-
-  #   - name: Inspect Docker Network
-  #     run: |
-  #       docker network ls
-  #       docker network inspect ${{ job.services.postgis.network }}
-
-  #   - name: Run Tests
-  #     run: |
-  #       docker exec tethys_atcore bash -c 'cd /var/www/tethys/exts/tethysext-atcore && source ci-test.sh ${TETHYS_MANAGE}'
-
-  # tethys-test:
-  #   name: Tethys Test
-  #   runs-on: ubuntu-latest
-  #   container:
-  #     image: aquaveollc/tethysext-atcore:1.15.1-ty4.4.3-py3.10-dj4.2
-  #   defaults:
-  #     run:
-  #       # Plain bash, NOT login shell. The atcore image's /etc/profile resets
-  #       # PATH (wiping the conda env), so we avoid sourcing it. The image's
-  #       # container-level PATH already includes /opt/conda/envs/tethys/bin,
-  #       # and our env.PATH below pins it explicitly.
-  #       shell: bash -e {0}
-  #   services:
-  #     postgis:
-  #       image: postgis/postgis:12-2.5
-  #       env:
-  #         POSTGRES_DB: tethys_postgis
-  #         POSTGRES_USER: postgres
-  #         POSTGRES_PASSWORD: please_dont_use_default_passwords
-  #         POSTGRES_HOST_AUTH_METHOD: trust
-  #       options: >-
-  #         --health-cmd="pg_isready -U postgres"
-  #         --health-interval=10s
-  #         --health-timeout=5s
-  #         --health-retries=5
-
-  #   env:
-  #     # Put the conda 'tethys' env's bin first on PATH at the OS level so every
-  #     # subprocess (including /bin/sh spawned by Salt inside run.sh --test) can
-  #     # find tethys/python/pdm. Login-shell activation alone doesn't propagate
-  #     # to sub-subprocesses.
-  #     PATH: /opt/conda/envs/tethys/bin:/opt/conda/condabin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-  #     # Point pdm at the conda 'tethys' env as if it were the project's venv.
-  #     # This makes `pdm install` install test deps + the editable project INTO
-  #     # the conda env, alongside the pre-installed Tethys/ATCore — instead of
-  #     # creating an empty .venv/ that wouldn't have Tethys.
-  #     VIRTUAL_ENV: /opt/conda/envs/tethys
-  #     # App-level
-  #     BASENAME: tribs
-  #     FILE_UPLOAD_MAX_MEMORY_SIZE: "1073741824"
-  #     DATA_UPLOAD_MAX_MEMORY_SIZE: "1073741824"
-  #     TRIBSAPP_TEST_DATABASE: postgresql://postgres:please_dont_use_default_passwords@postgis:5432/tethys_postgis
-  #     # Tethys DB overrides
-  #     TETHYS_PUBLIC_HOST: 172.17.0.1
-  #     TETHYS_DB_HOST: postgis
-  #     TETHYS_DB_USERNAME: tethys_super
-  #     TETHYS_DB_PASSWORD: please_dont_use_default_passwords
-  #     TETHYS_DB_SUPERUSER_PASS: please_dont_use_default_passwords
-  #     # App DB
-  #     APP_DB_HOST: postgis
-  #     APP_DB_PORT: "5432"
-  #     APP_DB_USERNAME: tethys_super
-  #     APP_DB_PASSWORD: please_dont_use_default_passwords
-    
-  #   steps:
-  #     - uses: actions/checkout@v6
-  #       with:
-  #         submodules: 'recursive'
-
-  #     - name: Mark workspace as safe for git
-  #       # setuptools-scm reads git history to compute the package version.
-  #       # Inside container jobs, the workspace is owned by a different user
-  #       # than the one running git, so git refuses with "dubious ownership".
-  #       # This whitelists the workspace so setuptools-scm can read it.
-  #       run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
-
-  #     - name: Create tests/.env (required by pdm test script)
-  #       run: |
-  #         cat > tests/.env <<EOF
-  #         BASENAME=${BASENAME}
-  #         FILE_UPLOAD_MAX_MEMORY_SIZE=${FILE_UPLOAD_MAX_MEMORY_SIZE}
-  #         DATA_UPLOAD_MAX_MEMORY_SIZE=${DATA_UPLOAD_MAX_MEMORY_SIZE}
-  #         TRIBSAPP_TEST_DATABASE=${TRIBSAPP_TEST_DATABASE}
-  #         EOF
-
-  #     - name: Initialize Tethys in test mode
-  #       run: bash "${TETHYS_HOME}/run.sh" --test
-
-  #     - run: python -m pip install pdm
-
-  #     - name: Install conda-only deps (gdal Python bindings)
-  #       # The atcore base image has libgdal but not the `gdal` (osgeo) Python
-  #       # bindings. tribs-adapter imports osgeo at module load, so test
-  #       # collection fails without it. Install via conda since pip-gdal is
-  #       # notoriously fragile.
-  #       # $CONDA_PREFIX is already /opt/conda/envs/tethys so no need to specify
-  #       # -n tethys.
-  #       run: conda install -y -c conda-forge gdal
-
-  #     - name: Install pip-only deps
-  #       # bokeh-django is required by the tribs app's Panel/Bokeh handlers.
-  #       # Pure Python — pip is faster than conda for these.
-  #       run: pip install bokeh-django
-
-  #     - name: Install tribs-adapter (submodule dependency)
-  #       # Mirrors the Dockerfile: tribs-adapter is bundled as a git submodule
-  #       # and installed into the env before tethysapp-tribs. Tests import from
-  #       # tribs_adapter, so it must be on the Python path.
-  #       working-directory: tribs-adapter
-  #       run: pdm install --no-editable --production
-
-  #     - run: pdm install -G:test
-  #     - run: pdm run test -vv
+      - name: Run Salt Test
+        run: |
+          docker run --rm \
+            --name tethysapp-tribs \
+            --network "${{ job.services.postgis.network }}" \
+            -e POSTGRES_DB \
+            -e POSTGRES_PASSWORD \
+            -e POSTGRES_PORT \
+            -e TETHYS_PUBLIC_HOST \
+            -e TETHYS_DB_HOST \
+            -e TETHYS_DB_PORT \
+            -e TETHYS_DB_USERNAME \
+            -e TETHYS_DB_PASSWORD \
+            -e TETHYS_DB_SUPERUSER \
+            -e TETHYS_DB_SUPERUSER_PASS \
+            -e APP_DB_HOST \
+            -e APP_DB_USERNAME \
+            -e APP_DB_PASSWORD \
+            "$IMAGE:$TAG" \
+            /bin/bash -c "cd /usr/lib/tethys && source ./run.sh --test"
