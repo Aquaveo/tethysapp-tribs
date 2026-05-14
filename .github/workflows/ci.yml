@@ -205,7 +205,11 @@ jobs:
         run: docker pull "$IMAGE:$TAG"
 
       - name: Run Salt Test
+        # run.sh uses Salt, which logs [ERROR] lines but still exits 0 even on
+        # real failures. Tee the output so we can fail the step ourselves if
+        # any Salt error/critical lines appear.
         run: |
+          set -o pipefail
           docker run --rm \
             --name tethysapp-tribs \
             --network "${{ job.services.postgis.network }}" \
@@ -223,4 +227,12 @@ jobs:
             -e APP_DB_USERNAME \
             -e APP_DB_PASSWORD \
             "$IMAGE:$TAG" \
-            /bin/bash -c "cd /usr/lib/tethys && source ./run.sh --test"
+            /bin/bash -c "cd /usr/lib/tethys && source ./run.sh --test" \
+            2>&1 | tee /tmp/salt.log
+
+          if grep -E '^\[(ERROR|CRITICAL)' /tmp/salt.log >/dev/null; then
+            echo "::error::Salt reported errors during startup test"
+            echo "==== matching lines ===="
+            grep -E '^\[(ERROR|CRITICAL)' /tmp/salt.log | head -20
+            exit 1
+          fi
