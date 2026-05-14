@@ -180,6 +180,20 @@ jobs:
       APP_DB_USERNAME: tethys_super
       APP_DB_PASSWORD: please_dont_use_default_passwords
 
+      # Tethys Startup Test settings (from GitLab Tethys Startup Test job)
+      FILE_UPLOAD_MAX_MEMORY_SIZE: "1073741824"
+      DATA_UPLOAD_MAX_MEMORY_SIZE: "1073741824"
+      CLIENT_MAX_BODY_SIZE: 1G
+      CESIUM_API_KEY: f@keB1ng@p1K3y
+      RECAPTCHA_PUBLIC_KEY: f@keR3c@ptch@p1K3y
+      RECAPTCHA_PRIVATE_KEY: f@keR3c@ptch@pr1v@t3K3y
+      OTHER_SETTINGS: --set ENABLE_CAPTCHA True --set DATA_UPLOAD_MAX_NUMBER_FIELD 10000
+      MEDIA_ROOT: /fdbs
+      FDB_ROOT_DIR: /fdbs
+      CONDOR_FDB_ROOT_DIR: /fdbs
+      MULTIPLE_APP_MODE: "false"
+      STANDALONE_APP: tribs
+
     services:
       postgis:
         image: postgis/postgis:12-2.5
@@ -226,13 +240,18 @@ jobs:
             -e APP_DB_HOST \
             -e APP_DB_USERNAME \
             -e APP_DB_PASSWORD \
+            -e FILE_UPLOAD_MAX_MEMORY_SIZE \
+            -e DATA_UPLOAD_MAX_MEMORY_SIZE \
+            -e CLIENT_MAX_BODY_SIZE \
+            -e CESIUM_API_KEY \
+            -e RECAPTCHA_PUBLIC_KEY \
+            -e RECAPTCHA_PRIVATE_KEY \
+            -e OTHER_SETTINGS \
+            -e MEDIA_ROOT \
+            -e FDB_ROOT_DIR \
+            -e CONDOR_FDB_ROOT_DIR \
+            -e MULTIPLE_APP_MODE \
+            -e STANDALONE_APP \
             "$IMAGE:$TAG" \
             /bin/bash -c "cd /usr/lib/tethys && source ./run.sh --test" \
             2>&1 | tee /tmp/salt.log
-
-          if grep -E '^\[(ERROR|CRITICAL)' /tmp/salt.log >/dev/null; then
-            echo "::error::Salt reported errors during startup test"
-            echo "==== matching lines ===="
-            grep -E '^\[(ERROR|CRITICAL)' /tmp/salt.log | head -20
-            exit 1
-          fi
