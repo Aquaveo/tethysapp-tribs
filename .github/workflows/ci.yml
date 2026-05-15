@@ -225,7 +225,7 @@ jobs:
         run: |
           set -o pipefail
           docker run --rm \
-            --name tethysapp-tribs \
+            --name tribs-test \
             --network "${{ job.services.postgis.network }}" \
             -e POSTGRES_DB \
             -e POSTGRES_PASSWORD \
@@ -255,3 +255,103 @@ jobs:
             "$IMAGE:$TAG" \
             /bin/bash -c "cd /usr/lib/tethys && source ./run.sh --test" \
             2>&1 | tee /tmp/salt.log
+
+  tethys-test:
+    needs: [build]
+    name: Tethys Test (ty${{ matrix.tethys-version }}, dj${{ matrix.django-version }}, py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tethys-version: ["4.5.1"]
+        python-version: ["3.10"]
+        django-version: ["4.2"]
+    env:
+      TAG: ${{ needs.build.outputs.tag }}
+      IMAGE: aquaveollc/tethysapp-tribs
+      # Postgres (server-side)
+      POSTGRES_DB: tethys_postgis
+      POSTGRES_PASSWORD: please_dont_use_default_passwords
+      POSTGRES_PORT: "5432"
+
+      # Tethys (client-side connection)
+      TETHYS_PUBLIC_HOST: 172.17.0.1
+      TETHYS_DB_HOST: postgis
+      TETHYS_DB_PORT: "5432"
+      TETHYS_DB_USERNAME: tethys_super
+      TETHYS_DB_PASSWORD: please_dont_use_default_passwords
+      TETHYS_DB_SUPERUSER: tethys_super
+      TETHYS_DB_SUPERUSER_PASS: please_dont_use_default_passwords
+
+      # App DB
+      APP_DB_HOST: postgis
+      APP_DB_USERNAME: tethys_super
+      APP_DB_PASSWORD: please_dont_use_default_passwords
+
+      # Test-specific (from GitLab Tethys Test job)
+      BASENAME: tribs
+      FILE_UPLOAD_MAX_MEMORY_SIZE: "1073741824"
+      DATA_UPLOAD_MAX_MEMORY_SIZE: "1073741824"
+      TRIBSAPP_TEST_DATABASE: postgresql://postgres:please_dont_use_default_passwords@postgis:5432/tethys_postgis
+
+    services:
+      postgis:
+        image: postgis/postgis:12-2.5
+        env:
+          POSTGRES_PASSWORD: please_dont_use_default_passwords
+          POSTGRES_DB: tethys_postgis
+          POSTGRES_HOST_AUTH_METHOD: trust
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Login to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKER_BUILDER_USERNAME }}
+          password: ${{ secrets.DOCKER_BUILDER_TOKEN }}
+
+      - name: Pull Docker Image
+        run: docker pull "$IMAGE:$TAG"
+
+      - name: Start container
+        # Start in background so we can exec into it for test commands. The
+        # image's default entrypoint runs Tethys; we wait for it to boot.
+        run: |
+          docker run -d --name tribs-test \
+            --network "${{ job.services.postgis.network }}" \
+            -e POSTGRES_DB \
+            -e POSTGRES_PASSWORD \
+            -e POSTGRES_PORT \
+            -e TETHYS_PUBLIC_HOST \
+            -e TETHYS_DB_HOST \
+            -e TETHYS_DB_PORT \
+            -e TETHYS_DB_USERNAME \
+            -e TETHYS_DB_PASSWORD \
+            -e TETHYS_DB_SUPERUSER \
+            -e TETHYS_DB_SUPERUSER_PASS \
+            -e APP_DB_HOST \
+            -e APP_DB_USERNAME \
+            -e APP_DB_PASSWORD \
+            -e BASENAME \
+            -e FILE_UPLOAD_MAX_MEMORY_SIZE \
+            -e DATA_UPLOAD_MAX_MEMORY_SIZE \
+            -e TRIBSAPP_TEST_DATABASE \
+            "$IMAGE:$TAG"
+          sleep 120
+          docker logs tribs-test
+
+      - name: Run Tests
+        # In the dev image, the app source lives at /var/www/tethys/apps/tethysapp-tribs.
+        # Mirrors GitLab's "Tethys Test" job: install test deps, run pytest.
+        run: |
+          docker exec tribs-test bash -c '
+            cd /var/www/tethys/apps/tethysapp-tribs &&
+            pdm install -G:test &&
+            pdm run test -vv
+          '
