@@ -352,6 +352,7 @@ jobs:
         run: |
           docker exec tribs-test bash -c '
             cd /var/www/tethys/apps/tethysapp-tribs &&
+            "$PDM" use -f /opt/conda/envs/tethys/bin/python &&
             "$PDM" install -G:test &&
             "$PDM" run test -vv
           '
