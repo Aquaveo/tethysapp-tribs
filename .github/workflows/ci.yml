@@ -352,6 +352,6 @@ jobs:
         run: |
           docker exec tribs-test bash -c '
             cd /var/www/tethys/apps/tethysapp-tribs &&
-            pdm install -G:test &&
-            pdm run test -vv
+            "$PDM" install -G:test &&
+            "$PDM" run test -vv
           '
