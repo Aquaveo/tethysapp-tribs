@@ -17,7 +17,7 @@ dependencies:
 
 - name: 'tribs-condor'
   alias: 'condor'
-  repository: 'oci://ghcr.io/aquaveo'  # TODO update to correct repo when published
+  repository: 'oci://ghcr.io/aquaveo'
   version: '*'
 
 - name: 'redis'

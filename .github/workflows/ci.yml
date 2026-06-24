@@ -93,6 +93,34 @@ jobs:
       - name: Run tests
         run: npm test
 
+  helm-check:
+    name: Check Helm
+    runs-on: ubuntu-latest
+    env:
+      HELM_CHART: helm/tribs
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+
+      - name: Add Helm repos
+        # Bitnami redis is referenced in Chart.yaml; the OCI deps under
+        # oci://ghcr.io/aquaveo are resolved directly by `helm dependency build`.
+        run: helm repo add bitnami https://charts.bitnami.com/bitnami
+
+      - name: Build dependencies
+        run: helm dependency build "$HELM_CHART"
+
+      - name: Helm Lint
+        run: helm lint "$HELM_CHART"
+
+      - name: Helm Package
+        # Mirrors GitLab's `check_helm_chart` (without --upload): verify the
+        # chart can be packaged.
+        run: helm package "$HELM_CHART" --destination /tmp/helm-pkg
+
   build:
     name: Build
     runs-on: ubuntu-latest
