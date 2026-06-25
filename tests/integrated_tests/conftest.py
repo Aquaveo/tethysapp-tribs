@@ -17,7 +17,7 @@ from tethysext.atcore.models.app_users import AppUser
 
 from tribs_adapter.resources import Project, Scenario, Dataset, Realization
 from tethysapp.tribs.models import init_primary_db
-from tribs_adapter.workflows import TRIBS_WORKFLOWS
+from tethysapp.tribs.workflows.workflow_registry import TRIBS_WORKFLOWS
 from tethysapp.tribs.app import Tribs as app
 from ..integrated_tests import TEST_DB_URL
 
@@ -332,7 +332,8 @@ def complete_project_workflow(complete_project, staff_app_user):
     project = complete_project
     session = object_session(project)
     # Add a workflow to the project
-    from tribs_adapter.workflows import BulkDataRetrievalWorkflow
+    from tethysapp.tribs.workflows.workflow_registry import TRIBS_WORKFLOWS
+    BulkDataRetrievalWorkflow = TRIBS_WORKFLOWS['bulk_data_retrieval_workflow']
     workflow = BulkDataRetrievalWorkflow.new(
         app=app,
         name='Test Bulk Data Retrieval',

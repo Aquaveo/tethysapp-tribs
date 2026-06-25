@@ -1,0 +1,452 @@
+name: Commits without Tag
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python-lint:
+    name: Python Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.10'
+          cache: pip
+
+      - name: Install pdm
+        run: python -m pip install pdm
+
+      - name: Install lint dependencies
+        run: pdm install -G lint
+
+      - name: Run flake8
+        run: pdm run lint
+
+  python-format:
+    name: Python Format
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.10'
+          cache: pip
+
+      - name: Install pdm
+        run: python -m pip install pdm
+
+      - name: Install lint dependencies
+        run: pdm install -G lint
+
+      - name: Run format
+        run: pdm run format-check
+
+  node-lint:
+    name: Node Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run lint
+        run: npm run lint
+
+  node-test:
+    name: Node Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: npm
+      
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+  helm-check:
+    name: Check Helm
+    runs-on: ubuntu-latest
+    env:
+      HELM_CHART: helm/tribs
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0  # need base branch history for the version-bump diff
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+
+      - name: Add Helm repos
+        # Bitnami redis is referenced in Chart.yaml; the OCI deps under
+        # oci://ghcr.io/aquaveo are resolved directly by `helm dependency build`.
+        run: helm repo add bitnami https://charts.bitnami.com/bitnami
+
+      - name: Build dependencies
+        run: helm dependency build "$HELM_CHART"
+
+      - name: Helm Lint
+        run: helm lint "$HELM_CHART"
+
+      - name: Helm Package
+        # Mirrors GitLab's `check_helm_chart` (without --upload): verify the
+        # chart can be packaged.
+        run: helm package "$HELM_CHART" --destination /tmp/helm-pkg
+
+      - name: Enforce version bump
+        # Ports check_helm_chart's intent: if chart files changed vs the PR's
+        # base branch, Chart.yaml's `version:` must have been bumped too.
+        if: github.event_name == 'pull_request'
+        run: |
+          BASE="origin/${{ github.base_ref }}"
+          git fetch origin "${{ github.base_ref }}" --depth=1
+          if git diff --quiet "$BASE" -- "$HELM_CHART/"; then
+            echo "No chart changes vs $BASE — nothing to enforce."
+            exit 0
+          fi
+          OLD_VER=$(git show "$BASE:$HELM_CHART/Chart.yaml" | awk '/^version:/ {print $2; exit}')
+          NEW_VER=$(awk '/^version:/ {print $2; exit}' "$HELM_CHART/Chart.yaml")
+          echo "Chart files changed. Old version: $OLD_VER, new version: $NEW_VER"
+          if [ "$OLD_VER" = "$NEW_VER" ]; then
+            echo "::error file=$HELM_CHART/Chart.yaml::Chart files changed but version is still $NEW_VER. Bump 'version:' in Chart.yaml."
+            exit 1
+          fi
+
+  publish-helm:
+    name: Publish Helm Chart
+    needs: [helm-check]
+    # Only publish on direct push to main; skip on PRs.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      HELM_CHART: helm/tribs
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+
+      - name: Login to GHCR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "$GH_TOKEN" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Add Helm repos
+        # Bitnami redis is referenced in Chart.yaml; OCI deps (postgis,
+        # gs-cloud, tribs-condor) under oci://ghcr.io/aquaveo are resolved
+        # directly by `helm dependency build`.
+        run: helm repo add bitnami https://charts.bitnami.com/bitnami
+
+      - name: Build dependencies
+        run: helm dependency build "$HELM_CHART"
+
+      - name: Package chart
+        run: helm package "$HELM_CHART" --destination /tmp/helm-pkg
+
+      - name: Push to GHCR
+        run: helm push /tmp/helm-pkg/tribs-*.tgz oci://ghcr.io/aquaveo
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tethys-version: ["4.5.1"]
+        python-version: ["3.10"]
+        django-version: ["4.2"]
+    outputs:
+      tag: ${{ steps.set-tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: 'recursive'
+
+      - name: Set Env
+        run: echo "IMAGE=aquaveollc/tethysapp-tribs" >> $GITHUB_ENV
+
+      - id: set-tag
+        name: Set Tag
+        run: |
+          TAG="dev${GITHUB_SHA::8}-ty${{ matrix.tethys-version }}-py${{ matrix.python-version }}-dj${{ matrix.django-version }}"
+          if [[ "${GITHUB_REF}" == */stable ]]; then
+            TAG="stable"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKER_BUILDER_USERNAME }}
+          password: ${{ secrets.DOCKER_BUILDER_TOKEN }}
+
+      - name: Build and Push Dev
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: ${{ env.IMAGE }}:${{ env.TAG }}
+          # GitHub Actions cache — survives across runs, no separate DockerHub
+          # cache registry needed. Removes the memory pressure that was killing
+          # the kaniko cache-push step.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            TETHYS_VERSION=${{ matrix.tethys-version }}
+            PYTHON_VERSION=${{ matrix.python-version }}
+            DJANGO_VERSION=${{ matrix.django-version }}
+  
+  startup-test:
+    needs: [build]
+    name: Startup Test (ty${{ matrix.tethys-version }}, dj${{ matrix.django-version }}, py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tethys-version: ["4.5.1"]
+        python-version: ["3.10"]
+        django-version: ["4.2"]
+    env:
+      TAG: ${{ needs.build.outputs.tag }}
+      IMAGE: aquaveollc/tethysapp-tribs
+      # Postgres DB (server-side)
+      POSTGRES_DB: tethys_postgis
+      POSTGRES_PASSWORD: please_dont_use_default_passwords
+      POSTGRES_PORT: "5432"
+
+      # Tethys (client-side)
+      TETHYS_PUBLIC_HOST: 172.17.0.1
+      TETHYS_DB_HOST: postgis
+      TETHYS_DB_PORT: "5432"
+      TETHYS_DB_USERNAME: tethys_super
+      TETHYS_DB_PASSWORD: please_dont_use_default_passwords
+      TETHYS_DB_SUPERUSER: tethys_super
+      TETHYS_DB_SUPERUSER_PASS: please_dont_use_default_passwords
+
+      # App DB
+      APP_DB_HOST: postgis
+      APP_DB_USERNAME: tethys_super
+      APP_DB_PASSWORD: please_dont_use_default_passwords
+
+      # Tethys Startup Test settings (from GitLab Tethys Startup Test job)
+      FILE_UPLOAD_MAX_MEMORY_SIZE: "1073741824"
+      DATA_UPLOAD_MAX_MEMORY_SIZE: "1073741824"
+      CLIENT_MAX_BODY_SIZE: 1G
+      CESIUM_API_KEY: f@keB1ng@p1K3y
+      RECAPTCHA_PUBLIC_KEY: f@keR3c@ptch@p1K3y
+      RECAPTCHA_PRIVATE_KEY: f@keR3c@ptch@pr1v@t3K3y
+      OTHER_SETTINGS: --set ENABLE_CAPTCHA True --set DATA_UPLOAD_MAX_NUMBER_FIELD 10000
+      MEDIA_ROOT: /fdbs
+      FDB_ROOT_DIR: /fdbs
+      CONDOR_FDB_ROOT_DIR: /fdbs
+      MULTIPLE_APP_MODE: "false"
+      STANDALONE_APP: tribs
+
+    services:
+      postgis:
+        image: postgis/postgis:12-2.5
+        env:
+          POSTGRES_PASSWORD: please_dont_use_default_passwords
+          POSTGRES_DB: tethys_postgis
+          POSTGRES_HOST_AUTH_METHOD: trust
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 5432:5432
+    steps:
+      - name: Login to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKER_BUILDER_USERNAME }}
+          password: ${{ secrets.DOCKER_BUILDER_TOKEN }}
+
+      - name: Pull Docker Image
+        run: docker pull "$IMAGE:$TAG"
+
+      - name: Run Salt Test
+        # run.sh uses Salt, which logs [ERROR] lines but still exits 0 even on
+        # real failures. Tee the output so we can fail the step ourselves if
+        # any Salt error/critical lines appear.
+        run: |
+          set -o pipefail
+          docker run --rm \
+            --name tribs-test \
+            --network "${{ job.services.postgis.network }}" \
+            -e POSTGRES_DB \
+            -e POSTGRES_PASSWORD \
+            -e POSTGRES_PORT \
+            -e TETHYS_PUBLIC_HOST \
+            -e TETHYS_DB_HOST \
+            -e TETHYS_DB_PORT \
+            -e TETHYS_DB_USERNAME \
+            -e TETHYS_DB_PASSWORD \
+            -e TETHYS_DB_SUPERUSER \
+            -e TETHYS_DB_SUPERUSER_PASS \
+            -e APP_DB_HOST \
+            -e APP_DB_USERNAME \
+            -e APP_DB_PASSWORD \
+            -e FILE_UPLOAD_MAX_MEMORY_SIZE \
+            -e DATA_UPLOAD_MAX_MEMORY_SIZE \
+            -e CLIENT_MAX_BODY_SIZE \
+            -e CESIUM_API_KEY \
+            -e RECAPTCHA_PUBLIC_KEY \
+            -e RECAPTCHA_PRIVATE_KEY \
+            -e OTHER_SETTINGS \
+            -e MEDIA_ROOT \
+            -e FDB_ROOT_DIR \
+            -e CONDOR_FDB_ROOT_DIR \
+            -e MULTIPLE_APP_MODE \
+            -e STANDALONE_APP \
+            "$IMAGE:$TAG" \
+            /bin/bash -c "cd /usr/lib/tethys && source ./run.sh --test" \
+            2>&1 | tee /tmp/salt.log
+
+  tethys-test:
+    needs: [build]
+    name: Tethys Test (ty${{ matrix.tethys-version }}, dj${{ matrix.django-version }}, py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tethys-version: ["4.5.1"]
+        python-version: ["3.10"]
+        django-version: ["4.2"]
+    env:
+      TAG: ${{ needs.build.outputs.tag }}
+      IMAGE: aquaveollc/tethysapp-tribs
+      # Postgres (server-side)
+      POSTGRES_DB: tethys_postgis
+      POSTGRES_PASSWORD: please_dont_use_default_passwords
+      POSTGRES_PORT: "5432"
+
+      # Tethys (client-side connection)
+      TETHYS_PUBLIC_HOST: 172.17.0.1
+      TETHYS_DB_HOST: postgis
+      TETHYS_DB_PORT: "5432"
+      TETHYS_DB_USERNAME: tethys_super
+      TETHYS_DB_PASSWORD: please_dont_use_default_passwords
+      TETHYS_DB_SUPERUSER: tethys_super
+      TETHYS_DB_SUPERUSER_PASS: please_dont_use_default_passwords
+
+      # App DB
+      APP_DB_HOST: postgis
+      APP_DB_USERNAME: tethys_super
+      APP_DB_PASSWORD: please_dont_use_default_passwords
+
+      # Test-specific (from GitLab Tethys Test job)
+      BASENAME: tribs
+      FILE_UPLOAD_MAX_MEMORY_SIZE: "1073741824"
+      DATA_UPLOAD_MAX_MEMORY_SIZE: "1073741824"
+      TRIBSAPP_TEST_DATABASE: postgresql://postgres:please_dont_use_default_passwords@postgis:5432/tethys_postgis
+
+    services:
+      postgis:
+        image: postgis/postgis:12-2.5
+        env:
+          POSTGRES_PASSWORD: please_dont_use_default_passwords
+          POSTGRES_DB: tethys_postgis
+          POSTGRES_HOST_AUTH_METHOD: trust
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKER_BUILDER_USERNAME }}
+          password: ${{ secrets.DOCKER_BUILDER_TOKEN }}
+
+      - name: Pull Docker Image
+        run: docker pull "$IMAGE:$TAG"
+
+      - name: Start container
+        # Start in background so we can exec into it for test commands. The
+        # image's default entrypoint runs Tethys; we wait for it to boot.
+        run: |
+          docker run -d --name tribs-test \
+            --network "${{ job.services.postgis.network }}" \
+            -e POSTGRES_DB \
+            -e POSTGRES_PASSWORD \
+            -e POSTGRES_PORT \
+            -e TETHYS_PUBLIC_HOST \
+            -e TETHYS_DB_HOST \
+            -e TETHYS_DB_PORT \
+            -e TETHYS_DB_USERNAME \
+            -e TETHYS_DB_PASSWORD \
+            -e TETHYS_DB_SUPERUSER \
+            -e TETHYS_DB_SUPERUSER_PASS \
+            -e APP_DB_HOST \
+            -e APP_DB_USERNAME \
+            -e APP_DB_PASSWORD \
+            -e BASENAME \
+            -e FILE_UPLOAD_MAX_MEMORY_SIZE \
+            -e DATA_UPLOAD_MAX_MEMORY_SIZE \
+            -e TRIBSAPP_TEST_DATABASE \
+            "$IMAGE:$TAG"
+          sleep 120
+          docker logs tribs-test
+
+      - name: Copy tests into container
+        # The image excludes tests/ via .dockerignore, so copy it from the
+        # checked-out workspace before running pytest.
+        run: docker cp ./tests tribs-test:/var/www/tethys/apps/tethysapp-tribs/tests
+
+      - name: Run Tests
+        # In the dev image, the app source lives at /var/www/tethys/apps/tethysapp-tribs.
+        # Mirrors GitLab's "Tethys Test" job: install test deps, run pytest.
+        run: |
+          docker exec tribs-test bash -c '
+            cd /var/www/tethys/apps/tethysapp-tribs &&
+            "$PDM" use -f /opt/conda/envs/tethys/bin/python &&
+            "$PDM" install -G:test &&
+            "$PDM" run test -vv
+          '

@@ -18,6 +18,7 @@ from sqlalchemy.exc import InvalidRequestError
 from sqlalchemy.orm import sessionmaker
 
 from tethysapp.tribs.app import Tribs as app
+from tethysapp.tribs.workflows.workflow_registry import TRIBS_WORKFLOWS
 from tethysext.atcore.models.app_users import AppUser, AppUsersBase
 from tribs_adapter.resources import Project, Dataset, Scenario, Realization
 from tethysapp.tribs.consumers.backend import BackendConsumer
@@ -236,7 +237,7 @@ def _make_project(
 
         if with_workflow:
             # Add a workflow to the project
-            from tribs_adapter.workflows import BulkDataRetrievalWorkflow
+            BulkDataRetrievalWorkflow = TRIBS_WORKFLOWS['bulk_data_retrieval_workflow']
             workflow = BulkDataRetrievalWorkflow.new(
                 app=app,
                 name='Test Bulk Data Retrieval',

@@ -16,7 +16,6 @@ jest.setTimeout(10000);
 const pauseFor = (milliseconds) =>
   new Promise((resolve) => setTimeout(resolve, milliseconds));
 
-// TODO Update tests since some workflows are removed
 const workflows = {
   "available": [
     {
@@ -434,14 +433,14 @@ it("Opens the current progress on an existing History Item", async () => {
 it("Filters the workflows based on the search input", async () => {
   const { user } = await setupTests();
   const workflows = screen.getAllByTestId("tree-item-child");
-  expect(workflows).toHaveLength(11); // 9 workflows and 2 history tree items
+  expect(workflows).toHaveLength(8); // 6 workflows and 2 history tree items
 
   const searchBar = screen.getByPlaceholderText("Search Workflows");
   await user.type(searchBar, "Generate");
   expect(searchBar).toHaveValue("Generate");
 
   const rerenderedWorkflows = screen.getAllByTestId("tree-item-child");
-  expect(rerenderedWorkflows).toHaveLength(4); // 2 workflows and 2 history tree items
+  expect(rerenderedWorkflows).toHaveLength(3); // 1 filtered workflow and 2 history tree items (history is not filtered)
 });
 
 it("Changes the name of the history item", async () => {

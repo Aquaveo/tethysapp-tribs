@@ -9,7 +9,7 @@
 from unittest.mock import MagicMock
 
 from tethysapp.tribs.controllers.projects.tabs.tribs_project_workflows_tab import TribsProjectWorkflowsTab
-from tribs_adapter.workflows import TRIBS_WORKFLOWS
+from tethysapp.tribs.workflows.workflow_registry import TRIBS_WORKFLOWS
 from tribs_adapter.services.tribs_spatial_manager import TribsSpatialManager
 from tethysapp.tribs.services.tribs_map_manager import TribsMapManager
 

@@ -18,7 +18,8 @@ dependencies:
 - geoalchemy2>=0.14.1
 - geoserver-restconfig==2.0.9
 - jinja2>=3.1.2
-- libgdal=3.4
+- libgdal
+- gdal
 - matplotlib
 - netCDF4
 # - nodejs=20.*  # Installed with NVM in Dockerfile now
@@ -41,3 +42,5 @@ dependencies:
 - whitebox
 - xarray
 - tethys_dataset_services>=2.4.1
+- pip:
+    - bokeh-django
