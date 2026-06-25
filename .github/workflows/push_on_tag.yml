@@ -1,0 +1,56 @@
+name: Release on Tag
+
+# Push to docker hub if tag has been created.
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tethys-version: ["4.5.1"]
+        python-version: ["3.10"]
+        django-version: ["4.2"]
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: 'recursive'
+
+      - name: Set Env
+        run: echo "IMAGE=aquaveollc/tethysapp-tribs" >> $GITHUB_ENV
+
+      - id: set-tag
+        name: Set Tag
+        run: |
+          TAG="${GITHUB_REF:10}-ty${{ matrix.tethys-version }}-py${{ matrix.python-version }}-dj${{ matrix.django-version }}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKER_BUILDER_USERNAME }}
+          password: ${{ secrets.DOCKER_BUILDER_TOKEN }}
+
+      - name: Build and Push Tag
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: ${{ env.IMAGE }}:${{ env.TAG }}
+          # GitHub Actions cache — survives across runs
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            TETHYS_VERSION=${{ matrix.tethys-version }}
+            PYTHON_VERSION=${{ matrix.python-version }}
+            DJANGO_VERSION=${{ matrix.django-version }}
