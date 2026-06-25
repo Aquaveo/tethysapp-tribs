@@ -146,7 +146,8 @@ jobs:
     name: Publish Helm Chart
     needs: [helm-check]
     # Only publish on direct push to main; skip on PRs.
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # TODO revert to main-only before merge
+    # if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: read
