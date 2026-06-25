@@ -1,4 +1,4 @@
-name: CI
+name: Commits without Tag
 
 on:
   pull_request:
@@ -146,8 +146,7 @@ jobs:
     name: Publish Helm Chart
     needs: [helm-check]
     # Only publish on direct push to main; skip on PRs.
-    # TODO revert to main-only before merge
-    # if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: read
