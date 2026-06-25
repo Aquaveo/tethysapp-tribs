@@ -101,6 +101,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0  # need base branch history for the version-bump diff
 
       - name: Setup Helm
         uses: azure/setup-helm@v4
@@ -120,6 +122,25 @@ jobs:
         # Mirrors GitLab's `check_helm_chart` (without --upload): verify the
         # chart can be packaged.
         run: helm package "$HELM_CHART" --destination /tmp/helm-pkg
+
+      - name: Enforce version bump
+        # Ports check_helm_chart's intent: if chart files changed vs the PR's
+        # base branch, Chart.yaml's `version:` must have been bumped too.
+        if: github.event_name == 'pull_request'
+        run: |
+          BASE="origin/${{ github.base_ref }}"
+          git fetch origin "${{ github.base_ref }}" --depth=1
+          if git diff --quiet "$BASE" -- "$HELM_CHART/"; then
+            echo "No chart changes vs $BASE — nothing to enforce."
+            exit 0
+          fi
+          OLD_VER=$(git show "$BASE:$HELM_CHART/Chart.yaml" | awk '/^version:/ {print $2; exit}')
+          NEW_VER=$(awk '/^version:/ {print $2; exit}' "$HELM_CHART/Chart.yaml")
+          echo "Chart files changed. Old version: $OLD_VER, new version: $NEW_VER"
+          if [ "$OLD_VER" = "$NEW_VER" ]; then
+            echo "::error file=$HELM_CHART/Chart.yaml::Chart files changed but version is still $NEW_VER. Bump 'version:' in Chart.yaml."
+            exit 1
+          fi
 
   build:
     name: Build
