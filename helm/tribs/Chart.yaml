@@ -18,7 +18,7 @@ dependencies:
 - name: 'tribs-condor'
   alias: 'condor'
   repository: 'oci://ghcr.io/aquaveo'
-  version: '*'
+  version: '>=0.4.0-0'  # TODO update to >=0.4.0,<0.5 before merge
 
 - name: 'redis'
   repository: 'https://charts.bitnami.com/bitnami'
