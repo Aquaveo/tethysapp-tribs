@@ -24,8 +24,7 @@ jobs:
       - name: Set Env
         run: echo "IMAGE=aquaveollc/tethysapp-tribs" >> $GITHUB_ENV
 
-      - id: set-tag
-        name: Set Tag
+      - name: Set Tag
         run: |
           TAG="${GITHUB_REF:10}-ty${{ matrix.tethys-version }}-py${{ matrix.python-version }}-dj${{ matrix.django-version }}"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
