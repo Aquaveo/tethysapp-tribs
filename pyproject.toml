@@ -10,10 +10,12 @@ dependencies = [
     "sqlalchemy[asyncio]<2",
     "asyncpg>=0.29.0",
     "aioshutil>=1.5",
-    "channels<4",
+    "channels[daphne]>=4",
+    "redis<8",
     "tethys-dataset-services>=2.4.1",
+    "bokeh_django"
 ]
-requires-python = ">=3.10,<3.11"
+requires-python = ">=3.12"
 readme = "README.md"
 license = { text = "" }
 keywords = [""]
