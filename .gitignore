@@ -49,6 +49,7 @@ docker/data/
 
 # PDM
 .pdm-python
+.python-version
 
 # Node/React
 node_modules*
