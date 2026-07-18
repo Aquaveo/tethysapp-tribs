@@ -11,7 +11,7 @@ channels:
 - conda-forge
 
 dependencies:
-- python=3.10
+- python=3.13
 - cxx-compiler
 - aioshutil
 - asyncpg
@@ -23,7 +23,7 @@ dependencies:
 - matplotlib
 - netCDF4
 # - nodejs=20.*  # Installed with NVM in Dockerfile now
-- numpy<2.0.0
+- numpy>=2
 - pandas>=2.2.2
 - pillow
 - psycopg2
