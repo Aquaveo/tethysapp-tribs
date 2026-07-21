@@ -322,9 +322,7 @@ async def test_send_data(rbh, a_complete_project, tribsutils, a_session):
         return resource.serialize()
 
     expected_payload = await a_session.run_sync(_expected, resource=dataset)
-    rbh.backend_consumer.send_action.assert_called_once_with(
-        BackendActions.DATASET_DATA, expected_payload
-    )
+    rbh.backend_consumer.send_action.assert_called_once_with(BackendActions.DATASET_DATA, expected_payload)
 
 
 @pytest.mark.asyncio
