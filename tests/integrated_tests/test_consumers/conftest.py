@@ -5,7 +5,6 @@ import warnings
 import shutil
 
 import aioshutil
-import pytest
 import pytest_asyncio
 from aiopath import AsyncPath
 from django.urls import path
@@ -26,8 +25,7 @@ from tethysapp.tribs.consumers.handlers.resource_backend_handler import Resource
 
 
 @pytest_asyncio.fixture
-@pytest.mark.django_db(transaction=True)
-async def a_admin_user(django_user_model):
+async def a_admin_user(transactional_db, django_user_model):
     _async_create_user = database_sync_to_async(django_user_model.objects.create_user)
     admin_user = await _async_create_user(username='admin', password='password')
     yield admin_user

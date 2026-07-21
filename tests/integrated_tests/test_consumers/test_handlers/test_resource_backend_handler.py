@@ -25,7 +25,7 @@ async def test_action_handler(rbh):
     mock_data = {'id': '4567'}
     wrapped = ResourceBackendHandler.action_handler(mock_method)
     await wrapped(rbh, mock_event, mock_action, mock_data)
-    assert await mock_method.called_once_with(rbh, mock_event, mock_action, mock_data)
+    mock_method.assert_called_once_with(rbh, mock_event, mock_action, mock_data, mock.ANY)
 
 
 @pytest.mark.asyncio
@@ -39,10 +39,10 @@ async def test_action_handler_validation_error(rbh, mocker):
     mock_data = {'id': '4567'}
     wrapped = ResourceBackendHandler.action_handler(mock_method)
     await wrapped(rbh, mock_event, mock_action, mock_data)
-    assert await mock_method.called_once_with(rbh, mock_event, mock_action, mock_data)
-    assert await rbh.send_error.called_once_with(
+    mock_method.assert_called_once_with(rbh, mock_event, mock_action, mock_data, mock.ANY)
+    rbh.send_error.assert_called_once_with(
         f'Validation error occurred while handling {mock_action.get("type")} action "{mock_action.get("id")}".',
-        mock_action, mock_data, validation_error.errors()
+        mock_action, mock_data, {'errors': validation_error.errors()}
     )
 
 
@@ -56,8 +56,8 @@ async def test_action_handler_value_error(rbh, mocker):
     mock_data = {'id': '4567'}
     wrapped = ResourceBackendHandler.action_handler(mock_method)
     await wrapped(rbh, mock_event, mock_action, mock_data)
-    assert await mock_method.called_once_with(rbh, mock_event, mock_action, mock_data)
-    assert await rbh.send_error.called_once_with('test value error', mock_action, mock_data)
+    mock_method.assert_called_once_with(rbh, mock_event, mock_action, mock_data, mock.ANY)
+    rbh.send_error.assert_called_once_with('test value error', mock_action, mock_data)
 
 
 @pytest.mark.asyncio
@@ -70,9 +70,11 @@ async def test_action_handler_unexpected_error(rbh, mocker):
     mock_data = {'id': '4567'}
     wrapped = ResourceBackendHandler.action_handler(mock_method)
     await wrapped(rbh, mock_event, mock_action, mock_data)
-    assert await mock_method.called_once_with(rbh, mock_event, mock_action, mock_data)
-    assert await rbh.send_error.called_once_with('test unexpected error', mock_action, mock_data)
-    assert mock_log.exception.called_with(f'An unexpected error occurred while handling action: {mock_action}')
+    mock_method.assert_called_once_with(rbh, mock_event, mock_action, mock_data, mock.ANY)
+    rbh.send_error.assert_called_once_with(
+        f'An unexpected error occurred while handling action: {mock_action}', mock_action, mock_data
+    )
+    mock_log.exception.assert_called_with(f'An unexpected error occurred while handling action: {mock_action}')
 
 
 @pytest.mark.asyncio
@@ -301,7 +303,7 @@ async def test_get_spatial_manager(rbh, a_complete_project, mocker):
     ret = await rbh.get_spatial_manager()
     assert isinstance(ret, TribsSpatialManager)
     assert ret.gs_engine == mock_gsds.return_value
-    assert mock_gsds.called_once_with('geoserver', as_engine=True)
+    mock_gsds.assert_called_once_with('primary_geoserver', as_engine=True)
 
 
 @pytest.mark.asyncio
@@ -315,8 +317,13 @@ async def test_send_data(rbh, a_complete_project, tribsutils, a_session):
 
     dataset = await a_session.run_sync(_data)
     await rbh.send_data(a_session, dataset, action_id)
-    assert await rbh.backend_consumer.send_data.called_once_with(
-        BackendActions.DATASET_DATA, await tribsutils.a_expected_payload(a_session, dataset, from_action=action_id)
+
+    def _expected(session, resource):
+        return resource.serialize()
+
+    expected_payload = await a_session.run_sync(_expected, resource=dataset)
+    rbh.backend_consumer.send_action.assert_called_once_with(
+        BackendActions.DATASET_DATA, expected_payload
     )
 
 
@@ -326,19 +333,19 @@ async def test_send_data_send_data_not_implemented(rbh, mocker, a_session):
     with pytest.raises(NotImplementedError) as exc:
         await rbh.send_data(a_session, None, "1234")
     assert str(exc.value) == "The send_data_action property must be implemented by the subclass."
-    assert mock_log.error.called_once_with(f'No SEND_DATA_ACTION defined for "{rbh.__class__.__name__}"')
+    mock_log.error.assert_called_once_with(f'No SEND_DATA_ACTION defined for "{rbh.__class__.__name__}".')
 
 
 @pytest.mark.asyncio
 async def test_send_action(rbh):
     await rbh.send_action(BackendActions.DATASET_CREATE, {"id": "1234"})
-    assert await rbh.backend_consumer.send_action.called_once_with(BackendActions.DATASET_CREATE, "1234")
+    rbh.backend_consumer.send_action.assert_called_once_with(BackendActions.DATASET_CREATE, {"id": "1234"})
 
 
 @pytest.mark.asyncio
 async def test_send_acknowledge(rbh):
     await rbh.send_acknowledge("some message", BackendActions.DATASET_CREATE, {"id": "1234"}, {"foo": "bar"})
-    assert await rbh.backend_consumer.send_acknowledge.called_once_with(
+    rbh.backend_consumer.send_acknowledge.assert_called_once_with(
         "some message", BackendActions.DATASET_CREATE, {"id": "1234"}, {"foo": "bar"}
     )
 
@@ -351,7 +358,7 @@ async def test_send_error(rbh):
             "id": "4567"
         }}, {"id": "1234"}, {"foo": "bar"}
     )
-    assert await rbh.backend_consumer.send_error.called_once_with(
+    rbh.backend_consumer.send_error.assert_called_once_with(
         "some message", {"action": {
             "type": BackendActions.DATASET_CREATE,
             "id": "4567"

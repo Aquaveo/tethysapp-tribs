@@ -147,8 +147,8 @@ async def test_workflow_receive_create(a_session, a_empty_project, make_communic
         post_workflows = await tribsutils.a_get_workflows(a_session, project)
         assert len(post_workflows) == 1
         assert payload == await tribsutils.a_expected_payload(a_session, post_workflows[0], from_action=action_id)
-        assert mock_reverse.called_with(
-            'tribs:_workflow',
+        mock_reverse.assert_called_with(
+            'tribs:bulk_data_retrieval_workflow_workflow',
             kwargs={
                 'resource_id': post_workflows[0].resource_id,
                 'workflow_id': post_workflows[0].id
