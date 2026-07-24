@@ -31,7 +31,7 @@ RUN mv ${DEV_REACT_CONFIG} ${PROD_REACT_CONFIG} \
 RUN npm install \
   && npm run build-low-mem
 
-FROM aquaveollc/tethysext-atcore:1.15.1-ty4.4.3-py3.10-dj4.2
+FROM aquaveollc/tethysext-atcore:1.15.3-ty4.5.1-py3.13-dj4.2
 
 ARG DJANGO_VERSION=4.2.*
 
@@ -113,8 +113,7 @@ ADD --chown=www:www conda-lock.yml /tmp/conda-lock.yml
 # Remove the old version of tethys-dataset-services that is installed by Tethys (it will be reinstalled from conda-lock.yml)
 # Note, this can probably be removed once there is a Tethys version that includes the updated tethys-dataset-services
 RUN micromamba remove -y -n ${CONDA_ENV_NAME} tethys_dataset_services \
-  && /bin/bash -c "cd /tmp/ && micromamba install -q -y -n ${CONDA_ENV_NAME} -f conda-lock.yml" \
-  && micromamba install -c conda-forge 'numpy<2.0.0'
+  && /bin/bash -c "cd /tmp/ && micromamba install -q -y -n ${CONDA_ENV_NAME} -f conda-lock.yml"
 
 # TDS is 2.3.0 right here
 RUN micromamba list -n ${CONDA_ENV_NAME} tethys_dataset_services && micromamba run -n ${CONDA_ENV_NAME} pip show tethys_dataset_services

@@ -11,7 +11,12 @@ channels:
 - conda-forge
 
 dependencies:
-- python=3.10
+- python=3.13
+# Pin Django: it is pulled in transitively (bokeh-django, channels, etc.) and
+# an unpinned re-lock grabbed Django 6, which requires PostgreSQL 14+ and
+# broke migrations against the postgis 12 database used in CI/production.
+# Keep in sync with `django<5` in pyproject.toml and the dj4.2 image tags.
+- django=4.2.*
 - cxx-compiler
 - aioshutil
 - asyncpg
@@ -23,7 +28,7 @@ dependencies:
 - matplotlib
 - netCDF4
 # - nodejs=20.*  # Installed with NVM in Dockerfile now
-- numpy<2.0.0
+- numpy>=2
 - pandas>=2.2.2
 - pillow
 - psycopg2

@@ -21,7 +21,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
-          python-version: '3.10'
+          python-version: '3.13'
           cache: pip
 
       - name: Install pdm
@@ -43,7 +43,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
-          python-version: '3.10'
+          python-version: '3.13'
           cache: pip
 
       - name: Install pdm
@@ -186,7 +186,7 @@ jobs:
       fail-fast: false
       matrix:
         tethys-version: ["4.5.1"]
-        python-version: ["3.10"]
+        python-version: ["3.13"]
         django-version: ["4.2"]
     outputs:
       tag: ${{ steps.set-tag.outputs.tag }}
@@ -242,7 +242,7 @@ jobs:
       fail-fast: false
       matrix:
         tethys-version: ["4.5.1"]
-        python-version: ["3.10"]
+        python-version: ["3.13"]
         django-version: ["4.2"]
     env:
       TAG: ${{ needs.build.outputs.tag }}
@@ -350,7 +350,7 @@ jobs:
       fail-fast: false
       matrix:
         tethys-version: ["4.5.1"]
-        python-version: ["3.10"]
+        python-version: ["3.13"]
         django-version: ["4.2"]
     env:
       TAG: ${{ needs.build.outputs.tag }}
@@ -432,8 +432,24 @@ jobs:
             -e DATA_UPLOAD_MAX_MEMORY_SIZE \
             -e TRIBSAPP_TEST_DATABASE \
             "$IMAGE:$TAG"
-          sleep 120
+
+      - name: Wait for Tethys startup
+        # Tests need the database migrations that run during container
+        # startup. Startup takes longer than a fixed sleep on CI runners,
+        # so wait for the flag file that startup touches when it finishes
+        # (see docker/salt/post_app_patches.sls). Give up after 10 minutes.
+        run: |
+          for i in $(seq 1 60); do
+            if docker exec tribs-test test -f /var/lib/tethys_persist/tribs_post_patches_setup_complete; then
+              echo "Tethys startup complete."
+              exit 0
+            fi
+            echo "Still starting up... (attempt $i of 60)"
+            sleep 10
+          done
+          echo "::error::Tethys did not start within 10 minutes. Container logs:"
           docker logs tribs-test
+          exit 1
 
       - name: Copy tests into container
         # The image excludes tests/ via .dockerignore, so copy it from the
