@@ -4,6 +4,7 @@ from sqlalchemy.orm.session import make_transient
 
 from tribs_adapter.resources import Scenario, Dataset
 from ..backend_actions import BackendActions
+from ...input_file_defaults_registry import INPUT_FILE_DEFAULTS
 from .resource_backend_handler import ResourceBackendHandler as RBH
 
 log = logging.getLogger(__name__)
@@ -35,13 +36,16 @@ class ScenarioBackendHandler(RBH):
         created_by = user.username if user else 'unknown'
 
         def _create_scenario(session, data, created_by, project):
-            return Scenario.new(
+            scenario = Scenario.new(
                 session=session,
                 name=data.get('name'),
                 description=data.get('description'),
                 created_by=created_by,
                 project=project,
             )
+            if INPUT_FILE_DEFAULTS:
+                scenario.update_input_file(INPUT_FILE_DEFAULTS)
+            return scenario
 
         new_scenario = await session.run_sync(_create_scenario, data, created_by, project)
         await self.send_data(session, new_scenario, action.get('id'))
