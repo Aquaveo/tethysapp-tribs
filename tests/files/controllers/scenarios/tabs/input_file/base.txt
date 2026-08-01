@@ -80,7 +80,7 @@
 						Key:							OPTINTERCEPT
 						Values:								Canopywaterbalance (2)
 						Key:							OPTLANDUSE
-						Values:								Dynamic (1)
+						Values:								Static (0)
 						Key:							OPTLUINTERP
 						Values:								Constant (0)
 						Key:							GFLUXOPTION
