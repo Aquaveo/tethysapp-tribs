@@ -1,6 +1,7 @@
 import axios from "axios";
 
 import { getTethysPortalHost } from "react-tethys/services/utilities";
+import { getRefreshToken, setTokens } from "react-tethys/services/api/tokens";
 
 const TETHYS_PORTAL_HOST = getTethysPortalHost();
 
@@ -13,18 +14,68 @@ const apiClient = axios.create({
   },
 });
 
+async function refreshAccess() {
+  const res = await axios.post(
+    `${TETHYS_PORTAL_HOST.origin}/api/token/refresh/`,
+    { refresh: getRefreshToken() },
+    { withCredentials: true }
+  );
+  setTokens(res.data.access, res.data.refresh);
+  return res.data.access;
+}
+
 function handleSuccess(response) {
   return response.data ? response.data : response;
 }
 
-function handleError(error) {
-  let res = error.response;
-  if (res.status === 401) {
-    // Redirect to Tethys Portal login
-    window.location.assign(
-      `${TETHYS_PORTAL_HOST}/accounts/login?next=${window.location.pathname}`
-    );
+function redirectToLogin() {
+  window.location.assign(
+    `${TETHYS_PORTAL_HOST.origin}/accounts/login?next=${window.location.pathname}`
+  );
+}
+
+function getExpiryMs(token) {
+  try {
+    const payload = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    return JSON.parse(atob(payload)).exp * 1000;
+  } catch {
+    return null;
   }
+}
+
+let refreshTimer = null;
+
+export function scheduleRefresh(access) {
+  clearTimeout(refreshTimer);
+  const expiry = getExpiryMs(access);
+  if (!expiry) return;
+  // refresh 60s before expiry
+  const delay = Math.max(expiry - Date.now() - 60_000, 0);
+  refreshTimer = setTimeout(async() => {
+    try {
+      scheduleRefresh(await refreshAccess());
+    } catch {
+      redirectToLogin();
+    }
+  }, delay);
+}
+
+async function handleError(error) {
+  const res = error.response;
+  const original = error.config;
+  // try one refresh if the access token is expired, but don't retry if the refresh fails or if the request was to /api/token/ (to avoid infinite loops)
+  if (res?.status === 401 && !original._retry && !original.url.includes("/api/token/")) {
+    original._retry = true;
+    try {
+      const access = await refreshAccess();
+      original.headers.Authorization = `Bearer ${access}`;
+      return apiClient(original);
+    } catch {
+      redirectToLogin();
+      return Promise.reject(error);
+    }
+  }
+  if (res?.status === 401) redirectToLogin();
   return Promise.reject(error);
 }
 
