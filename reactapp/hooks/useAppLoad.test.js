@@ -4,7 +4,7 @@ import { rest } from "msw";
 
 import { server } from "config/tests/mocks/server";
 import { useAppLoad } from "hooks/useAppLoad";
-import { getAccessToken, getRefreshToken } from "react-tethys/services/api/tethys";
+import { getAccessToken, getRefreshToken } from "react-tethys/services/api/tokens";
 
 const PROJECT_ID = "12345678-90a1-4b2c-def3-4567ab8cd90e";
 const PATHNAME = `/apps/tribs/project/${PROJECT_ID}/editor/`;
