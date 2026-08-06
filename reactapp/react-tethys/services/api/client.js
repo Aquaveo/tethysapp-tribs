@@ -1,7 +1,7 @@
 import axios from "axios";
 
 import { getTethysPortalHost } from "react-tethys/services/utilities";
-import { getRefreshToken, setTokens } from "react-tethys/services/api/tokens";
+import { getAccessToken, getRefreshToken, setTokens } from "react-tethys/services/api/tokens";
 
 const TETHYS_PORTAL_HOST = getTethysPortalHost();
 
@@ -78,6 +78,12 @@ async function handleError(error) {
   if (res?.status === 401) redirectToLogin();
   return Promise.reject(error);
 }
+
+apiClient.interceptors.request.use((config) => {
+  const access = getAccessToken();
+  if (access) config.headers.Authorization = `Bearer ${access}`;
+  return config;
+});
 
 apiClient.interceptors.response.use(handleSuccess, handleError);
 
