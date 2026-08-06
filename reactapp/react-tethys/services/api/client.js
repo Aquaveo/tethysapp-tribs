@@ -2,7 +2,6 @@ import axios from "axios";
 
 import { getTethysPortalHost } from "react-tethys/services/utilities";
 import { getAccessToken, getRefreshToken, setTokens } from "react-tethys/services/api/tokens";
-import { validate } from "plotly.js";
 
 const TETHYS_PORTAL_HOST = getTethysPortalHost();
 
