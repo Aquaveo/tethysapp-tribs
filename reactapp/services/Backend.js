@@ -2,6 +2,8 @@ import base64ArrayBuffer from "lib/base64ArrayBuffer";
 import newUUID from "lib/uuid.js";
 
 import { getTethysPortalHost } from "react-tethys/services/utilities";
+import { getAccessToken } from "react-tethys/services/api/tokens";
+import { getFreshAccessToken, redirectToLogin } from "react-tethys/services/api/client";
 import { toast } from "react-toastify";
 
 export default class Backend {
@@ -70,8 +72,10 @@ export default class Backend {
   }
 
   connect(onConnectCallback) {
-    this.onConnectCallback = onConnectCallback
-    this.webSocket = new WebSocket(this.wsUrl);
+    this.onConnectCallback = onConnectCallback;
+    const token = getAccessToken();
+    const url = token ? `${this.wsUrl}?token=${encodeURIComponent(token)}` : this.wsUrl;
+    this.webSocket = new WebSocket(url);
     this.webSocket.addEventListener("open", () => {
       if (this.isReconnecting) {
         toast.dismiss(this.reconnectToastId);
@@ -86,6 +90,7 @@ export default class Backend {
         });
       }
       this.isReconnecting = false;
+      this.reconnectInterval = 5000; // Reset the reconnect interval after a successful connection
       onConnectCallback();
     });
     /***************************************************************************/
@@ -110,10 +115,8 @@ export default class Backend {
       }
     });
 
-    if (!this.reconnectInterval <= 320000) {
-      this.webSocket.addEventListener("close", this.reconnect);
-      this.webSocket.addEventListener("error", this.reconnect);
-    }
+    this.webSocket.addEventListener("close", this.reconnect);
+    this.webSocket.addEventListener("error", this.reconnect);
   }
 
   reconnect() {
@@ -146,7 +149,12 @@ export default class Backend {
       });
     }
     this.isReconnecting = true;
-    setTimeout(() => {
+    setTimeout(async () => {
+      try {
+        await getFreshAccessToken();
+      } catch(e) {
+        if (e.response?.status === 401) return redirectToLogin();
+      }
       this.connect(this.onConnectCallback);
     }, this.reconnectInterval);
     this.reconnectInterval *= 2;

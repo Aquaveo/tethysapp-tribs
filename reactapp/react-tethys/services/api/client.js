@@ -2,6 +2,7 @@ import axios from "axios";
 
 import { getTethysPortalHost } from "react-tethys/services/utilities";
 import { getAccessToken, getRefreshToken, setTokens } from "react-tethys/services/api/tokens";
+import { validate } from "plotly.js";
 
 const TETHYS_PORTAL_HOST = getTethysPortalHost();
 
@@ -24,11 +25,14 @@ async function refreshAccess() {
   return res.data.access;
 }
 
-function handleSuccess(response) {
-  return response.data ? response.data : response;
+export async function getFreshAccessToken() {
+  const access = getAccessToken();
+  const expiry = access && getExpiryMs(access);
+  if (expiry && expiry - Date.now() > 30_000) return access;  /// still valid, use as-is
+  return refreshAccess();  // expired or about to - refresh first
 }
 
-function redirectToLogin() {
+export function redirectToLogin() {
   window.location.assign(
     `${TETHYS_PORTAL_HOST.origin}/accounts/login?next=${window.location.pathname}`
   );
@@ -58,6 +62,10 @@ export function scheduleRefresh(access) {
       redirectToLogin();
     }
   }, delay);
+}
+
+function handleSuccess(response) {
+  return response.data ? response.data : response;
 }
 
 async function handleError(error) {
