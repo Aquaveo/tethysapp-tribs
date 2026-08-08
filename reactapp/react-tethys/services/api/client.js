@@ -7,7 +7,6 @@ const TETHYS_PORTAL_HOST = getTethysPortalHost();
 
 const apiClient = axios.create({
   baseURL: `${TETHYS_PORTAL_HOST}`,
-  withCredentials: true,
   headers: {
     Accept: "application/json",
     "Content-Type": "application/json",
@@ -18,7 +17,6 @@ async function refreshAccess() {
   const res = await axios.post(
     `${TETHYS_PORTAL_HOST.origin}/api/token/refresh/`,
     { refresh: getRefreshToken() },
-    { withCredentials: true }
   );
   setTokens(res.data.access, res.data.refresh);
   return res.data.access;
