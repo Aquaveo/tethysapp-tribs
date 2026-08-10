@@ -17,16 +17,40 @@ from .handlers import (
 )
 from tethysapp.tribs.app import Tribs as app
 
+from urllib.parse import parse_qs
+from django.contrib.auth import get_user_model
+from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.tokens import AccessToken
+
+
 log = logging.getLogger(__name__)
+
+
+@database_sync_to_async
+def _get_user_from_jwt(token_str):
+    try:
+        token = AccessToken(token_str)  # verifies signature and expiry
+        return get_user_model().objects.get(pk=token["user_id"])
+    except (TokenError, KeyError, get_user_model().DoesNotExist):
+        return None
 
 
 @consumer(name="project-editor-backend", url="project/{resource_id}/editor/")
 class BackendConsumer(AsyncConsumer):
     channel_layer_alias = app.package
-
     file_q = queue.Queue()
 
     async def websocket_connect(self, event):
+        user = self.scope.get("user")
+        if user is None or not user.is_authenticated:
+            query = parse_qs(self.scope.get("query_string", b"").decode())
+            token = next(iter(query.get("token", [])), None)
+            user = await _get_user_from_jwt(token) if token else None
+            if user is None:
+                await self.send({"type": "websocket.close", "code": 4401})
+                return
+            self.scope["user"] = user
+
         self.sessionmaker = None
         db_url = await database_sync_to_async(
             app.get_persistent_store_database,
