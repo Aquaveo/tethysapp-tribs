@@ -132,7 +132,7 @@ async def test_scenario_receive_create(a_session, a_empty_project, make_communic
         assert payload["name"] == data["name"]
         assert payload["description"] == data["description"]
         assert tribsutils.is_uuid4(payload["id"])
-        assert payload["created_by"] == "unknown"
+        assert payload["created_by"] == "admin"
         post_scenarios = await tribsutils.a_get_scenarios(a_session, project)
         assert len(post_scenarios) == 1
         assert payload == await tribsutils.a_expected_payload(a_session, post_scenarios[0], from_action=action_id)
