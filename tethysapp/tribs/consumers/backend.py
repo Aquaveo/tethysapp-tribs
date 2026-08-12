@@ -80,8 +80,10 @@ class BackendConsumer(AsyncConsumer):
         log.debug("-----------WebSocket Connected-----------")
 
     async def websocket_disconnect(self, close_code):
-        self.engine and await self.engine.dispose()
-        await self.channel_layer.group_discard(self.group_name, self.channel_name)
+        if getattr(self, "engine", None):
+            await self.engine.dispose()
+        if getattr(self, "group_name", None):
+            await self.channel_layer.group_discard(self.group_name, self.channel_name)
         log.debug("-----------WebSocket Disconnected-----------")
 
     async def websocket_receive(self, event):

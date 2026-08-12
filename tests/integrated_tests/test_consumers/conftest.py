@@ -35,15 +35,12 @@ async def a_admin_user(transactional_db, django_user_model):
 @pytest_asyncio.fixture
 async def make_communicator(a_admin_user, django_user_model, mock_backend_app_get_ps_db):
     @asynccontextmanager
-    async def make(project_id, connect=True, user=False):
+    async def make(project_id, connect=True, user=True):
         try:
             application = URLRouter([
                 path("apps/tribs/project/<resource_id>/editor/ws/", BackendConsumer.as_asgi()),
             ])
             communicator = WebsocketCommunicator(application, f"/apps/tribs/project/{str(project_id)}/editor/ws/")
-            if connect:
-                connected, _ = await communicator.connect()
-                assert connected
             if user:
                 if isinstance(user, bool) or user == "admin":
                     communicator.scope["user"] = a_admin_user
@@ -51,7 +48,9 @@ async def make_communicator(a_admin_user, django_user_model, mock_backend_app_ge
                     _async_create_user = database_sync_to_async(django_user_model.objects.create_user)
                     not_admin_user = await _async_create_user(username=user, password="password")
                     communicator.scope["user"] = not_admin_user
-
+            if connect:
+                connected, _ = await communicator.connect()
+                assert connected
             yield communicator
         finally:
             await communicator.disconnect()
