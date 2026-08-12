@@ -22,6 +22,14 @@ async def test_backend_connect_no_user(a_empty_project, make_communicator):
 
 
 @pytest.mark.asyncio
+async def test_backend_connect_unauthorized(a_empty_project, make_communicator):
+    async with make_communicator(a_empty_project.id, connect=False, authorized=False) as communicator:
+        connected, close_code = await communicator.connect()
+        assert not connected
+        assert close_code == 4403
+
+
+@pytest.mark.asyncio
 async def test_action_type_missing(a_complete_project, make_communicator):
     action_id = str(uuid.uuid4())
     payload = {"foo": "bar"}

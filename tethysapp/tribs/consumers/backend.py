@@ -34,6 +34,38 @@ def _get_user_from_jwt(token_str):
         return None
 
 
+@database_sync_to_async
+def _user_can_access_project(user, project_id, ws_path):
+    """
+    Same authorization check the HTTP views perform (AppUser.can_view).
+    Organization users can edit the project they can view, so this check is sufficient for the websocket connection.
+    """
+    from django.http import HttpRequest
+    from tribs_adapter.app_users import TribsAppUser
+    from tribs_adapter.resources import Project
+
+    Session = app.get_persistent_store_database(app.DATABASE_NAME, as_sessionmaker=True)
+    session = Session()
+    try:
+        username = TribsAppUser.STAFF_USERNAME if user.is_staff else user.username
+        app_user = session.query(TribsAppUser).filter(TribsAppUser.username == username).one_or_none()
+        if app_user is None:
+            return False
+        project = session.query(Project).get(project_id)
+        if project is None:
+            return False
+        # can_view only uses the request to resolve the active app for has_permission
+        request = HttpRequest()
+        request.user = user
+        request.path = ws_path
+        return app_user.can_view(session, request, project)
+    except Exception:
+        log.exception("Project access check failed for '%s'", user.username)
+        return False
+    finally:
+        session.close()
+
+
 @consumer(name="project-editor-backend", url="project/{resource_id}/editor/")
 class BackendConsumer(AsyncConsumer):
     channel_layer_alias = app.package
@@ -49,6 +81,11 @@ class BackendConsumer(AsyncConsumer):
                 await self.send({"type": "websocket.close", "code": 4401})
                 return
             self.scope["user"] = user
+
+        self.project_id = self.scope['url_route']['kwargs']['resource_id']
+        if not await _user_can_access_project(user, self.project_id, self.scope.get("path")):
+            await self.send({"type": "websocket.close", "code": 4403})
+            return
 
         self.sessionmaker = None
         db_url = await database_sync_to_async(
@@ -68,7 +105,6 @@ class BackendConsumer(AsyncConsumer):
             WorkflowBackendHandler(self),
         )
         # Join channel group
-        self.project_id = self.scope['url_route']['kwargs']['resource_id']
         self.group_name = f"project_editor_{self.project_id}"
         await self.channel_layer.group_add(self.group_name, self.channel_name)
 
