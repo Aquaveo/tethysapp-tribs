@@ -15,7 +15,7 @@ dependencies = [
     "tethys-dataset-services>=2.4.1",
     "bokeh_django"
 ]
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 readme = "README.md"
 license = { text = "" }
 keywords = [""]
