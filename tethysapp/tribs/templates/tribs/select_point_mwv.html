@@ -1,0 +1,41 @@
+{% extends "atcore/resource_workflows/spatial_input_mwv.html" %}
+{% load tethys_gizmos static django_bootstrap5 %}
+
+{% block custom_map_tabs %}
+  <li class="nav-item" role="presentation">
+    <a class="nav-link" 
+        id="legend-tab-toggle" 
+        href="#legend-tab-panel" 
+        aria-controls="legend-tab-panel" 
+        aria-selected="true" 
+        role="tab" 
+        data-bs-toggle="tab">Legend</a>
+  </li>
+  {{ block.super }}
+{% endblock %}
+
+{% block custom_map_tab_panels %}
+    {{ block.super }}
+    <div class="tab-pane"
+      id="legend-tab-panel"
+      role="tabpanel"
+      aria-labelledby="legend-tab-toggle">
+      <div id="legend-div">
+        {% if legend_divisions %}
+        <li class="legend-group-item">
+          <label class="flatmark"><span class="display-name">{{ legend_title }}</span></label>
+        </li>
+        <ul class="legend-list" data-collapsed="false">
+          {% for division in legend_divisions %}
+          <div class="legend-item">
+            <li class="legend-list-item">
+              <p>{{ division.value }}</p>
+              <div class="color-box" style="background-color: {{ division.color }};"></div>
+            </li>
+          </div>
+          {% endfor %}
+        </ul>
+        {% endif %}
+      </div>
+    </div>
+{% endblock %}
