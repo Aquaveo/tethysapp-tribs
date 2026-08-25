@@ -10,7 +10,6 @@ import logging
 from tethysext.atcore.controllers.resource_workflows.map_workflows.spatial_input_mwv import SpatialInputMWV
 from tribs_adapter.resources.dataset import Dataset
 
-
 log = logging.getLogger(f'tethys.{__name__}')
 
 
@@ -25,8 +24,17 @@ class SelectPointMWV(SpatialInputMWV):
     #: Default colors of the raster_continuous SLD color map (color0-color10),
     #: used for entries the env string does not override.
     RASTER_CONTINUOUS_COLORS = [
-        '#96D257', '#278C39', '#2A7B45', '#829C41', '#DBB82E', '#AE4818',
-        '#842511', '#61370F', '#806346', '#C2C2C2', '#FFFFFF',
+        '#96D257',
+        '#278C39',
+        '#2A7B45',
+        '#829C41',
+        '#DBB82E',
+        '#AE4818',
+        '#842511',
+        '#61370F',
+        '#806346',
+        '#C2C2C2',
+        '#FFFFFF',
     ]
 
     def process_step_options(self, request, session, context, resource, current_step, previous_step, next_step):
@@ -74,7 +82,10 @@ class SelectPointMWV(SpatialInputMWV):
         point_name = saved_features[0].get('properties', {}).get('point_name') if saved_features else None
 
         drawing_layer_item = map_manager.build_geojson_layer(
-            geojson={'type': 'FeatureCollection', 'features': []},
+            geojson={
+                'type': 'FeatureCollection',
+                'features': []
+            },
             layer_name='drawing_layer',
             layer_title=point_name or current_step.options.get('singular_name', 'Point'),
             layer_variable='pour_point',
@@ -88,10 +99,7 @@ class SelectPointMWV(SpatialInputMWV):
         layer_groups.append(layer_group)
 
         # Remove the project boundary layer
-        map_view.layers = [
-            lyr for lyr in map_view.layers
-            if lyr['data'].get('layer_variable') != 'project_boundary'
-        ]
+        map_view.layers = [lyr for lyr in map_view.layers if lyr['data'].get('layer_variable') != 'project_boundary']
 
         # Zoom to the raster instead of the project boundary
         context['map_extent'] = viz['extent']
@@ -101,10 +109,12 @@ class SelectPointMWV(SpatialInputMWV):
         session.commit()
 
         # Build the raster legend from the layer's env string
-        context.update({
-            'legend_title': dataset.name,
-            'legend_divisions': self.build_raster_legend_divisions(viz.get('env_str', '')),
-        })
+        context.update(
+            {
+                'legend_title': dataset.name,
+                'legend_divisions': self.build_raster_legend_divisions(viz.get('env_str', '')),
+            }
+        )
 
         # Note: new layer created by super().process_step_options will have feature selection enabled by default
         super().process_step_options(
