@@ -1,0 +1,10 @@
+.raster-value-tooltip {
+    background-color: rgba(255, 255, 255, 0.9);
+    border: 1px solid #cccccc;
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 12px;
+    white-space: nowrap;
+    pointer-events: none;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}

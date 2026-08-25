@@ -1,6 +1,16 @@
 {% extends "atcore/resource_workflows/spatial_input_mwv.html" %}
 {% load tethys_gizmos static django_bootstrap5 %}
 
+{% block scripts %}
+  {{ block.super }}
+  <script src="{% static 'tribs/js/select_point_mwv.js' %}" type="text/javascript"></script>
+{% endblock %}
+
+{% block content_dependent_styles %}
+  {{ block.super }}
+  <link href="{% static 'tribs/css/select_point_mwv.css' %}" rel="stylesheet"/>
+{% endblock %}
+
 {% block custom_map_tabs %}
   <li class="nav-item" role="presentation">
     <a class="nav-link" 
