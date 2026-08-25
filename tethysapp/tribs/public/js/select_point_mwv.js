@@ -26,8 +26,9 @@ var SELECT_POINT_MWV = (function() {
     /************************************************************************
     *                    PRIVATE FUNCTION DECLARATIONS
     *************************************************************************/
-    var find_raster_layer, init_tooltip, hide_tooltip, query_raster_value, on_pointer_move,
-        enforce_draw_extent, show_draw_warning;
+    var find_raster_layer, find_drawing_layer, init_tooltip, hide_tooltip, query_raster_value,
+        on_pointer_move, enforce_draw_extent, show_draw_warning, init_drawing_layer_toggle,
+        update_drawing_layer_item;
 
     find_raster_layer = function() {
         let raster_layer = null;
@@ -37,6 +38,97 @@ var SELECT_POINT_MWV = (function() {
             }
         });
         return raster_layer;
+    };
+
+    find_drawing_layer = function() {
+        let drawing_layer = null;
+        m_map.getLayers().forEach(function(layer) {
+            if (layer.tethys_data && layer.tethys_data.layer_id === 'drawing_layer') {
+                drawing_layer = layer;
+            }
+        });
+        return drawing_layer;
+    };
+
+    update_drawing_layer_item = function(drawing_layer) {
+        let $row = $('.layer-visibility-control[data-layer-id="drawing_layer"]').closest('.layer-list-item');
+
+        if (!$row.length) {
+            return;
+        }
+
+        let features = drawing_layer.getSource().getFeatures();
+
+        // Only show the row while a point exists
+        if (!features.length) {
+            $row.hide();
+            return;
+        }
+
+        // Label the row with the user-given point name
+        let point_name = features[0].get('point_name');
+        $row.find('.display-name').text(point_name ? point_name : 'Point');
+        $row.show();
+    };
+
+    init_drawing_layer_toggle = function() {
+        // Bind the tree-only drawing layer row (added by SelectPointMWV) to the
+        // map gizmo's drawing layer, which atcore does not manage for this row.
+        let drawing_layer = find_drawing_layer();
+
+        if (!drawing_layer) {
+            return;
+        }
+
+        $('.layer-visibility-control[data-layer-id="drawing_layer"]').on('change', function() {
+            drawing_layer.setVisible(this.checked);
+        });
+
+        // Repurpose the row's Remove/Rename actions to operate on the drawn feature.
+        // atcore's default handlers act on the layer itself, which would remove the
+        // gizmo's drawing layer from the map and break drawing — .off() unbinds them.
+        let $row = $('.layer-visibility-control[data-layer-id="drawing_layer"]').closest('.layer-list-item');
+
+        $row.find('.remove-action').off('click').on('click', function() {
+            let source = drawing_layer.getSource();
+            let features = source.getFeatures();
+
+            if (features.length && confirm('Are you sure you want to remove this point?')) {
+                features.forEach(function(feature) { source.removeFeature(feature); });
+            }
+            return false;
+        });
+
+        $row.find('.rename-action').off('click').on('click', function() {
+            let features = drawing_layer.getSource().getFeatures();
+
+            if (!features.length) {
+                return false;
+            }
+
+            let feature = features[0];
+            let current_name = feature.get('point_name') || '';
+            let new_name = prompt('Enter a name for the point:', current_name);
+
+            if (new_name !== null && new_name.trim() !== '') {
+                feature.set('point_name', new_name.trim());
+            }
+            return false;
+        });
+
+        // Keep the row's visibility and label in sync with the drawn point
+        let refresh = function() { update_drawing_layer_item(drawing_layer); };
+        let source = drawing_layer.getSource();
+
+        source.getFeatures().forEach(function(feature) {
+            feature.on('propertychange', refresh);
+        });
+        source.on('addfeature', function(evt) {
+            evt.feature.on('propertychange', refresh);
+            refresh();
+        });
+        source.on('removefeature', refresh);
+        refresh();
     };
 
     init_tooltip = function() {
@@ -117,13 +209,7 @@ var SELECT_POINT_MWV = (function() {
             extent_4326, 'EPSG:4326', m_map.getView().getProjection()
         );
 
-        // Find the drawing layer
-        let drawing_layer = null;
-        m_map.getLayers().forEach(function(layer) {
-            if (layer.tethys_data && layer.tethys_data.layer_id === 'drawing_layer') {
-                drawing_layer = layer;
-            }
-        });
+        let drawing_layer = find_drawing_layer();
 
         if (!drawing_layer) {
             return;
@@ -173,6 +259,7 @@ var SELECT_POINT_MWV = (function() {
         }
 
         enforce_draw_extent();
+        init_drawing_layer_toggle();
         init_tooltip();
         m_map.on('pointermove', on_pointer_move);
         m_map.getViewport().addEventListener('mouseout', function() {

@@ -20,6 +20,7 @@ class SelectPointMWV(SpatialInputMWV):
     """
 
     template_name = 'tribs/select_point_mwv.html'
+    show_custom_layer = False
 
     #: Default colors of the raster_continuous SLD color map (color0-color10),
     #: used for entries the env string does not override.
@@ -52,7 +53,7 @@ class SelectPointMWV(SpatialInputMWV):
         layer = map_manager.build_wms_layer(
             endpoint=viz['url'],
             layer_name=viz['layer'],
-            layer_title='Input Raster',  # TODO read from dataset.name?
+            layer_title=dataset.name,
             layer_id='input-raster',
             layer_variable='input_raster',
             extent=viz['extent'],
@@ -63,9 +64,26 @@ class SelectPointMWV(SpatialInputMWV):
 
         map_view = context['map_view']
         map_view.layers.append(layer)
+
+        # Tree-only entry for the drawing layer so it shows in the layer group.
+        # Not added to map_view.layers: the actual features live on the map gizmo's
+        # drawing layer, which select_point_mwv.js binds to this row's checkbox.
+        # Title the row after the user-given point name, if any. select_point_mwv.js
+        # hides the row until a point exists and keeps the label in sync.
+        saved_features = (current_step.get_parameter('geometry') or {}).get('features') or []
+        point_name = saved_features[0].get('properties', {}).get('point_name') if saved_features else None
+
+        drawing_layer_item = map_manager.build_geojson_layer(
+            geojson={'type': 'FeatureCollection', 'features': []},
+            layer_name='drawing_layer',
+            layer_title=point_name or current_step.options.get('singular_name', 'Point'),
+            layer_variable='pour_point',
+            layer_id='drawing_layer',
+        )
+
         layer_groups = context.get('layer_groups')
         layer_group = map_manager.build_layer_group(
-            id='input-raster-layer', display_name='Input Raster', layers=[layer]
+            id='input-raster-layer', display_name='Input Raster', layers=[drawing_layer_item, layer]
         )
         layer_groups.append(layer_group)
 
