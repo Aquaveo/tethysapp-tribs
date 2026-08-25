@@ -78,6 +78,10 @@ class SelectPointMWV(SpatialInputMWV):
         # Zoom to the raster instead of the project boundary
         context['map_extent'] = viz['extent']
 
+        # Stash the raster extent on the step so validate() can restrict input to it
+        current_step.set_attribute('raster_extent', viz['extent'])
+        session.commit()
+
         # Build the raster legend from the layer's env string
         context.update({
             'legend_title': dataset.name,

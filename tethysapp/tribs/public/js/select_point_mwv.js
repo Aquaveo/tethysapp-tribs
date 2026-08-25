@@ -26,7 +26,8 @@ var SELECT_POINT_MWV = (function() {
     /************************************************************************
     *                    PRIVATE FUNCTION DECLARATIONS
     *************************************************************************/
-    var find_raster_layer, init_tooltip, hide_tooltip, query_raster_value, on_pointer_move;
+    var find_raster_layer, init_tooltip, hide_tooltip, query_raster_value, on_pointer_move,
+        enforce_draw_extent, show_draw_warning;
 
     find_raster_layer = function() {
         let raster_layer = null;
@@ -96,6 +97,52 @@ var SELECT_POINT_MWV = (function() {
             });
     };
 
+    show_draw_warning = function(message) {
+        let $warning = $('<div class="draw-extent-warning"></div>').text(message);
+        $(m_map.getTargetElement()).append($warning);
+        setTimeout(function() {
+            $warning.fadeOut(400, function() { $warning.remove(); });
+        }, 3000);
+    };
+
+    enforce_draw_extent = function() {
+        // The controller sets the map extent to the input raster extent (EPSG:4326)
+        let extent_4326 = $('#atcore-map-attributes').data('map-extent');
+
+        if (!extent_4326 || extent_4326.length !== 4) {
+            return;
+        }
+
+        let raster_extent = ol.proj.transformExtent(
+            extent_4326, 'EPSG:4326', m_map.getView().getProjection()
+        );
+
+        // Find the drawing layer
+        let drawing_layer = null;
+        m_map.getLayers().forEach(function(layer) {
+            if (layer.tethys_data && layer.tethys_data.layer_id === 'drawing_layer') {
+                drawing_layer = layer;
+            }
+        });
+
+        if (!drawing_layer) {
+            return;
+        }
+
+        // Reject features drawn outside the raster extent
+        let source = drawing_layer.getSource();
+        source.on('addfeature', function(evt) {
+            let feature_extent = evt.feature.getGeometry().getExtent();
+            if (!ol.extent.containsExtent(raster_extent, feature_extent)) {
+                // Defer removal so the source is not modified during the addfeature event
+                setTimeout(function() {
+                    source.removeFeature(evt.feature);
+                    show_draw_warning('The point must be located within the input raster.');
+                }, 0);
+            }
+        });
+    };
+
     on_pointer_move = function(evt) {
         if (evt.dragging || !m_raster_layer.getVisible()) {
             hide_tooltip();
@@ -125,6 +172,7 @@ var SELECT_POINT_MWV = (function() {
             return;
         }
 
+        enforce_draw_extent();
         init_tooltip();
         m_map.on('pointermove', on_pointer_move);
         m_map.getViewport().addEventListener('mouseout', function() {

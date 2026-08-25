@@ -1,3 +1,20 @@
+.draw-extent-warning {
+    position: absolute;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    background-color: #f8d7da;
+    color: #842029;
+    border: 1px solid #f5c2c7;
+    border-radius: 4px;
+    padding: 6px 14px;
+    font-size: 13px;
+    white-space: nowrap;
+    pointer-events: none;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
 .raster-value-tooltip {
     background-color: rgba(255, 255, 255, 0.9);
     border: 1px solid #cccccc;
