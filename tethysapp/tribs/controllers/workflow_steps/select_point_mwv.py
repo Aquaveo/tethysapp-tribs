@@ -57,6 +57,11 @@ class SelectPointMWV(SpatialInputMWV):
         viz = dataset.get_attribute('viz')
 
         map_manager = self.get_map_manager(request=request, resource=resource)
+
+        # Compute the extent live: extents cached in the viz attribute may predate
+        # the get_extent_for_dataset negative-coordinate buffer fix.
+        raster_extent = map_manager.spatial_manager.get_extent_for_dataset(dataset)
+
         # Create Input Raster Layer
         layer = map_manager.build_wms_layer(
             endpoint=viz['url'],
@@ -64,7 +69,7 @@ class SelectPointMWV(SpatialInputMWV):
             layer_title=dataset.name,
             layer_id='input-raster',
             layer_variable='input_raster',
-            extent=viz['extent'],
+            extent=raster_extent,
             style='raster_continuous',
             env=viz['env_str'],
             selectable=False,
@@ -102,10 +107,10 @@ class SelectPointMWV(SpatialInputMWV):
         map_view.layers = [lyr for lyr in map_view.layers if lyr['data'].get('layer_variable') != 'project_boundary']
 
         # Zoom to the raster instead of the project boundary
-        context['map_extent'] = viz['extent']
+        context['map_extent'] = raster_extent
 
         # Stash the raster extent on the step so validate() can restrict input to it
-        current_step.set_attribute('raster_extent', viz['extent'])
+        current_step.set_attribute('raster_extent', raster_extent)
         session.commit()
 
         # Build the raster legend from the layer's env string

@@ -209,6 +209,12 @@ var SELECT_POINT_MWV = (function() {
             extent_4326, 'EPSG:4326', m_map.getView().getProjection()
         );
 
+        // Allow a small tolerance (1% of the larger dimension) so edge clicks are not rejected
+        let tolerance = 0.01 * Math.max(
+            ol.extent.getWidth(raster_extent), ol.extent.getHeight(raster_extent)
+        );
+        raster_extent = ol.extent.buffer(raster_extent, tolerance);
+
         let drawing_layer = find_drawing_layer();
 
         if (!drawing_layer) {
