@@ -9,6 +9,7 @@ import { GraphicsWindowVisualsContext, ProjectContext } from "react-tethys/conte
 import LayerRasterTreeItem from "./LayerRasterTreeItem";
 import { FRAME_OBJECT } from "constants/GraphicsWindowConstants";
 import DetailsAction from "../actions/DetailsAction";
+import DownloadAction from "../actions/DownloadAction";
 import { ConfirmDeleteModal } from "components/dialogs/ConfirmDeleteModal";
 
 const CompoundRasterTreeItem = ({
@@ -168,6 +169,10 @@ const CompoundRasterTreeItem = ({
         <DetailsAction
           key="details"
           onClick={handleOpenDatasetDetails}
+        />,
+        <DownloadAction
+          key="download"
+          datasetId={raster.id}
         />,
       ]}
     >
