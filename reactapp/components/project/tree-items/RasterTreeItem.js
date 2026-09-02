@@ -9,6 +9,7 @@ import { GraphicsWindowVisualsContext, ProjectContext, SidePanelContext } from "
 import { FRAME_OBJECT } from "constants/GraphicsWindowConstants";
 import { ConfirmDeleteModal } from "components/dialogs/ConfirmDeleteModal";
 import DetailsAction from "../actions/DetailsAction";
+import DownloadAction from "../actions/DownloadAction";
 import LegendsAction from "../actions/LegendsAction";
 import LegendPanel from "../panels/LegendPanel";
 
@@ -133,11 +134,14 @@ const RasterTreeItem = ({
       showPanel(`legend-panel-${raster.id}`);
     }
   };
-
   const rasterActions = [
     <DetailsAction
       key="details"
       onClick={handleOpenDatasetDetails}
+    />,
+    <DownloadAction
+      key="download"
+      datasetId={raster.id}
     />
   ];
 

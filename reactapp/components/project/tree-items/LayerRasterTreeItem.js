@@ -9,6 +9,7 @@ import { FRAME_OBJECT } from "constants/GraphicsWindowConstants";
 import { datasetPropTypes } from "components/tree/propTypes";
 import LegendPanel from "../panels/LegendPanel";
 import LegendsAction from "../actions/LegendsAction";
+import DownloadAction from "../actions/DownloadAction";
 
 const LayerRasterTreeItem = ({
   layer,
@@ -91,6 +92,11 @@ const LayerRasterTreeItem = ({
       inline
       off={!visible}
     />,
+    <DownloadAction
+      key="download"
+      datasetId={raster.id}
+      layer={layer}
+    />
   ];
 
   if (legendExists) {

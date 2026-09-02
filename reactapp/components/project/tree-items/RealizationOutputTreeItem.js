@@ -13,6 +13,7 @@ import RunAction from "../actions/RunAction";
 import PropertiesAction from "../actions/PropertiesAction";
 import VisibilityAction from "components/project/actions/VisibilityAction";
 import DetailsAction from "../actions/DetailsAction";
+import DownloadAction from "../actions/DownloadAction";
 import { DATASET_VIZ_TYPES, DO_NOT_SET_LAYER, FRAME_OBJECT } from "constants/GraphicsWindowConstants";
 import Polygons from 'assets/Polygons.svg';
 import LegendPanel from "../panels/LegendPanel";
@@ -134,7 +135,11 @@ const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationInd
     <DetailsAction
       key="details"
       onClick={handleOpenDatasetDetails}
-    />
+    />,
+    <DownloadAction
+      key="download"
+      datasetId={dataset.id}
+    />,
   ]
 
   // Currently All dataset viz types require a Visibility Side Panel,

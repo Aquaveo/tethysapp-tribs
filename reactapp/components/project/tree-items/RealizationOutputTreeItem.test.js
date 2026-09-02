@@ -354,3 +354,13 @@ it("Will not call the open side panel callback when the dataset is disabled", as
 
   expect(showPanel).not.toHaveBeenCalled();
 });
+
+it("Creates a tree item with details and download actions in options menu", async () => {
+  const { user } = await initAndRender(true);
+  const optionsButton = screen.getByRole("button", { name: /Options/ });
+  await user.click(optionsButton);
+  const detailsButton = await screen.findByRole("button", { name: /Details/ });
+  const downloadButton = await screen.findByRole("button", { name: /Download/ });
+  expect(detailsButton).toBeVisible();
+  expect(downloadButton).toBeVisible();
+});

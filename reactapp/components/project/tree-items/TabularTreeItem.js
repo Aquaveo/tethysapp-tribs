@@ -6,6 +6,7 @@ import { datasetPropTypes } from "components/tree/propTypes";
 import { useEffect, useState } from "react";
 import { ConfirmDeleteModal } from "components/dialogs/ConfirmDeleteModal";
 import DetailsAction from "../actions/DetailsAction";
+import DownloadAction from "../actions/DownloadAction";
 
 const TabularTreeItem = ({
   tabular,
@@ -84,6 +85,10 @@ const TabularTreeItem = ({
           <DetailsAction
             key="details"
             onClick={handleOpenDatasetDetails}
+          />,
+          <DownloadAction
+            key="download"
+            datasetId={tabular.id}
           />,
         ]}
       />

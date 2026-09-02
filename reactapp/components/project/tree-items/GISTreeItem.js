@@ -17,6 +17,7 @@ import {
 } from "constants/GraphicsWindowConstants";
 import { ConfirmDeleteModal } from "components/dialogs/ConfirmDeleteModal";
 import DetailsAction from "../actions/DetailsAction";
+import DownloadAction from "../actions/DownloadAction";
 import LegendsAction from "../actions/LegendsAction";
 import LegendPanel from "../panels/LegendPanel";
 import PropertiesAction from "../actions/PropertiesAction";
@@ -174,9 +175,9 @@ const GISTreeItem = ({
       showPanel(`legend-panel-${gis.id}`);
     }
   };
-
   const gisActions = [
     <DetailsAction key="details" onClick={handleOpenDatasetDetails} />,
+    <DownloadAction key="download" datasetId={gis.id} />,
   ];
 
   if (gis?.viz) {

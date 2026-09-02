@@ -11,6 +11,7 @@ import { FRAME_OBJECT } from "constants/GraphicsWindowConstants";
 import { ConfirmDeleteModal } from "components/dialogs/ConfirmDeleteModal";
 import DetailsAction from "../actions/DetailsAction";
 import LegendsAction from "../actions/LegendsAction";
+import DownloadAction from "../actions/DownloadAction";
 import LegendPanel from "../panels/LegendPanel";
 
 const MeshTreeItem = ({
@@ -138,7 +139,11 @@ const MeshTreeItem = ({
     <DetailsAction
       key="details"
       onClick={handleOpenDatasetDetails}
-    />
+    />,
+    <DownloadAction
+      key="download"
+      datasetId={mesh.id}
+    />,
   ];
 
   if (mesh?.viz) {

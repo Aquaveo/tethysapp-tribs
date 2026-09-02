@@ -167,3 +167,13 @@ it("Calls duplicate callback when duplicate button pressed", async () => {
   await user.click(duplicateButton);
   expect(duplicateCallback).toHaveBeenCalled();
 });
+
+it("Creates a tree item with details and download actions in options menu", async () => {
+  const { user } = initAndRender();
+  const optionsButton = screen.getByRole("button", { name: /Options/ });
+  await user.click(optionsButton);
+  const detailsButton = await screen.findByRole("button", { name: /Details/ });
+  const downloadButton = await screen.findByRole("button", { name: /Download/ });
+  expect(detailsButton).toBeVisible();
+  expect(downloadButton).toBeVisible();
+});
