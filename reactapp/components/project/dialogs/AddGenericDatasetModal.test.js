@@ -1,25 +1,16 @@
 import userEvent from "@testing-library/user-event";
-import { AppContext } from "react-tethys/context";
 import { render, screen, waitFor } from "@testing-library/react";
 
 import AddGenericDatasetModal from "./AddGenericDatasetModal";
 
 it("Creates a modal dialog", () => {
-  render(
-    <AppContext.Provider value={{ csrf: "12345" }}>
-      <AddGenericDatasetModal show />
-    </AppContext.Provider>
-  );
+  render(<AddGenericDatasetModal show />);
   const modal = screen.getByRole("dialog");
   expect(modal).toBeInTheDocument();
 });
 
 it("Creates correct title for the modal dialog", () => {
-  render(
-    <AppContext.Provider value={{ csrf: "12345" }}>
-      <AddGenericDatasetModal show />
-    </AppContext.Provider>
-  );
+  render(<AddGenericDatasetModal show />);
   const modal = screen.getByRole("dialog");
   const title = screen.getByRole("heading", { name: /Add Dataset/ });
   expect(modal).toContainElement(title);
@@ -27,11 +18,7 @@ it("Creates correct title for the modal dialog", () => {
 
 it("Shows all of the errors if all fields are empty after submitting", async () => {
   const user = userEvent.setup();
-  render(
-    <AppContext.Provider value={{ csrf: "12345" }}>
-      <AddGenericDatasetModal show />
-    </AppContext.Provider>
-  );
+  render(<AddGenericDatasetModal show />);
 
   const invisibleFileError = screen.queryByText("Please select a valid geometry file (.stl, .gdf)");
   const invisibleNameError = screen.queryByText("Please provide a name for the Dataset.");
@@ -57,11 +44,7 @@ it("Shows all of the errors if all fields are empty after submitting", async () 
 it("Calls the close callback when close button is pressed", async () => {
   const user = userEvent.setup();
   const mockCallback = jest.fn();
-  render(
-    <AppContext.Provider value={{ csrf: "12345" }}>
-      <AddGenericDatasetModal show onClose={mockCallback} />
-    </AppContext.Provider>
-  );
+  render(<AddGenericDatasetModal show onClose={mockCallback} />);
   const closeButton = screen.getByRole("button", { name: /Close/ });
   await user.click(closeButton);
   expect(mockCallback).toHaveBeenCalled();
@@ -70,33 +53,21 @@ it("Calls the close callback when close button is pressed", async () => {
 it("Calls the close callback when cancel button is pressed", async () => {
   const user = userEvent.setup();
   const mockCallback = jest.fn();
-  render(
-    <AppContext.Provider value={{ csrf: "12345" }}>
-      <AddGenericDatasetModal show onClose={mockCallback} />
-    </AppContext.Provider>
-  );
+  render(<AddGenericDatasetModal show onClose={mockCallback} />);
   const cancelButton = screen.getByRole("button", { name: /Cancel/ });
   await user.click(cancelButton);
   expect(mockCallback).toHaveBeenCalled();
 });
 
 it("Creates submit button with correct title in the modal dialog", () => {
-  render(
-    <AppContext.Provider value={{ csrf: "12345" }}>
-      <AddGenericDatasetModal show />
-    </AppContext.Provider>
-  );
+  render(<AddGenericDatasetModal show />);
   const modal = screen.getByRole("dialog");
   const submitButton = screen.getByRole("button", { name: /Add/ });
   expect(modal).toContainElement(submitButton);
 });
 
 it("Creates correct input fields in the modal dialog", () => {
-  render(
-    <AppContext.Provider value={{ csrf: "12345" }}>
-      <AddGenericDatasetModal show />
-    </AppContext.Provider>
-  );
+  render(<AddGenericDatasetModal show />);
   const modal = screen.getByRole("dialog");
   const nameInput = screen.getByLabelText(/Name/);
   expect(modal).toContainElement(nameInput);
@@ -161,11 +132,7 @@ it("Calls submit and close callbacks when submit button pressed.", async () => {
 it("Sets name field based on name of file selected", async () => {
   const user = userEvent.setup();
   const file = new File(["foo"], "foo.stl", { type: "model/stl" });
-  render(
-    <AppContext.Provider value={{ csrf: "12345" }}>
-      <AddGenericDatasetModal show />
-    </AppContext.Provider>
-  );
+  render(<AddGenericDatasetModal show />);
   const fileInput = screen.getByLabelText(/File/);
   await user.upload(fileInput, file);
   const nameInput = screen.getByLabelText(/Name/);
@@ -174,11 +141,7 @@ it("Sets name field based on name of file selected", async () => {
 
 it("Changes the Dataset Type dropdown", async () => {
   const user = userEvent.setup();
-  render(
-    <AppContext.Provider value={{ csrf: "12345" }}>
-      <AddGenericDatasetModal show />
-    </AppContext.Provider>
-  );
+  render(<AddGenericDatasetModal show />);
   const datasetTypeInput = screen.getByRole("combobox", { name: "Select Dataset Type"});
   await user.selectOptions(datasetTypeInput, "RASTER_DISC_ASCII");
   expect(datasetTypeInput).toHaveValue("RASTER_DISC_ASCII");
@@ -186,11 +149,7 @@ it("Changes the Dataset Type dropdown", async () => {
 
 it("Changes the Name Field", async () => {
   const user = userEvent.setup();
-  render(
-    <AppContext.Provider value={{ csrf: "12345" }}>
-      <AddGenericDatasetModal show />
-    </AppContext.Provider>
-  );
+  render(<AddGenericDatasetModal show />);
   const nameInput = screen.getByLabelText(/Name/);
   await user.clear(nameInput);
   await user.type(nameInput, "Baz");
@@ -201,11 +160,7 @@ it("Resets all fields when Cancel Button is clicked", async () => {
   const user = userEvent.setup();
 
   // render the component the first time to input some test values
-  const { rerender } = render(
-    <AppContext.Provider value={{ csrf: "12345" }}>
-      <AddGenericDatasetModal show />
-    </AppContext.Provider>
-  );
+  const { rerender } = render(<AddGenericDatasetModal show />);
   const nameInput = screen.getByLabelText(/Name/);
   await user.type(nameInput, "Baz");
 
@@ -213,22 +168,14 @@ it("Resets all fields when Cancel Button is clicked", async () => {
   user.click(cancelButton);
 
   // unmount the component and wait for the Cancel button to disappear
-  rerender(
-    <AppContext.Provider value={{ csrf: "12345" }}>
-      <AddGenericDatasetModal show={false} />
-    </AppContext.Provider>
-  );
+  rerender(<AddGenericDatasetModal show={false} />);
 
   await waitFor(() => {
     expect(cancelButton).not.toBeInTheDocument();
   });
 
   // rerender the component to show up
-  rerender(
-    <AppContext.Provider value={{ csrf: "12345" }}>
-      <AddGenericDatasetModal show />
-    </AppContext.Provider>
-  );
+  rerender(<AddGenericDatasetModal show />);
 
   await waitFor(() => {
     // Assert that the fields have all been reset

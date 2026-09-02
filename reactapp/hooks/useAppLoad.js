@@ -19,38 +19,39 @@ export function useAppLoad() {
   };
 
   useEffect(() => {
-    // Get the session first
-    tethysAPI
-      .getSession()
-        .then(() => {
-          // Then load all other app data
-          Promise.all([
-            tethysAPI.getAppData(APP_ID),
-            tethysAPI.getUserData(),
-            tethysAPI.getCSRF(),
-          ])
-            .then(([tethysApp, user, csrfToken]) => {
-              // Setup backend
-              const backend = new Backend(TETHYS_APP_ROOT_URL);
+    Promise.all([
+      tethysAPI.getAppData(APP_ID),
+      tethysAPI.getUserData(),
+      tethysAPI.getJWTToken(),
+    ])
+      .then(([tethysApp, user, jwt]) => {
+        if (!jwt.access) {
+          // /api/token/ returns 200 with nulls when not logged in
+          window.location.assign(
+            `/accounts/login?next=${window.location.pathname}`
+          );
+          return;
+        }
 
-              backend.connect(() => {
-                console.log("Connected to backend.");
-                setAppContext({
-                  tethysApp,
-                  user,
-                  csrfToken,
-                  backend,
-                });
+        // Setup backend
+        const backend = new Backend(TETHYS_APP_ROOT_URL);
 
-                // Allow for minimum delay to display loader
-                setTimeout(() => {
-                  setIsLoaded(true);
-                }, LOADER_DELAY);
-              });
-            })
-            .catch(handleError);
-        })
-        .catch(handleError);
+        backend.connect(() => {
+          console.log("Connected to backend.");
+          setAppContext({
+            tethysApp,
+            user,
+            jwtToken: jwt,
+            backend,
+          });
+
+          // Allow for minimum delay to display loader
+          setTimeout(() => {
+            setIsLoaded(true);
+          }, LOADER_DELAY);
+        });
+      })
+      .catch(handleError);
   }, []);
 
   return { isLoaded, appContext, error };

@@ -207,7 +207,7 @@ const setupTests = async (title = "Test", show = true) => {
 
   const workflowsRender = (givenWorkflows = workflows) => {
     return (
-      <AppContext.Provider value={{ backend: backend, csrf: "12345" }}>
+      <AppContext.Provider value={{ backend: backend }}>
         <WorkflowsModal
           workflows={givenWorkflows}
           onClose={handleClose}

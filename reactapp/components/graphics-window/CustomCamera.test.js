@@ -21,7 +21,7 @@ describe('CustomCamera', () => {
     const { server, backend } = await mockBackend();
     const framedObject = {[HOME]: homeExtent}
     const CustomCameraRender = (
-      <AppContext.Provider value={{ backend: backend, csrf: "12345" }}>
+      <AppContext.Provider value={{ backend: backend }}>
         <GraphicsWindowVisualsContext.Provider value={{ framedObject }}>
           <CustomCamera />
         </GraphicsWindowVisualsContext.Provider>

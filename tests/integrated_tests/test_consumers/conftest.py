@@ -12,7 +12,7 @@ from channels.db import database_sync_to_async
 from channels.testing import WebsocketCommunicator
 from channels.routing import URLRouter
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy import select
+from sqlalchemy import create_engine, select
 from sqlalchemy.exc import InvalidRequestError
 from sqlalchemy.orm import sessionmaker
 
@@ -33,17 +33,19 @@ async def a_admin_user(transactional_db, django_user_model):
 
 
 @pytest_asyncio.fixture
-async def make_communicator(a_admin_user, django_user_model, mock_backend_app_get_ps_db):
+async def make_communicator(a_admin_user, django_user_model, mock_backend_app_get_ps_db, mocker):
     @asynccontextmanager
-    async def make(project_id, connect=True, user=False):
+    async def make(project_id, connect=True, user=True, authorized=True):
         try:
+            # Project access authorization is tested separately in test_backend_authorization.py
+            mocker.patch(
+                'tethysapp.tribs.consumers.backend._user_can_access_project',
+                new=mock.AsyncMock(return_value=authorized),
+            )
             application = URLRouter([
                 path("apps/tribs/project/<resource_id>/editor/ws/", BackendConsumer.as_asgi()),
             ])
             communicator = WebsocketCommunicator(application, f"/apps/tribs/project/{str(project_id)}/editor/ws/")
-            if connect:
-                connected, _ = await communicator.connect()
-                assert connected
             if user:
                 if isinstance(user, bool) or user == "admin":
                     communicator.scope["user"] = a_admin_user
@@ -51,7 +53,9 @@ async def make_communicator(a_admin_user, django_user_model, mock_backend_app_ge
                     _async_create_user = database_sync_to_async(django_user_model.objects.create_user)
                     not_admin_user = await _async_create_user(username=user, password="password")
                     communicator.scope["user"] = not_admin_user
-
+            if connect:
+                connected, _ = await communicator.connect()
+                assert connected
             yield communicator
         finally:
             await communicator.disconnect()
@@ -101,9 +105,18 @@ async def a_session(a_session_maker):
 @pytest_asyncio.fixture
 async def mock_backend_app_get_ps_db(db_url, mocker):
     mock_app = mocker.patch('tethysapp.tribs.consumers.backend.app')
-    # IMPORTANT: The BackendConsumer translates the normal database URL to an async URL
-    mock_app.get_persistent_store_database.return_value = db_url
-    return mock_app
+    sync_engine = create_engine(db_url)
+    sync_session_maker = sessionmaker(sync_engine)
+
+    def _get_ps_db(name, as_url=False, as_sessionmaker=False, **kwargs):
+        if as_sessionmaker:
+            return sync_session_maker
+        # IMPORTANT: The BackendConsumer translates the normal database URL to an async URL
+        return db_url
+
+    mock_app.get_persistent_store_database.side_effect = _get_ps_db
+    yield mock_app
+    sync_engine.dispose()
 
 
 @pytest_asyncio.fixture
