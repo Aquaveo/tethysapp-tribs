@@ -70,8 +70,12 @@ def run(
             if input_file is None:
                 raise RuntimeError('Could not find tRIBS input file while initializing scenario.')
 
-            # Initialize the scenario and datasets, including viz
-            realization.init(scenario=scenario, model_root=temp_dir, spatial_manager=gs_manager)
+            # Use the directory containing the input file as the model root so that
+            # relative paths resolve correctly even if the archive has a top-level folder.
+            model_root = os.path.dirname(input_file)
+
+            # Initialize the realization and datasets, including viz
+            realization.init(scenario=scenario, model_root=model_root, spatial_manager=gs_manager)
 
         realization.set_status(status_key, Realization.STATUS_SUCCESS)
         resource_db_session.commit()
