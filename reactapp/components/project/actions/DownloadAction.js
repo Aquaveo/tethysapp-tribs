@@ -24,6 +24,7 @@ const DownloadAction = ({ datasetId, scenarioId, realizationId, layer, title = "
 
 DownloadAction.propTypes = {
   datasetId: PropTypes.string,
+  scenarioId: PropTypes.string,
   realizationId: PropTypes.string,
   title: PropTypes.string,
   layer: PropTypes.string,

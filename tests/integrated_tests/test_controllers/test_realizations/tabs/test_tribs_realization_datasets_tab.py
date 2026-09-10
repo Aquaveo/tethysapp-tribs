@@ -11,7 +11,6 @@ import filecmp
 from io import BytesIO
 from pathlib import Path
 from zipfile import ZipFile
-
 from pytest_unordered import unordered
 
 from tethysapp.tribs.controllers.realizations.tabs.tribs_realization_datasets_tab import TribsRealizationDatasetsTab
@@ -56,7 +55,7 @@ def test_get_href_for_resource(
     project_with_fdb,
     mocker,
 ):
-    mock_reverse = mocker.patch('tethysapp.tribs.controllers.realizations.tabs.tribs_realization_datasets_tab.reverse')
+    mock_reverse = mocker.patch('tethysapp.tribs.controllers.tabs.datasets_tab.reverse')
 
     mtpd_controller = TribsRealizationDatasetsTab()
     mtpd_controller.get_href_for_resource(
@@ -69,8 +68,7 @@ def test_get_href_for_resource(
 def _exported_files(export_dir):
     """Relative paths of every file under export_dir, as they would appear in a zip."""
     return [
-        os.path.relpath(os.path.join(root, name), export_dir)
-        for root, _dirs, names in os.walk(export_dir)
+        os.path.relpath(os.path.join(root, name), export_dir) for root, _dirs, names in os.walk(export_dir)
         for name in names
     ]
 
