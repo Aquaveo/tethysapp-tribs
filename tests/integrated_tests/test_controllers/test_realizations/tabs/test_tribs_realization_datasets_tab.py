@@ -13,7 +13,7 @@ from pathlib import Path
 from zipfile import ZipFile
 from pytest_unordered import unordered
 
-from tethysapp.tribs.controllers.realizations.tabs.tribs_realization_datasets_tab import TribsRealizationDatasetsTab
+from tethysapp.tribs.controllers.tabs.datasets_tab import DatasetsTab
 from tests.utilities.write_test_data import write_test_data_to_file
 
 
@@ -28,7 +28,7 @@ def test_datasets_get_resources(
     salas_in_file = os.path.join(test_files, 'controllers', 'realizations', 'SALAS', 'salas.in')
     scenario_with_project_with_fdb.init(project_with_fdb, 26913, salas_in_file)
 
-    mtpd_controller = TribsRealizationDatasetsTab()
+    mtpd_controller = DatasetsTab()
     resource_datasets = mtpd_controller.get_resources(
         request=mock_request,
         resource=scenario_with_project_with_fdb,
@@ -57,7 +57,7 @@ def test_get_href_for_resource(
 ):
     mock_reverse = mocker.patch('tethysapp.tribs.controllers.tabs.datasets_tab.reverse')
 
-    mtpd_controller = TribsRealizationDatasetsTab()
+    mtpd_controller = DatasetsTab()
     mtpd_controller.get_href_for_resource(
         app_namespace='tribs',
         resource=project_with_fdb,
@@ -83,7 +83,7 @@ def test_download_all(db_session, mock_request, complete_project, tmp_path):
     assert 'salas.in' in expected_files
     assert 'Output/hyd/salas.cntrl' in expected_files
 
-    controller = TribsRealizationDatasetsTab()
+    controller = DatasetsTab()
     response = controller.download_all(request=mock_request, resource=realization, session=db_session)
 
     assert response.status_code == 200
@@ -101,25 +101,25 @@ def test_download_all_excludes_visualization_dirs(db_session, mock_request, comp
     # Simulate generated visualization artifacts stored alongside an output dataset
     dataset = realization.linked_datasets[0]
     collection_dir = Path(dataset.file_collection_client.path)
-    for excluded in TribsRealizationDatasetsTab.exclude_dirs:
+    for excluded in DatasetsTab.exclude_dirs:
         (collection_dir / excluded).mkdir()
         (collection_dir / excluded / f'layer.{excluded}').write_text('generated')
 
-    controller = TribsRealizationDatasetsTab()
+    controller = DatasetsTab()
     response = controller.download_all(request=mock_request, resource=realization, session=db_session)
 
     with ZipFile(BytesIO(response.content)) as zf:
         names = zf.namelist()
     assert names
-    for excluded in TribsRealizationDatasetsTab.exclude_dirs:
+    for excluded in DatasetsTab.exclude_dirs:
         assert not any(f'/{excluded}/' in name for name in names)
 
 
 def test_download_all_calls_export(db_session, mock_request, mock_resource, mocker):
     mock_resource.name = 'Mock Realization'
-    mock_zip_response = mocker.patch.object(TribsRealizationDatasetsTab, '_zip_response', return_value='response')
+    mock_zip_response = mocker.patch.object(DatasetsTab, '_zip_response', return_value='response')
 
-    controller = TribsRealizationDatasetsTab()
+    controller = DatasetsTab()
 
     def fake_export(directory, with_datasets):
         Path(directory, 'salas.in').write_text('fake input file')
