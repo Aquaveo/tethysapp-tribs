@@ -118,3 +118,20 @@ it("Calls updateScenarioIndex callback when duplicate button pressed", async () 
   await user.click(settingsButton);
   expect(setScenarioCallback).toHaveBeenCalled();
 });
+
+it("Navigates to the scenario download_all endpoint when download button pressed", async () => {
+  const originalLocation = window.location;
+  delete window.location;
+  window.location = { href: "" };
+
+  const { user, scenario } = initAndRender();
+  const optionsButton = screen.getAllByRole("button", { name: /Options/ })[0];
+  await user.click(optionsButton);
+  const downloadButton = await screen.findByRole("button", { name: /Download/ });
+  await user.click(downloadButton);
+  expect(window.location.href).toBe(
+    `/apps/tribs/scenarios/${scenario.id}/details/datasets/?tab_action=download_all`
+  );
+
+  window.location = originalLocation;
+});

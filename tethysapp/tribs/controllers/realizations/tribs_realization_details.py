@@ -14,7 +14,7 @@ from tethysext.atcore.controllers.resources import TabbedResourceDetails
 
 from tethysapp.tribs.controllers.realizations.tabs.tribs_realization_summary_tab import TribsRealizationSummaryTab
 from tethysapp.tribs.controllers.realizations.tabs.tribs_realization_inputfile_tab import TribsRealizationInputfileTab
-from tethysapp.tribs.controllers.realizations.tabs.tribs_realization_datasets_tab import TribsRealizationDatasetsTab
+from tethysapp.tribs.controllers.tabs.datasets_tab import DatasetsTab
 
 log = logging.getLogger('tethys.' + __name__)
 
@@ -39,7 +39,7 @@ class TribsRealizationDetails(TabbedResourceDetails):
         {
             'slug': 'datasets',
             'title': 'Datasets',
-            'view': TribsRealizationDatasetsTab
+            'view': DatasetsTab
         },
     )
 

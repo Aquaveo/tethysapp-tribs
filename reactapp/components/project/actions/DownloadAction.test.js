@@ -25,6 +25,38 @@ it("Navigates to the download_all endpoint when clicked", async () => {
   window.location = originalLocation;
 });
 
+it("Navigates to the realization download_all endpoint when clicked with a realizationId", async () => {
+  const user = userEvent.setup();
+  const originalLocation = window.location;
+  delete window.location;
+  window.location = { href: "" };
+
+  render(<DownloadAction realizationId="abc-123" />);
+  const actionButton = screen.getByRole("button", { name: /Download/ });
+  await user.click(actionButton);
+  expect(window.location.href).toBe(
+    "/apps/tribs/realizations/abc-123/details/datasets/?tab_action=download_all"
+  );
+
+  window.location = originalLocation;
+});
+
+it("Navigates to the scenario download_all endpoint when clicked with a scenarioId", async () => {
+  const user = userEvent.setup();
+  const originalLocation = window.location;
+  delete window.location;
+  window.location = { href: "" };
+
+  render(<DownloadAction scenarioId="abc-123" />);
+  const actionButton = screen.getByRole("button", { name: /Download/ });
+  await user.click(actionButton);
+  expect(window.location.href).toBe(
+    "/apps/tribs/scenarios/abc-123/details/datasets/?tab_action=download_all"
+  );
+
+  window.location = originalLocation;
+});
+
 it("Navigates to the download_layer endpoint when clicked with a layer", async () => {
   const user = userEvent.setup();
   const originalLocation = window.location;
