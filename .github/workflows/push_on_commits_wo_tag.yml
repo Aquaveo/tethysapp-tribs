@@ -21,7 +21,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
-          python-version: '3.13'
+          python-version: '3.14'
           cache: pip
 
       - name: Install pdm
@@ -43,7 +43,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
-          python-version: '3.13'
+          python-version: '3.14'
           cache: pip
 
       - name: Install pdm
@@ -185,8 +185,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        tethys-version: ["4.5.1"]
-        python-version: ["3.13"]
+        tethys-version: ["4.6.0"]
+        python-version: ["3.14"]
         django-version: ["4.2"]
     outputs:
       tag: ${{ steps.set-tag.outputs.tag }}
@@ -241,8 +241,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        tethys-version: ["4.5.1"]
-        python-version: ["3.13"]
+        tethys-version: ["4.6.0"]
+        python-version: ["3.14"]
         django-version: ["4.2"]
     env:
       TAG: ${{ needs.build.outputs.tag }}
@@ -349,8 +349,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        tethys-version: ["4.5.1"]
-        python-version: ["3.13"]
+        tethys-version: ["4.6.0"]
+        python-version: ["3.14"]
         django-version: ["4.2"]
     env:
       TAG: ${{ needs.build.outputs.tag }}
