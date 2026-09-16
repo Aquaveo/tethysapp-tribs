@@ -303,6 +303,29 @@ async def a_complete_project(a_session, a_staff_app_user, test_files, tmp_path, 
 
 
 @pytest_asyncio.fixture
+async def b_complete_project(a_session, a_staff_app_user, test_files, tmp_path, mock_fdb_root_directory):
+    """A second complete project, used to test cross-project authorization in the handlers.
+
+    The ``rbh`` fixture is scoped to ``a_complete_project``; resources belonging to this
+    project must be treated as "not found" when requested through that handler.
+    """
+    project = await a_session.run_sync(
+        _make_project,
+        test_files=test_files,
+        tmp_path=tmp_path,
+        a_staff_app_user=a_staff_app_user,
+        with_scenario=True,
+        with_input_file=True,
+        with_dataset=True,
+        with_realization=True,
+        with_workflow=True
+    )
+    yield project
+    await a_session.delete(project)
+    await a_session.commit()
+
+
+@pytest_asyncio.fixture
 async def a_project_with_scenario(a_session, a_staff_app_user, test_files, tmp_path, mock_fdb_root_directory):
     project = await a_session.run_sync(
         _make_project,
