@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import logging
+import os
 import zipfile
 import aioshutil
 from aiopath import AsyncPath
@@ -99,10 +100,16 @@ class FileBackendHandler(RBH):
             target_dir: Path object for the directory to extract the files to.
         """
         def _extract_if_zip(z, target_dir):
+            target_path = os.path.abspath(target_dir)
             if zipfile.is_zipfile(z):
                 log.debug(f'Extracting zipfile: "{z}"')
-                with zipfile.ZipFile(z, 'r') as zip_ref:
-                    zip_ref.extractall(target_dir)
+                with zipfile.ZipFile(z, 'r') as zf:
+                    for member in zf.namelist():
+                        member_path = os.path.abspath(os.path.join(target_path, member))
+                        if os.path.commonpath([target_path, member_path]) != target_path:
+                            raise ValueError(f'Attempted Path Traversal in Zip File: {member}')
+
+                    zf.extractall(target_path)
                 return True
 
         for u in uploaded_files:

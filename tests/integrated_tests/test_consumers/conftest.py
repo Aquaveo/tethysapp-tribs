@@ -22,6 +22,7 @@ from tethysext.atcore.models.app_users import AppUser, AppUsersBase
 from tribs_adapter.resources import Project, Dataset, Scenario, Realization
 from tethysapp.tribs.consumers.backend import BackendConsumer
 from tethysapp.tribs.consumers.handlers.resource_backend_handler import ResourceBackendHandler
+from tethysapp.tribs.consumers.handlers.file_backend_handler import FileBackendHandler
 
 
 @pytest_asyncio.fixture
@@ -441,3 +442,25 @@ async def rbh(a_complete_project, a_session_maker, a_staff_app_user):
     rbh = ResourceBackendHandler(backend)
 
     return rbh
+
+
+@pytest_asyncio.fixture
+async def fbh(a_complete_project, a_session_maker, a_staff_app_user):
+    """Create a FileBackendHandler with a complete project."""
+    project = a_complete_project
+    backend = mock.AsyncMock(
+        sessionmaker=a_session_maker,
+        project_id=str(project.id),
+        scope={
+            'user': mock.MagicMock(username=a_staff_app_user.username, is_anonymous=False),
+            'url_route': {
+                'kwargs': {
+                    'resource_id': str(project.id),
+                }
+            }
+        }
+    )
+
+    fbh = FileBackendHandler(backend)
+
+    return fbh
