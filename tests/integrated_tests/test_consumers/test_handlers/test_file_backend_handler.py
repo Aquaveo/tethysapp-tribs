@@ -118,9 +118,7 @@ async def test_upload_rejects_traversal_action_id(fbh):
     fbh.send_error = mock.AsyncMock()
     data = _upload_data(forActionId='../../../../tmp/evil')
 
-    await fbh.receive_upload_file(
-        event={}, action={'id': '1', 'type': BackendActions.UPLOAD_FILE}, data=data
-    )
+    await fbh.receive_upload_file(event={}, action={'id': '1', 'type': BackendActions.UPLOAD_FILE}, data=data)
 
     fbh.send_error.assert_called_once()
     assert 'Invalid forActionId' in fbh.send_error.call_args.args[0]
@@ -132,9 +130,7 @@ async def test_upload_rejects_traversal_filename(fbh):
     fbh.send_error = mock.AsyncMock()
     data = _upload_data(currFileName='../../../../tmp/evil.txt')
 
-    await fbh.receive_upload_file(
-        event={}, action={'id': '1', 'type': BackendActions.UPLOAD_FILE}, data=data
-    )
+    await fbh.receive_upload_file(event={}, action={'id': '1', 'type': BackendActions.UPLOAD_FILE}, data=data)
 
     fbh.send_error.assert_called_once()
     assert 'Unsafe currFileName' in fbh.send_error.call_args.args[0]
@@ -146,9 +142,7 @@ async def test_upload_rejects_traversal_in_filenames_list(fbh):
     fbh.send_error = mock.AsyncMock()
     data = _upload_data(fileNames=['hello.txt', '../../escape.txt'])
 
-    await fbh.receive_upload_file(
-        event={}, action={'id': '1', 'type': BackendActions.UPLOAD_FILE}, data=data
-    )
+    await fbh.receive_upload_file(event={}, action={'id': '1', 'type': BackendActions.UPLOAD_FILE}, data=data)
 
     fbh.send_error.assert_called_once()
     assert 'Unsafe fileNames entry' in fbh.send_error.call_args.args[0]
@@ -162,9 +156,7 @@ async def test_upload_accepts_valid_upload(fbh, tmp_path, mocker):
     fbh.send_error = mock.AsyncMock()
     data = _upload_data()
 
-    await fbh.receive_upload_file(
-        event={}, action={'id': '1', 'type': BackendActions.UPLOAD_FILE}, data=data
-    )
+    await fbh.receive_upload_file(event={}, action={'id': '1', 'type': BackendActions.UPLOAD_FILE}, data=data)
 
     fbh.send_error.assert_not_called()
     combined = tmp_path / 'uploads' / 'proj' / data['forActionId'] / 'hello.txt'
