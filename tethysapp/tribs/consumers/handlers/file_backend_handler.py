@@ -4,6 +4,7 @@ import logging
 import os
 import zipfile
 import aioshutil
+import uuid
 from aiopath import AsyncPath
 from asgiref.sync import sync_to_async
 
@@ -34,6 +35,20 @@ class FileBackendHandler(RBH):
         file_names = data.get('fileNames', [])
         chunk_base64 = data.get('chunk').encode()
         chunk = base64.b64decode(chunk_base64)
+
+        # Reject path traversal: forActionId must be a UUID; filenames must be bare basenames
+        try:
+            uuid.UUID(for_action_id)
+        except (ValueError, TypeError, AttributeError):
+            raise ValueError(f'Invalid forActionId: {for_action_id}')
+
+        def _safe_basename(value, label):
+            if not isinstance(value, str) or value in ('', '.', '..') or value != os.path.basename(value):
+                raise ValueError(f'Unsafe {label}: "{value}"')
+            return value
+
+        file_name = _safe_basename(file_name, 'currFileName')
+        file_names = [_safe_basename(f, 'fileNames entry') for f in file_names]
 
         # Prepare directory
         uploads_dir = await self.get_uploads_dir()
