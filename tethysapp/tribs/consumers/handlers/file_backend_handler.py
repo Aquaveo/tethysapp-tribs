@@ -1,8 +1,10 @@
 import asyncio
 import base64
 import logging
+import os
 import zipfile
 import aioshutil
+import uuid
 from aiopath import AsyncPath
 from asgiref.sync import sync_to_async
 
@@ -33,6 +35,20 @@ class FileBackendHandler(RBH):
         file_names = data.get('fileNames', [])
         chunk_base64 = data.get('chunk').encode()
         chunk = base64.b64decode(chunk_base64)
+
+        # Reject path traversal: forActionId must be a UUID; filenames must be bare basenames
+        try:
+            uuid.UUID(for_action_id)
+        except (ValueError, TypeError, AttributeError):
+            raise ValueError(f'Invalid forActionId: {for_action_id}')
+
+        def _safe_basename(value, label):
+            if not isinstance(value, str) or value in ('', '.', '..') or value != os.path.basename(value):
+                raise ValueError(f'Unsafe {label}: "{value}"')
+            return value
+
+        file_name = _safe_basename(file_name, 'currFileName')
+        file_names = [_safe_basename(f, 'fileNames entry') for f in file_names]
 
         # Prepare directory
         uploads_dir = await self.get_uploads_dir()
@@ -99,10 +115,16 @@ class FileBackendHandler(RBH):
             target_dir: Path object for the directory to extract the files to.
         """
         def _extract_if_zip(z, target_dir):
+            target_path = os.path.abspath(target_dir)
             if zipfile.is_zipfile(z):
                 log.debug(f'Extracting zipfile: "{z}"')
-                with zipfile.ZipFile(z, 'r') as zip_ref:
-                    zip_ref.extractall(target_dir)
+                with zipfile.ZipFile(z, 'r') as zf:
+                    for member in zf.namelist():
+                        member_path = os.path.abspath(os.path.join(target_path, member))
+                        if os.path.commonpath([target_path, member_path]) != target_path:
+                            raise ValueError(f'Attempted Path Traversal in Zip File: {member}')
+
+                    zf.extractall(target_path)
                 return True
 
         for u in uploaded_files:
