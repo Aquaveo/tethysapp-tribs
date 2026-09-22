@@ -1,8 +1,9 @@
 import { waitFor } from "@testing-library/react";
+import axios from "axios";
 import { rest } from "msw";
 
 import { server } from "config/tests/mocks/server";
-import { scheduleRefresh } from "react-tethys/services/api/client";
+import { scheduleRefresh, logout } from "react-tethys/services/api/client";
 import {
   getAccessToken,
   getRefreshToken,
@@ -130,5 +131,72 @@ describe("scheduleRefresh", () => {
     expect(window.location.assign.mock.calls[0][0]).toContain(
       `/accounts/login?next=${PATHNAME}`
     );
+  });
+});
+
+
+describe("logout", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: {
+        pathname: PATHNAME,
+        protocol: "http:",
+        assign: jest.fn(),
+      },
+    });
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("blacklists the refresh token, clears storage, and redirects to portal logout", async () => {
+    // Spy on axios.post directly: msw in this env cannot serve a POST with a JSON body.
+    const postSpy = jest.spyOn(axios, "post").mockResolvedValue({ data: {} });
+    setTokens("some-access", "stored-refresh");
+
+    await logout();
+
+    expect(postSpy).toHaveBeenCalledWith(
+      expect.stringContaining("/api/token/blacklist/"),
+      { refresh: "stored-refresh" }
+    );
+    expect(getAccessToken()).toBeNull();
+    expect(getRefreshToken()).toBeNull();
+    expect(window.location.assign).toHaveBeenCalled();
+    expect(window.location.assign.mock.calls[0][0]).toContain("/accounts/logout/");
+  });
+
+  it("still clears storage and redirects when blacklisting fails", async () => {
+    server.use(
+      rest.post("http://api.test/api/token/blacklist/", (req, res, ctx) =>
+        res(ctx.status(401))
+      )
+    );
+    setTokens("some-access", "stored-refresh");
+
+    await logout();
+
+    expect(getAccessToken()).toBeNull();
+    expect(getRefreshToken()).toBeNull();
+    expect(window.location.assign).toHaveBeenCalled();
+    expect(window.location.assign.mock.calls[0][0]).toContain("/accounts/logout/");
+  });
+
+  it("skips the blacklist call when there is no refresh token", async () => {
+    let called = false;
+    server.use(
+      rest.post("http://api.test/api/token/blacklist/", (req, res, ctx) => {
+        called = true;
+        return res(ctx.status(200), ctx.json({}));
+      })
+    );
+
+    await logout();
+
+    expect(called).toBe(false);
+    expect(window.location.assign).toHaveBeenCalled();
   });
 });

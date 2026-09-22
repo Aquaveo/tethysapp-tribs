@@ -121,3 +121,21 @@ async def test_check_error_fails_closed(
     mocker.patch('tethys_sdk.permissions.has_permission', side_effect=RuntimeError('boom'))
     allowed = await _user_can_access_project(a_admin_user, str(a_empty_project.id), ws_path(a_empty_project.id))
     assert not allowed
+
+
+@pytest.mark.asyncio
+async def test_disabled_app_user_cannot_access(
+    a_empty_project, a_admin_user, add_project_to_org, mock_backend_app_get_ps_db, mock_has_permission, a_session
+):
+    # Member of the owning org, but disabled via the app (app_user.is_active=False).
+    await add_project_to_org(a_empty_project, member_username=a_admin_user.username)
+
+    def _disable(session, username):
+        au = session.query(TribsAppUser).filter(TribsAppUser.username == username).one()
+        au.is_active = False
+        session.commit()
+
+    await a_session.run_sync(_disable, a_admin_user.username)
+
+    allowed = await _user_can_access_project(a_admin_user, str(a_empty_project.id), ws_path(a_empty_project.id))
+    assert not allowed

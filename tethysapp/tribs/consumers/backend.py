@@ -27,11 +27,20 @@ log = logging.getLogger(__name__)
 
 @database_sync_to_async
 def _get_user_from_jwt(token_str):
+    """Resolve the user from a JWT and return (user, exp).
+
+    Returns (None, None) if the token is invalid/expired or the account is inactive.
+    The exp (access-token expiry, unix seconds) is stored on the connection so the
+    live socket can be closed once the token would have expired.
+    """
     try:
         token = AccessToken(token_str)  # verifies signature and expiry
-        return get_user_model().objects.get(pk=token["user_id"])
+        user = get_user_model().objects.get(pk=token["user_id"])
     except (TokenError, KeyError, get_user_model().DoesNotExist):
-        return None
+        return None, None
+    if not user.is_active:
+        return None, None
+    return user, token["exp"]
 
 
 @database_sync_to_async
@@ -50,6 +59,10 @@ def _user_can_access_project(user, project_id, ws_path):
         username = TribsAppUser.STAFF_USERNAME if user.is_staff else user.username
         app_user = session.query(TribsAppUser).filter(TribsAppUser.username == username).one_or_none()
         if app_user is None:
+            return False
+        # A user disabled via the app's Modify User page has app_user.is_active=False
+        # (Django's auth_user.is_active is left untouched), so check it here.
+        if not app_user.is_active:
             return False
         project = session.query(Project).get(project_id)
         if project is None:
@@ -72,15 +85,21 @@ class BackendConsumer(AsyncConsumer):
     file_q = queue.Queue()
 
     async def websocket_connect(self, event):
-        user = self.scope.get("user")
+        self.token_exp = None
+        query = parse_qs(self.scope.get("query_string", b"").decode())
+        token = next(iter(query.get("token", [])), None)
+        if token:
+            # A JWT was supplied: it is authoritative so its expiry can be enforced on
+            # the live connection, even though AuthMiddlewareStack also populates
+            # scope["user"] from the Django session cookie. Without this, a session-
+            # authenticated socket would never honor the token's expiry.
+            user, self.token_exp = await _get_user_from_jwt(token)
+        else:
+            user = self.scope.get("user")
         if user is None or not user.is_authenticated:
-            query = parse_qs(self.scope.get("query_string", b"").decode())
-            token = next(iter(query.get("token", [])), None)
-            user = await _get_user_from_jwt(token) if token else None
-            if user is None:
-                await self.send({"type": "websocket.close", "code": 4401})
-                return
-            self.scope["user"] = user
+            await self.send({"type": "websocket.close", "code": 4401})
+            return
+        self.scope["user"] = user
 
         self.project_id = self.scope['url_route']['kwargs']['resource_id']
         if not await _user_can_access_project(user, self.project_id, self.scope.get("path")):
@@ -122,6 +141,14 @@ class BackendConsumer(AsyncConsumer):
         log.debug("-----------WebSocket Disconnected-----------")
 
     async def websocket_receive(self, event):
+        # Enforce access-token expiry on the live connection. Once the token that
+        # authenticated this socket has expired, close with 4401 so the client must
+        # reconnect with a fresh token, which re-runs the connect-time auth checks.
+        token_exp = getattr(self, "token_exp", None)
+        if token_exp is not None and \
+                datetime.datetime.now(datetime.timezone.utc).timestamp() >= token_exp:
+            await self.send({"type": "websocket.close", "code": 4401})
+            return
         try:
             if "text" in event:
                 data = json.loads(event.get("text"))

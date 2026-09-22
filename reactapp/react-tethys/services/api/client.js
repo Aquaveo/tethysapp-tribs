@@ -1,7 +1,7 @@
 import axios from "axios";
 
 import { getTethysPortalHost } from "react-tethys/services/utilities";
-import { getAccessToken, getRefreshToken, setTokens } from "react-tethys/services/api/tokens";
+import { getAccessToken, getRefreshToken, setTokens, clearTokens } from "react-tethys/services/api/tokens";
 
 const TETHYS_PORTAL_HOST = getTethysPortalHost();
 
@@ -59,6 +59,19 @@ export function scheduleRefresh(access) {
       redirectToLogin();
     }
   }, delay);
+}
+
+export async function logout() {
+  const refresh = getRefreshToken();
+  if (refresh) {
+    try {
+      await axios.post(`${TETHYS_PORTAL_HOST.origin}/api/token/blacklist/`, { refresh });
+    } catch (e) {
+      // Best effort: even if blacklisting fails, still clear locally and log out.
+    }
+  }
+  clearTokens();
+  window.location.assign(`${TETHYS_PORTAL_HOST.origin}/accounts/logout/`);
 }
 
 function handleSuccess(response) {

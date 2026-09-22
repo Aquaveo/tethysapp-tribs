@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import tethysAPI from "react-tethys/services/api/tethys";
+import { logout } from "react-tethys/services/api/client";
 import Backend from "services/Backend";
 
 export const APP_ID = process.env.TETHYS_APP_ID;
@@ -17,6 +18,19 @@ export function useAppLoad() {
       setError(error);
     }, LOADER_DELAY);
   };
+
+  useEffect(() => {
+    // The portal navbar renders the "Log Out" control outside React (a plain
+    // anchor to /accounts/logout/). Intercept it so we blacklist the refresh
+    // token and clear localStorage before the portal ends the session.
+    const links = document.querySelectorAll('a[href*="/accounts/logout"]');
+    const handler = (e) => {
+      e.preventDefault();
+      logout(); // blacklist refresh -> clearTokens -> redirect to /accounts/logout/
+    };
+    links.forEach((el) => el.addEventListener("click", handler));
+    return () => links.forEach((el) => el.removeEventListener("click", handler));
+  }, []);
 
   useEffect(() => {
     Promise.all([
