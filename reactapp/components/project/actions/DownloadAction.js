@@ -17,6 +17,9 @@ const DownloadAction = ({ datasetId, scenarioId, realizationId, layer, title = "
     } else if (datasetId) {
       path = `datasets/${datasetId}/details/files/`;
     }
+    if (!path) {
+      return;
+    }
     window.location.href = process.env.TETHYS_APP_ROOT_URL + `${path}?${query}`;
   };
   return <Action title={title} icon={<BsDownload />} onClick={handleClick} {...props} />;

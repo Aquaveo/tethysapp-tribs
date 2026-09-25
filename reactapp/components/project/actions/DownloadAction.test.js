@@ -72,3 +72,17 @@ it("Navigates to the download_layer endpoint when clicked with a layer", async (
 
   window.location = originalLocation;
 });
+
+it("Does not navigate when no target id is provided", async () => {
+  const user = userEvent.setup();
+  const originalLocation = window.location;
+  delete window.location;
+  window.location = { href: "" };
+
+  render(<DownloadAction />);
+  const actionButton = screen.getByRole("button", { name: /Download/ });
+  await user.click(actionButton);
+  expect(window.location.href).toBe("");
+
+  window.location = originalLocation;
+});
