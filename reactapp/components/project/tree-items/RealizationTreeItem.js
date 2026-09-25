@@ -13,6 +13,7 @@ import ModelTreeItem from "./ModelTreeItem";
 import { MODEL_DATA_NAMES } from "constants/modelData";
 import { DATASET_GROUPS, DATASET_TYPE_MAPS } from "constants/projectConstants";
 import RealizationOutputTreeItem from "./RealizationOutputTreeItem";
+import DownloadAction from "../actions/DownloadAction";
 
 const RealizationTreeItem = ({
   realization,
@@ -79,6 +80,9 @@ const RealizationTreeItem = ({
         onDelete={handleDelete}
         onRename={handleRename}
         disabled={disabled}
+        actions={[
+          <DownloadAction key="download" realizationId={realization.id} />,
+        ]}
       >
         <ModelTreeItem
           dataset={{

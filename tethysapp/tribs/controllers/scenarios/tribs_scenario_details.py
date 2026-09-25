@@ -12,7 +12,7 @@ import logging
 from tethys_sdk.permissions import has_permission
 from tethysext.atcore.controllers.resources import TabbedResourceDetails
 
-from tethysapp.tribs.controllers.scenarios.tabs.tribs_scenario_datasets_tab import TribsScenarioDatasetsTab
+from tethysapp.tribs.controllers.tabs.datasets_tab import DatasetsTab
 from tethysapp.tribs.controllers.scenarios.tabs.tribs_scenario_realizations_tab import TribsScenarioRealizationsTab
 from tethysapp.tribs.controllers.scenarios.tabs.tribs_scenario_inputfile_tab import TribsScenarioInputfileTab
 from tethysapp.tribs.controllers.scenarios.tabs.tribs_scenario_summary_tab import TribsScenarioSummaryTab
@@ -40,7 +40,7 @@ class TribsScenarioDetails(TabbedResourceDetails):
         {
             'slug': 'datasets',
             'title': 'Datasets',
-            'view': TribsScenarioDatasetsTab
+            'view': DatasetsTab
         },
         {
             'slug': 'realizations',

@@ -31,7 +31,7 @@ RUN mv ${DEV_REACT_CONFIG} ${PROD_REACT_CONFIG} \
 RUN npm install \
   && npm run build-low-mem
 
-FROM aquaveollc/tethysext-atcore:1.15.3-ty4.5.1-py3.13-dj4.2
+FROM aquaveollc/tethysext-atcore:1.19.2-ty4.6.0-py3.13-dj4.2
 
 ARG DJANGO_VERSION=4.2.*
 

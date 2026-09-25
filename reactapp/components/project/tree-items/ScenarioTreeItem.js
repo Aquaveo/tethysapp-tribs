@@ -10,6 +10,7 @@ import newUUID from "lib/uuid";
 import { matchesUUID } from "components/tree/propTypes";
 import { useEffect, useState } from "react";
 import { ConfirmDeleteModal } from "components/dialogs/ConfirmDeleteModal";
+import DownloadAction from "../actions/DownloadAction";
 
 const ScenarioTreeItem = ({
   scenario,
@@ -80,6 +81,9 @@ const ScenarioTreeItem = ({
         onDuplicate={handleDuplicate}
         uniqueId={scenario.id}
         disabled={disabled}
+        actions={[
+          <DownloadAction key="download" scenarioId={scenario.id} />,
+        ]}
       >
         <ModelTreeItem
           dataset={{
