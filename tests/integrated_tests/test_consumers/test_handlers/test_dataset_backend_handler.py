@@ -586,7 +586,7 @@ async def test_dataset_receive_create_tin(
         f_id = str(post_datasets[0].id)
         assert payload3["viz"] == {
             'type': 'gltf',
-            'url': [f'{fdb_id}/{fc_id}/gltf/{f_id}-salas.gltf'],
+            'url': [f'{fdb_id}/{fc_id}/gltf/{f_id}-salas.glb'],
             'extent': pytest.approx([-106.60003268693941, 34.29129978075136, -106.56766128437329, 34.331757077410224]),
             'legend': [f'{fdb_id}/{fc_id}/gltf/{f_id}-salas_legend.png'],
             'origin': pytest.approx([-106.58421362030992, 34.309707781406104, 1960.196533203125]),
