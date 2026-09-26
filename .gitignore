@@ -56,3 +56,6 @@ node_modules*
 tethysapp/tribs/public/project-editor/
 reactapp/config/production.env
 coverage
+
+# Local tool state
+.remember/
