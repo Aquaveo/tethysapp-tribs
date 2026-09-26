@@ -122,7 +122,6 @@
       "!reactapp/config/**/*",
       "!reactapp/react-tethys/**/*",
       "!reactapp/constants/*",
-      "!reactapp/hooks/*",
       "!reactapp/lib/base64ArrayBuffer.js"
     ],
     "setupFiles": [

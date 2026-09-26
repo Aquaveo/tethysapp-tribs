@@ -158,7 +158,7 @@ const initAndRender = async (viz = false, disabled = false) => {
       }
     }
     return (
-      <AppContext.Provider value={{ backend: backend, csrf: "12345" }}>
+      <AppContext.Provider value={{ backend: backend }}>
         <ProjectContext.Provider
           value={{
             projectId,
