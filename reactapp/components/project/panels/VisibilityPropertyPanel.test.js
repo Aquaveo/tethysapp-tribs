@@ -4,6 +4,7 @@ import { render, screen } from '@testing-library/react';
 import { SidePanelContext, GraphicsWindowVisualsContext } from 'react-tethys/context';
 import VisibilityPropertyPanel from './VisibilityPropertyPanel';
 import { DO_NOT_SET_LAYER } from "constants/GraphicsWindowConstants";
+import { makeStaticMesh, makeTimeSeriesMesh } from "config/tests/mocks/meshMock";
 
 
 const dataset = {
@@ -92,7 +93,7 @@ const dataset = {
   "srid": null
 };
 
-const setupPanel = (show = false, disabled = false) => {
+const setupPanel = (show = false, disabled = false, panelDataset = dataset) => {
   const user = userEvent.setup();
   
   const mockSidePanelContextValue = {
@@ -103,6 +104,7 @@ const setupPanel = (show = false, disabled = false) => {
   const mockGraphicsWindowVisualsContextValue = {
     visibleCZMLObject: {},
     setCZMLLayer: jest.fn(),
+    setActiveTimeSeries: jest.fn(),
   };
 
   if (show) {
@@ -110,13 +112,13 @@ const setupPanel = (show = false, disabled = false) => {
   }
 
   if (disabled) {
-    mockGraphicsWindowVisualsContextValue.visibleCZMLObject = { [dataset.id]: DO_NOT_SET_LAYER }
+    mockGraphicsWindowVisualsContextValue.visibleCZMLObject = { [panelDataset.id]: DO_NOT_SET_LAYER }
   }
 
   const panelRender = (
     <SidePanelContext.Provider value={mockSidePanelContextValue}>
       <GraphicsWindowVisualsContext.Provider value={mockGraphicsWindowVisualsContextValue}>
-        <VisibilityPropertyPanel dataset={dataset} panelId="testPanelId" />
+        <VisibilityPropertyPanel dataset={panelDataset} panelId="testPanelId" />
       </GraphicsWindowVisualsContext.Provider>
     </SidePanelContext.Provider>
   );
@@ -175,5 +177,51 @@ describe('VisibilityPropertyPanel', () => {
   it('should initialize the CZML layer on first render if conditions are met', () => {
     const { mockGraphicsWindowVisualsContextValue } = setupPanel(true);
     expect(mockGraphicsWindowVisualsContextValue.setCZMLLayer).toHaveBeenCalledWith(dataset.id, 'Mi_mm');
+  });
+});
+
+describe('VisibilityPropertyPanel with glTF mesh variables', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should list each variable once and select the first one with its time series', () => {
+    const mesh = makeTimeSeriesMesh();
+    const { mockGraphicsWindowVisualsContextValue } = setupPanel(true, false, mesh);
+    expect(screen.getAllByTestId("tree-item-child")).toHaveLength(2);
+    expect(screen.getByText('Mu')).toBeInTheDocument();
+    expect(screen.getByText('Nwt')).toBeInTheDocument();
+    expect(mockGraphicsWindowVisualsContextValue.setCZMLLayer).toHaveBeenCalledWith(mesh.id, 'Mu');
+    expect(mockGraphicsWindowVisualsContextValue.setActiveTimeSeries).toHaveBeenCalledWith(
+      expect.objectContaining({ datasetId: mesh.id, variableName: 'Mu', multiplier: 72000, count: 3 })
+    );
+  });
+
+  it('should select the clicked variable and make it drive the clock', async () => {
+    const mesh = makeTimeSeriesMesh();
+    const { user, mockGraphicsWindowVisualsContextValue } = setupPanel(true, false, mesh);
+    jest.clearAllMocks();
+    await user.click(screen.getByText('Nwt'));
+    expect(mockGraphicsWindowVisualsContextValue.setCZMLLayer).toHaveBeenCalledWith(mesh.id, 'Nwt');
+    expect(mockGraphicsWindowVisualsContextValue.setActiveTimeSeries).toHaveBeenCalledWith(
+      expect.objectContaining({ datasetId: mesh.id, variableName: 'Nwt', count: 2 })
+    );
+  });
+
+  it('should not select anything when the layer is DO_NOT_SET_LAYER', async () => {
+    const mesh = makeTimeSeriesMesh();
+    const { user, mockGraphicsWindowVisualsContextValue } = setupPanel(true, true, mesh);
+    await user.click(screen.getByText('Nwt'));
+    expect(mockGraphicsWindowVisualsContextValue.setCZMLLayer).not.toHaveBeenCalled();
+    expect(mockGraphicsWindowVisualsContextValue.setActiveTimeSeries).not.toHaveBeenCalled();
+  });
+
+  it('should not drive the clock for a static mesh', () => {
+    const mesh = makeStaticMesh();
+    const { mockGraphicsWindowVisualsContextValue } = setupPanel(true, false, mesh);
+    expect(screen.getAllByTestId("tree-item-child")).toHaveLength(1);
+    expect(screen.getByText('Elevation')).toBeInTheDocument();
+    expect(mockGraphicsWindowVisualsContextValue.setCZMLLayer).toHaveBeenCalledWith(mesh.id, 'Elevation');
+    expect(mockGraphicsWindowVisualsContextValue.setActiveTimeSeries).not.toHaveBeenCalled();
   });
 });

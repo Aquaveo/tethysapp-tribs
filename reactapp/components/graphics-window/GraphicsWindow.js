@@ -23,6 +23,7 @@ import {
 } from "constants/GraphicsWindowConstants";
 import CompoundWmsLayer from "./CompoundWmsLayers";
 import GltfLayer from "./GltfLayers";
+import MeshClock from "./MeshClock";
 import WmsLayer from "./WmsLayers";
 import CzmlLayer from "./CzmlLayers";
 
@@ -83,6 +84,7 @@ const GraphicsWindow = ({ datasets }) => {
       onTrackedEntityChange={handleTrackedEntityChange}
     >
       <CustomCamera />
+      <MeshClock />
       {zoomToExtent !== null &&
         zoomToExtent === HOME &&
         framedObject?.[zoomToExtent] !== undefined && (
