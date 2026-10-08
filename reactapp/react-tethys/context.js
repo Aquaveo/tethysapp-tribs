@@ -63,6 +63,10 @@ const GraphicsWindowVisualsContext = createContext({
   setSelectedCZMLPoint: () => {},
   startDates: [],
   setStartDates: () => {},
+  activeTimeSeries: null,
+  setActiveTimeSeries: () => {},
+  meshClockTime: null,
+  setMeshClockTime: () => {},
 });
 
 const SidePanelContext = createContext({
@@ -217,6 +221,10 @@ const AppContextProvider = ({ children }) => {
   const [visibleCZMLObject, setVisibleCZMLObject] = useState({});
   const [selectedCZMLPoint, setSelectedCZMLPoint] = useState(null);
   const [startDates, setStartDates] = useState([]);
+  // The glTF mesh variable that currently drives the Cesium clock (see lib/meshTimeSeries makeActiveTimeSeries),
+  // and the clock time (ms since epoch, UTC) the mesh layers render; written by MeshClock when the time step changes.
+  const [activeTimeSeries, setActiveTimeSeries] = useState(null);
+  const [meshClockTime, setMeshClockTime] = useState(null);
 
   const setFramedObject = (extent, key) => {
     setNewFramedObject((prevObjects) => ({...prevObjects, [key]: extent}))
@@ -280,6 +288,10 @@ const AppContextProvider = ({ children }) => {
     setSelectedCZMLPoint,
     startDates,
     setStartDates,
+    activeTimeSeries,
+    setActiveTimeSeries,
+    meshClockTime,
+    setMeshClockTime,
   };
 
   const [visibleSidePanel, setVisibleSidePanel] = useState([]);
