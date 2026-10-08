@@ -8,7 +8,9 @@
 """
 import os
 import shutil
+from pathlib import Path
 from unittest import mock
+import pytest
 from django.http import JsonResponse
 from tribs_adapter.resources import Project, Scenario, Realization, Dataset
 from tethysapp.tribs.controllers.manage_resource_delete_mixin import ManageResourceDeleteMixin
@@ -552,3 +554,111 @@ def test_remove_visualizations_dataset(rf, db_session, complete_project, tmp_pat
 
     # remove_visualization called on 7 dataset linked with realization
     assert mock_rv.call_count == 1
+
+
+def test__handle_delete_missing_resource(rf, db_url, mocker):
+    """A delete request for a resource that no longer exists is reported, not raised, and starts no thread."""
+    mock_log = mocker.patch('tethysapp.tribs.controllers.manage_resource_delete_mixin.log')
+    mock_thread = mocker.patch('tethysapp.tribs.controllers.manage_resource_delete_mixin.Thread')
+    mocker.patch('tethys_apps.decorators.isinstance', side_effect=[False, True, False])
+    mocker.patch('tethys_apps.decorators.has_permission', return_value=True)
+
+    mock_session = mock.MagicMock(get_bind=mock.MagicMock(return_value=mock.MagicMock(url=db_url)), )
+    mock_session.query().get.return_value = None
+    mtd_controller = ManageResourceDeleteMixin()
+    mtd_controller.get_resource_model = mock.MagicMock(return_value=Project)
+    mtd_controller.get_sessionmaker = mock.MagicMock(return_value=mock.MagicMock(return_value=mock_session))
+
+    request = rf.delete('/apps/tribs/projects/', data={'id': 'missing', 'deleteType': 'resources', 'action': 'delete'})
+    ret = mtd_controller._handle_delete(request, 'missing')
+
+    assert isinstance(ret, JsonResponse)
+    assert ret.content == b'{"success": false, "error": "Resource not found."}'
+    mock_thread.assert_not_called()
+    mock_log.exception.assert_not_called()
+    mock_log.warning.assert_called()
+    mock_session.close.assert_called()
+
+
+def test_delete_resource_artifacts_missing_resource(rf, db_url, mocker):
+    mock_log = mocker.patch('tethysapp.tribs.controllers.manage_resource_delete_mixin.log')
+    mock_rv = mocker.patch(
+        'tethysapp.tribs.controllers.manage_resource_delete_mixin.ManageResourceDeleteMixin.remove_visualizations'
+    )
+    mock_sessionmaker = mocker.patch('tethysapp.tribs.controllers.manage_resource_delete_mixin.sessionmaker')
+    mock_session = mock.MagicMock()
+    mock_session.query().get.return_value = None
+    mock_sessionmaker.return_value = mock.MagicMock(return_value=mock_session)
+
+    mtd_controller = ManageResourceDeleteMixin()
+    mtd_controller._Resource = Project
+    mtd_controller.delete_resource_artifacts(request=rf.delete('/'), resource_id='missing', session_url=db_url)
+
+    mock_rv.assert_not_called()
+    mock_session.delete.assert_not_called()
+    mock_session.close.assert_called()
+    mock_log.warning.assert_called()
+
+
+def test_delete_resource_artifacts_repairs_cwd_after_each_step(rf, db_url, project, mocker):
+    """validate_cwd runs before, between and after the delete steps, even when a step fails."""
+    calls = []
+    for name in ('remove_visualizations', 'delete_resource_files', 'delete_filedatabase_artifacts',
+                 'delete_condor_jobs', 'delete_children'):
+        mocker.patch(
+            f'tethysapp.tribs.controllers.manage_resource_delete_mixin.ManageResourceDeleteMixin.{name}',
+            side_effect=lambda *a, _name=name, **k: calls.append(_name),
+        )
+    mocker.patch(
+        'tethysapp.tribs.controllers.manage_resource_delete_mixin.ManageResourceDeleteMixin.validate_cwd',
+        side_effect=lambda: calls.append('validate_cwd'),
+    )
+    mocker.patch('tethysapp.tribs.controllers.manage_resource_delete_mixin.log')
+    mock_sessionmaker = mocker.patch('tethysapp.tribs.controllers.manage_resource_delete_mixin.sessionmaker')
+    mock_session = mock.MagicMock()
+    mock_sessionmaker.return_value = mock.MagicMock(return_value=mock_session)
+
+    mtd_controller = ManageResourceDeleteMixin()
+    mtd_controller._Resource = Project
+    mtd_controller.delete_resource_artifacts(request=rf.delete('/'), resource_id=project.id, session_url=db_url)
+
+    assert calls == [
+        'validate_cwd',
+        'remove_visualizations', 'validate_cwd',
+        'delete_resource_files', 'validate_cwd',
+        'delete_filedatabase_artifacts', 'validate_cwd',
+        'delete_condor_jobs', 'validate_cwd',
+        'delete_children', 'validate_cwd',
+        'validate_cwd',
+    ]
+    mock_session.delete.assert_called()
+    mock_session.commit.assert_called()
+
+    # A failing step still leaves the CWD repaired
+    calls.clear()
+    mocker.patch(
+        'tethysapp.tribs.controllers.manage_resource_delete_mixin.ManageResourceDeleteMixin.delete_resource_files',
+        side_effect=RuntimeError('boom'),
+    )
+    mtd_controller.delete_resource_artifacts(request=rf.delete('/'), resource_id=project.id, session_url=db_url)
+    assert calls == ['validate_cwd', 'remove_visualizations', 'validate_cwd', 'validate_cwd']
+    mock_session.rollback.assert_called()
+
+
+def test_validate_cwd_restores_deleted_directory(tmp_path, mocker):
+    mocker.patch('tethysapp.tribs.controllers.manage_resource_delete_mixin.log')
+    original = os.getcwd()
+    doomed = tmp_path / 'doomed'
+    doomed.mkdir()
+    try:
+        os.chdir(doomed)
+        ManageResourceDeleteMixin.validate_cwd()  # valid: unchanged
+        assert os.getcwd() == str(doomed.resolve())
+        shutil.rmtree(doomed)
+        with pytest.raises(FileNotFoundError):
+            os.getcwd()
+        ManageResourceDeleteMixin.validate_cwd()
+        import tethysapp.tribs.controllers.manage_resource_delete_mixin as mixin_module
+        assert os.getcwd() == str(Path(mixin_module.__file__).parent.parent.parent.resolve())
+    finally:
+        os.chdir(original)
