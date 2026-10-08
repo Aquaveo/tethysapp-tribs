@@ -19,6 +19,7 @@ import Polygons from 'assets/Polygons.svg';
 import LegendPanel from "../panels/LegendPanel";
 import LegendsAction from "../actions/LegendsAction";
 import extractLayerName from "lib/extractLayerName";
+import { findVariable, getVariables, isTimeDynamic, makeActiveTimeSeries, timestepForTime } from "lib/meshTimeSeries";
 
 const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationIndex }) => {
   const TETHYS_ROOT_URL = process.env.TETHYS_APP_ROOT_URL;
@@ -34,6 +35,9 @@ const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationInd
     setCZMLLayer,
     selectedCZMLPoint,
     setSelectedCZMLPoint,
+    activeTimeSeries,
+    setActiveTimeSeries,
+    meshClockTime,
   } = useContext(GraphicsWindowVisualsContext);
   const { showPanel, hideSidePanel, visibleSidePanel } = useContext(SidePanelContext);
   const { isFirstProjectRender, projectId } = useContext(ProjectContext);
@@ -64,6 +68,13 @@ const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationInd
       legendExists = true;
     }
   }
+  const variables = getVariables(dataset);
+  if (variables?.some((variable) => variable.timesteps.some((timestep) => timestep.legend))) {
+    legendExists = true;
+  }
+  // glTF mesh output: the legend follows the time step of the selected variable at the current clock time
+  const activeVariable = findVariable(dataset, visibleCZMLObject?.[dataset.id]);
+  const currentTimestep = activeVariable ? timestepForTime(activeVariable, meshClockTime) : null;
 
   const handleDelete = () => {
     setShowConfirmDelete(true);
@@ -96,14 +107,20 @@ const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationInd
     if (!visibility) {
       hideObject(dataset.id);
       setCZMLLayer(dataset.id, DO_NOT_SET_LAYER);
+      if (activeTimeSeries?.datasetId === dataset.id) {
+        setActiveTimeSeries?.(null);
+      }
       selectedPointRef.current = selectedCZMLPoint;
       setSelectedCZMLPoint(null);
       hideSidePanel(`plotly-panel-${dataset.id}`);
       hideSidePanel(`legend-panel-${dataset.id}`);
     } else {
-      const layerName = extractLayerName(dataset.viz.url[0], dataset.id);
+      const layerName = variables ? variables[0].name : extractLayerName(dataset.viz.url[0], dataset.id);
       revealObject(dataset.id);
       setCZMLLayer(dataset.id, layerName);
+      if (variables && isTimeDynamic(variables[0])) {
+        setActiveTimeSeries?.(makeActiveTimeSeries(dataset, variables[0]));
+      }
       setSelectedCZMLPoint(selectedPointRef.current);
       selectedPointRef.current = null;
     }
@@ -226,6 +243,8 @@ const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationInd
             dataset={dataset}
             panelId={`legend-panel-${dataset.id}`}
             uniqueId={visibleCZMLObject[dataset.id]}
+            legendUrls={currentTimestep?.legend ? [currentTimestep.legend] : undefined}
+            subtitle={currentTimestep?.time ?? undefined}
           />
         </>
       )}

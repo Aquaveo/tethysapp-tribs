@@ -66,6 +66,23 @@ const datasetProps = {
       PropTypes.object, // The keys to this object are dynamically created so this is as granular as it can get
       PropTypes.string,
     ]),
+    // glTF mesh output: one entry per variable with its time steps (see lib/meshTimeSeries.js)
+    variables: PropTypes.arrayOf(
+      PropTypes.shape({
+        name: PropTypes.string.isRequired,
+        start: PropTypes.string, // ISO 8601 UTC; null for a static variable (bare mesh)
+        end: PropTypes.string,
+        step_hours: PropTypes.number,
+        timesteps: PropTypes.arrayOf(
+          PropTypes.shape({
+            hours: PropTypes.number, // hours since the simulation start; null for a static variable
+            time: PropTypes.string,
+            url: PropTypes.string.isRequired,
+            legend: PropTypes.string,
+          })
+        ).isRequired,
+      })
+    ),
   }),
 };
 
