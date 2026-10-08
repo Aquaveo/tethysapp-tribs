@@ -4,6 +4,7 @@ import { datasetPropTypes } from "components/tree/propTypes";
 import { DATASET_VIZ_TYPES } from "constants/GraphicsWindowConstants";
 import { useContext } from "react";
 import { SidePanelContext } from "react-tethys/context";
+import { formatTimestepTime } from "lib/meshTimeSeries";
 
 const LegendPanel = ({
   title = "Legend",
@@ -11,15 +12,21 @@ const LegendPanel = ({
   panelId,
   dataset,
   uniqueId,
+  legendUrls,
+  subtitle,
   ...props
 }) => {
   const TETHYS_MEDIA_URL = process.env.TETHYS_MEDIA_URL;
   const { hideSidePanel, visibleSidePanel } = useContext(SidePanelContext);
 
   let slideSheetTitle = title;
-  let legend_urls = dataset.viz.legend.length > 1
-    ? dataset.viz.legend.filter((legend_url) => legend_url.includes(uniqueId))
-    : dataset.viz.legend;
+  // legendUrls (e.g. the legend of the current time step of a glTF mesh variable) overrides the lookup by name
+  const all_legend_urls = dataset.viz.legend ?? [];
+  let legend_urls = legendUrls ?? (
+    all_legend_urls.length > 1
+      ? all_legend_urls.filter((legend_url) => legend_url.includes(uniqueId))
+      : all_legend_urls
+  );
 
   if (
     dataset?.viz?.type === DATASET_VIZ_TYPES.CZML ||
@@ -36,9 +43,12 @@ const LegendPanel = ({
   } else if (dataset?.viz?.type === DATASET_VIZ_TYPES.WMS_COMPOUND) {
     const uniqueName = uniqueId ? uniqueId.split('_').slice(1).join("") : null;
     slideSheetTitle = `${uniqueName} ${title}`;
+  } else if (dataset?.viz?.type === DATASET_VIZ_TYPES.GLTF && uniqueId) {
+    slideSheetTitle = `${dataset.name} ${uniqueId} ${title}`;
   } else {
     slideSheetTitle = `${dataset.name} ${title}`
   }
+  const subtitleText = subtitle ? formatTimestepTime(subtitle) ?? subtitle : null;
 
   const handleClose = () => {
     hideSidePanel(panelId);
@@ -53,6 +63,11 @@ const LegendPanel = ({
       style={{ height: "fit-content" }}
     >
       <div>
+        {subtitleText && (
+          <div data-testid="legend-subtitle" style={{ fontSize: "0.85em", marginBottom: "0.25rem" }}>
+            {subtitleText} UTC
+          </div>
+        )}
         {legend_urls.map((legend_url, i) => {
           let final_url = legend_url;
           if (legend_url.includes("geoserver/wms")) {
@@ -84,9 +99,11 @@ const LegendPanel = ({
 LegendPanel.propTypes = {
   title: PropTypes.string,
   placement: PropTypes.oneOf(["start", "end", "top", "bottom"]),
-  uniqueId: PropTypes.string.isRequired,
+  uniqueId: PropTypes.string,
   panelId: PropTypes.string.isRequired,
   dataset: datasetPropTypes.isRequired,
+  legendUrls: PropTypes.arrayOf(PropTypes.string),
+  subtitle: PropTypes.string,
 };
 
 export default LegendPanel;
