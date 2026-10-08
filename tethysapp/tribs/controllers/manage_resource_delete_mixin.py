@@ -37,6 +37,11 @@ class ManageResourceDeleteMixin:
             make_session = self.get_sessionmaker()
             session = make_session()
             resource = session.query(_Resource).get(resource_id)
+            if resource is None:
+                # Already deleted (e.g. the delete request arrived twice): nothing to do.
+                log.warning(f'Delete requested for resource "{resource_id}", which does not exist.')
+                session.close()
+                return JsonResponse({'success': False, 'error': 'Resource not found.'})
             resource.set_status(resource.ROOT_STATUS_KEY, resource.STATUS_DELETING)
             session.commit()
             delete_thread = Thread(
@@ -62,23 +67,36 @@ class ManageResourceDeleteMixin:
         """
         session = sessionmaker(bind=create_engine(session_url))()
         resource = session.query(self._Resource).get(resource_id)
+        if resource is None:
+            log.warning(f'Resource "{resource_id}" does not exist; nothing to delete.')
+            session.close()
+            return
         log.info(f'Deleting artifacts for {resource}...')
 
+        # Deleting workspaces and file collections can remove the process's current working directory. Django's
+        # autoreloader (dev server) resolves paths against the CWD on every poll and dies if it is gone, so repair
+        # it after every step rather than only at the end.
+        steps = (
+            lambda: self.remove_visualizations(request, resource, session),
+            lambda: self.delete_resource_files(request, resource),
+            lambda: self.delete_filedatabase_artifacts(request, resource),
+            lambda: self.delete_condor_jobs(request, resource),
+            lambda: self.delete_children(resource),
+        )
         try:
-            self.remove_visualizations(request, resource, session)
-            self.delete_resource_files(request, resource)
-            self.delete_filedatabase_artifacts(request, resource)
-            self.delete_condor_jobs(request, resource)
-            self.delete_children(resource)
+            self.validate_cwd()
+            for step in steps:
+                step()
+                self.validate_cwd()
 
             session.delete(resource)
             session.commit()
         except Exception as e:
             session.rollback()
             log.exception(f'An unexpected error occurred while trying to delete {resource}: {e}')
-
-        # Fix CWD if it was deleted during this operation
-        self.validate_cwd()
+        finally:
+            # Fix CWD if it was deleted during this operation
+            self.validate_cwd()
 
         log.info(f'Completed deleting artifacts for {resource}.')
 
