@@ -32,8 +32,9 @@ describe("MeshClock", () => {
   const dataset = makeTimeSeriesMesh();
   const series = makeActiveTimeSeries(dataset, findVariable(dataset, "Mu"));
 
-  it("initializes the Cesium clock to the active variable and loops", () => {
+  it("initializes the Cesium clock to the active variable, looping, without starting playback", () => {
     const viewer = makeViewer();
+    viewer.clock.shouldAnimate = true;
     const { setMeshClockTime } = renderClock(viewer, series);
     const clock = viewer.clock;
     expect(JulianDate.equals(clock.startTime, JulianDate.fromIso8601(series.start))).toBe(true);
@@ -42,7 +43,7 @@ describe("MeshClock", () => {
     expect(clock.clockRange).toBe(ClockRange.LOOP_STOP);
     expect(clock.clockStep).toBe(ClockStep.SYSTEM_CLOCK_MULTIPLIER);
     expect(clock.multiplier).toBe(72000);
-    expect(clock.shouldAnimate).toBe(true);
+    expect(clock.shouldAnimate).toBe(false);
     expect(viewer.timeline.zoomTo).toHaveBeenCalledWith(clock.startTime, clock.stopTime);
     expect(clock.onTick.addEventListener).toHaveBeenCalledTimes(1);
     expect(setMeshClockTime).toHaveBeenCalledWith(Date.UTC(2004, 5, 1, 0));

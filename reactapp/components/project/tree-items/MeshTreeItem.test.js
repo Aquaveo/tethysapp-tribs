@@ -7,11 +7,11 @@ import { GraphicsWindowVisualsContext, ProjectContext } from "react-tethys/conte
 import { FRAME_OBJECT } from "constants/GraphicsWindowConstants";
 import newUUID from "lib/uuid";
 
-function initAndRender() {
+function initAndRender({ visibleObjects: visibleObjectsOverride } = {}) {
   const user = userEvent.setup();
   const mesh = makeMesh("Soil Moisture");
   const projectId = newUUID();
-  const visibleObjects = {[projectId]: []};
+  const visibleObjects = visibleObjectsOverride ?? {[projectId]: []};
   const openFolders = {[projectId]: []};
   const deleteCallback = jest.fn();
   const duplicateCallback = jest.fn();
@@ -134,11 +134,24 @@ it("Opens and then closes the Confirm Delete modal", async () => {
 });
 
 it("Calls graphics frame callback when frame button pressed", async () => {
-  const { user, mesh, setFramedObject, setZoomToExtent } = initAndRender();
+  const { user, mesh, revealObject, setFramedObject, setZoomToExtent } = initAndRender();
   const optionsButton = screen.getByRole("button", { name: /Options/ });
   await user.click(optionsButton);
   const frameButton = await screen.findByRole("button", { name: /Frame/ });
   await user.click(frameButton);
+  expect(revealObject).toHaveBeenCalledWith(mesh.id);
+  expect(setFramedObject).toHaveBeenCalledWith(mesh.viz.extent, FRAME_OBJECT);
+  expect(setZoomToExtent).toHaveBeenCalledWith(FRAME_OBJECT);
+});
+
+it("Reveals and frames the mesh when the project has no visibility entry yet", async () => {
+  // visibleObjects comes from localStorage and has no entry for a project until something is revealed in it.
+  const { user, mesh, revealObject, setFramedObject, setZoomToExtent } = initAndRender({ visibleObjects: {} });
+  const optionsButton = screen.getByRole("button", { name: /Options/ });
+  await user.click(optionsButton);
+  const frameButton = await screen.findByRole("button", { name: /Frame/ });
+  await user.click(frameButton);
+  expect(revealObject).toHaveBeenCalledWith(mesh.id);
   expect(setFramedObject).toHaveBeenCalledWith(mesh.viz.extent, FRAME_OBJECT);
   expect(setZoomToExtent).toHaveBeenCalledWith(FRAME_OBJECT);
 });

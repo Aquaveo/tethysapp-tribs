@@ -154,7 +154,7 @@ const initAndRender = async (viz = false, disabled = false) => {
     if (viz && disabled) {
       visibleCZMLObject[vizDataset.id] = DO_NOT_SET_LAYER;
       if (visibleObjects[projectId].includes(vizDataset.id)) {
-        visibleObjects[projectId] = {...visibleObjects[projectId].filter(id => id !== vizDataset.id)};
+        visibleObjects[projectId] = visibleObjects[projectId].filter(id => id !== vizDataset.id);
       }
     }
     return (

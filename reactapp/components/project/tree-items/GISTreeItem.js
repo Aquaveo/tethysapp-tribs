@@ -68,7 +68,7 @@ const GISTreeItem = ({
     if (isFirstProjectRender) {
       // Do Nothing
     } else if (visibleObjects[projectId] !== undefined) {
-      if (!visibleObjects[projectId].includes(gis.id)) {
+      if (!visibleObjects[projectId]?.includes(gis.id)) {
         // TODO Add test in Project for changing visibility of a collection.
         setVisible(false);
       } else {
@@ -123,7 +123,7 @@ const GISTreeItem = ({
   };
 
   const handleFrame = () => {
-    if (!visibleObjects[projectId].includes(gis.id)) {
+    if (!visibleObjects[projectId]?.includes(gis.id)) {
       revealObject(gis.id);
     }
     setFramedObject(gis.viz.extent, FRAME_OBJECT);

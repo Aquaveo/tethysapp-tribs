@@ -89,7 +89,23 @@ const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationInd
     setShowConfirmDelete(false);
   };
 
+  // Show the dataset with its first layer (and, for time-dynamic mesh output, hand the Cesium clock its first variable).
+  const reveal = () => {
+    const layerName = variables ? variables[0].name : extractLayerName(dataset.viz.url[0], dataset.id);
+    revealObject(dataset.id);
+    setCZMLLayer(dataset.id, layerName);
+    if (variables && isTimeDynamic(variables[0])) {
+      setActiveTimeSeries?.(makeActiveTimeSeries(dataset, variables[0]));
+    }
+    setSelectedCZMLPoint(selectedPointRef.current);
+    selectedPointRef.current = null;
+  };
+
   const handleFrame = () => {
+    if (!visibleObjects[projectId]?.includes(dataset.id)) {
+      // Framing a hidden dataset shows it first; otherwise the camera flies to an empty extent.
+      reveal();
+    }
     setFramedObject(dataset.viz.extent, FRAME_OBJECT);
     setZoomToExtent(FRAME_OBJECT);
   };
@@ -115,14 +131,7 @@ const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationInd
       hideSidePanel(`plotly-panel-${dataset.id}`);
       hideSidePanel(`legend-panel-${dataset.id}`);
     } else {
-      const layerName = variables ? variables[0].name : extractLayerName(dataset.viz.url[0], dataset.id);
-      revealObject(dataset.id);
-      setCZMLLayer(dataset.id, layerName);
-      if (variables && isTimeDynamic(variables[0])) {
-        setActiveTimeSeries?.(makeActiveTimeSeries(dataset, variables[0]));
-      }
-      setSelectedCZMLPoint(selectedPointRef.current);
-      selectedPointRef.current = null;
+      reveal();
     }
   };
 
