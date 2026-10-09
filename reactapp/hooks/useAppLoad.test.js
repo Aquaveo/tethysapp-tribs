@@ -33,6 +33,18 @@ describe("useAppLoad", () => {
     const { result } = renderHook(() => useAppLoad());
 
     await wsServer.connected;
+
+    // Client send the first message AUTHENTICATEW with an access token
+    const authMessage = JSON.parse(await wsServer.nextMessage);
+    expect(authMessage.action.type).toBe("AUTHENTICATE");
+    expect(authMessage.payload.token).toBe("fake-access");
+
+    // Reply so the connect callback fires and the app loads.
+    wsServer.send(JSON.stringify({
+      action: { id: "auth", type: "AUTHENTICATED" },
+      payload: { authenticated: true },
+    }));
+
     await waitFor(() => expect(result.current.isLoaded).toBe(true), {
       timeout: 3000,
     });

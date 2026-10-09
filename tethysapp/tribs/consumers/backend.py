@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import json
 import logging
@@ -17,7 +18,6 @@ from .handlers import (
 )
 from tethysapp.tribs.app import Tribs as app
 
-from urllib.parse import parse_qs
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import AccessToken
@@ -79,37 +79,46 @@ def _user_can_access_project(user, project_id, ws_path):
         session.close()
 
 
+AUTH_TIMEOUT_SECONDS = 10
+
+
 @consumer(name="project-editor-backend", url="project/{resource_id}/editor/")
 class BackendConsumer(AsyncConsumer):
     channel_layer_alias = app.package
     file_q = queue.Queue()
 
     async def websocket_connect(self, event):
+        self.authenticated = False
         self.token_exp = None
-        query = parse_qs(self.scope.get("query_string", b"").decode())
-        token = next(iter(query.get("token", [])), None)
-        if token:
-            # A JWT was supplied: it is authoritative so its expiry can be enforced on
-            # the live connection, even though AuthMiddlewareStack also populates
-            # scope["user"] from the Django session cookie. Without this, a session-
-            # authenticated socket would never honor the token's expiry.
-            user, self.token_exp = await _get_user_from_jwt(token)
-        else:
-            user = self.scope.get("user")
+        self.handlers = ()
+        self.project_id = self.scope['url_route']['kwargs']['resource_id']
+        await self.send({"type": "websocket.accept"})
+        # Close the socket if the client never sends an AUTHENTICATE message
+        self._auth_timeout_task = asyncio.create_task(self._auth_timeout())
+
+    async def _auth_timeout(self):
+        await asyncio.sleep(AUTH_TIMEOUT_SECONDS)
+        if not self.authenticated:
+            await self.send({"type": "websocket.close", "code": 4401})
+
+    async def _cancel_auth_timeout(self):
+        task = getattr(self, '_auth_timeout_task', None)
+        if task and not task.done():
+            task.cancel()
+
+    async def _authenticate(self, token):
+        user, self.token_exp = await _get_user_from_jwt(token)
         if user is None or not user.is_authenticated:
             await self.send({"type": "websocket.close", "code": 4401})
             return
         self.scope["user"] = user
 
-        self.project_id = self.scope['url_route']['kwargs']['resource_id']
         if not await _user_can_access_project(user, self.project_id, self.scope.get("path")):
             await self.send({"type": "websocket.close", "code": 4403})
             return
 
-        self.sessionmaker = None
         db_url = await database_sync_to_async(
-            app.get_persistent_store_database,
-            thread_sensitive=True,
+            app.get_persistent_store_database, thread_sensitive=True,
         )(app.DATABASE_NAME, as_url=True)
         # Specify the async driver for postgresql
         db_url = str(db_url).replace('postgresql', 'postgresql+asyncpg')
@@ -127,13 +136,12 @@ class BackendConsumer(AsyncConsumer):
         self.group_name = f"project_editor_{self.project_id}"
         await self.channel_layer.group_add(self.group_name, self.channel_name)
 
-        # Accept the connection
-        await self.send({
-            "type": "websocket.accept",
-        })
-        log.debug("-----------WebSocket Connected-----------")
+        self.authenticated = True
+        await self._cancel_auth_timeout()
+        await self.send_action(BackendActions.AUTHENTICATED, {"authenticated": True})
 
     async def websocket_disconnect(self, close_code):
+        await self._cancel_auth_timeout()
         if getattr(self, "engine", None):
             await self.engine.dispose()
         if getattr(self, "group_name", None):
@@ -155,6 +163,14 @@ class BackendConsumer(AsyncConsumer):
                 message_action = data.get("action", {})
                 message_type = message_action.get("type")
                 message_data = data.get("payload")
+
+                if not self.authenticated:
+                    token = message_data.get("token") if isinstance(message_data, dict) else None
+                    if message_type != BackendActions.AUTHENTICATE or not token:
+                        await self.send({"type": "websocket.close", "code": 4401})
+                        return
+                    await self._authenticate(token)
+                    return
 
                 if not message_action or not message_type or not message_data:
                     msg = f"Malformed message received: {event.get('text', 'no text in message')}"

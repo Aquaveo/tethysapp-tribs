@@ -35,6 +35,29 @@ export default class Backend {
     this.on(this.actions.UPLOAD_FILE_COMPLETE, (data) => {
       this.handle_upload_complete(data);
     });
+
+    // Register AUTHENTICATED action
+    this.on(this.actions.AUTHENTICATED, () => {
+      this.handle_authenticated();
+    });
+  }
+
+  handle_authenticated() {
+    if (this.isReconnecting) {
+      toast.dismiss(this.reconnectToastId);
+      toast.success("Successfully reconnected to the backend!", {
+        position: "top-right",
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+      });
+    }
+    this.isReconnecting = false;
+    this.reconnectInterval = 5000; // Reset the reconnect interval after a successful connection
+    this.onConnectCallback?.();
   }
 
   get actions() {
@@ -68,30 +91,20 @@ export default class Backend {
       WORKFLOW_UPDATE: "WORKFLOW_UPDATE",
       WORKFLOW_DELETE: "WORKFLOW_DELETE",
       WORKFLOW_DUPLICATE: "WORKFLOW_DUPLICATE",
+      AUTHENTICATE: "AUTHENTICATE",
+      AUTHENTICATED: "AUTHENTICATED",
     };
   }
 
   connect(onConnectCallback) {
     this.onConnectCallback = onConnectCallback;
-    const token = getAccessToken();
-    const url = token ? `${this.wsUrl}?token=${encodeURIComponent(token)}` : this.wsUrl;
+    const url = this.wsUrl;
     this.webSocket = new WebSocket(url);
     this.webSocket.addEventListener("open", () => {
-      if (this.isReconnecting) {
-        toast.dismiss(this.reconnectToastId);
-        toast.success("Successfully reconnected to the backend!", {
-          position: "top-right",
-          autoClose: 3000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-          progress: undefined,
-        });
-      }
-      this.isReconnecting = false;
-      this.reconnectInterval = 5000; // Reset the reconnect interval after a successful connection
-      onConnectCallback();
+      this.webSocket.send(this.serialize({
+        action: {id: newUUID(), type: this.actions.AUTHENTICATE},
+        payload: {token: getAccessToken()}
+      }))
     });
     /***************************************************************************/
     /* On message received, parse the message and call the appropriate handler */

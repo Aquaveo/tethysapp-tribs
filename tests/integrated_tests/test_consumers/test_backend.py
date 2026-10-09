@@ -11,26 +11,39 @@ from tethysapp.tribs.consumers.backend_actions import BackendActions
 
 
 @pytest.mark.asyncio
-async def test_backend_connect(a_empty_project, make_communicator):
-    async with make_communicator(a_empty_project.id, connect=False) as communicator:
-        connected, _ = await communicator.connect()
-        assert connected
+async def test_backend_connect(a_empty_project, make_communicator, a_admin_user):
+    async with make_communicator(a_empty_project.id, authenticate=False) as communicator:
+        token = str(await database_sync_to_async(AccessToken.for_user)(a_admin_user))
+        await communicator.send_json_to({
+            "action": {"id": str(uuid.uuid4()), "type": BackendActions.AUTHENTICATE},
+            "payload": {"token": token},
+        })
+        response = await communicator.receive_json_from()
+        assert response["action"]["type"] == BackendActions.AUTHENTICATED
+        assert response["payload"] == {"authenticated": True}
 
 
 @pytest.mark.asyncio
 async def test_backend_connect_no_user(a_empty_project, make_communicator):
-    async with make_communicator(a_empty_project.id, connect=False, user=False) as communicator:
-        connected, close_code = await communicator.connect()
-        assert not connected
-        assert close_code == 4401
+    async with make_communicator(a_empty_project.id, user=False) as communicator:
+        await communicator.send_json_to({
+            "action": {"id": str(uuid.uuid4()), "type": BackendActions.AUTHENTICATE},
+            "payload": {"token": "not.a.valid.token"},
+        })
+        event = await communicator.receive_output()
+        assert event == {"type": "websocket.close", "code": 4401}
 
 
 @pytest.mark.asyncio
-async def test_backend_connect_unauthorized(a_empty_project, make_communicator):
-    async with make_communicator(a_empty_project.id, connect=False, authorized=False) as communicator:
-        connected, close_code = await communicator.connect()
-        assert not connected
-        assert close_code == 4403
+async def test_backend_connect_unauthorized(a_empty_project, make_communicator, a_admin_user):
+    async with make_communicator(a_empty_project.id, authorized=False, authenticate=False) as communicator:
+        token = str(await database_sync_to_async(AccessToken.for_user)(a_admin_user))
+        await communicator.send_json_to({
+            "action": {"id": str(uuid.uuid4()), "type": BackendActions.AUTHENTICATE},
+            "payload": {"token": token},
+        })
+        event = await communicator.receive_output()
+        assert event == {"type": "websocket.close", "code": 4403}
 
 
 @pytest.mark.asyncio
@@ -238,55 +251,33 @@ async def test_receive_allowed_before_token_expiry():
 
 
 @pytest.mark.asyncio
-async def test_connect_with_token_is_authoritative(a_empty_project, a_admin_user, mock_backend_app_get_ps_db, mocker):
-    """A JWT supplied in the URL authenticates the socket even with no session user,
-    so its expiry can later be enforced on the live connection."""
-    from channels.routing import URLRouter
-    from channels.testing import WebsocketCommunicator
-    from django.urls import path
-
-    mocker.patch(
-        'tethysapp.tribs.consumers.backend._user_can_access_project',
-        new=mock.AsyncMock(return_value=True),
-    )
-    token = await database_sync_to_async(AccessToken.for_user)(a_admin_user)
-    application = URLRouter([
-        path("apps/tribs/project/<resource_id>/editor/ws/", BackendConsumer.as_asgi()),
-    ])
-    communicator = WebsocketCommunicator(
-        application,
-        f"/apps/tribs/project/{a_empty_project.id}/editor/ws/?token={token}",
-    )
-    try:
-        connected, _ = await communicator.connect()
-        assert connected
-    finally:
-        await communicator.disconnect()
+async def test_connect_with_expired_token_rejected(a_empty_project, make_communicator, a_admin_user):
+    """An expired JWT is rejected at the handshake with 4401."""
+    async with make_communicator(a_empty_project.id, authenticate=False) as communicator:
+        token = await database_sync_to_async(AccessToken.for_user)(a_admin_user)
+        token.set_exp(from_time=datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=5))
+        await communicator.send_json_to({
+            "action": {"id": str(uuid.uuid4()), "type": BackendActions.AUTHENTICATE},
+            "payload": {"token": str(token)},
+        })
+        event = await communicator.receive_output()
+        assert event == {"type": "websocket.close", "code": 4401}
 
 
 @pytest.mark.asyncio
-async def test_connect_with_expired_token_rejected(a_empty_project, a_admin_user, mock_backend_app_get_ps_db, mocker):
-    """An expired JWT is rejected at the handshake with 4401."""
-    from channels.routing import URLRouter
-    from channels.testing import WebsocketCommunicator
-    from django.urls import path
+async def test_message_before_auth_rejected(a_empty_project, make_communicator):
+    async with make_communicator(a_empty_project.id, authenticate=False) as communicator:
+        await communicator.send_json_to({
+            "action": {"id": str(uuid.uuid4()), "type": BackendActions.PROJECT_DATA},
+            "payload": {"initial": True},
+        })
+        event = await communicator.receive_output()
+        assert event == {"type": "websocket.close", "code": 4401}
 
-    mocker.patch(
-        'tethysapp.tribs.consumers.backend._user_can_access_project',
-        new=mock.AsyncMock(return_value=True),
-    )
-    token = await database_sync_to_async(AccessToken.for_user)(a_admin_user)
-    token.set_exp(from_time=datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=5))
-    application = URLRouter([
-        path("apps/tribs/project/<resource_id>/editor/ws/", BackendConsumer.as_asgi()),
-    ])
-    communicator = WebsocketCommunicator(
-        application,
-        f"/apps/tribs/project/{a_empty_project.id}/editor/ws/?token={token}",
-    )
-    try:
-        connected, close_code = await communicator.connect()
-        assert not connected
-        assert close_code == 4401
-    finally:
-        await communicator.disconnect()
+
+@pytest.mark.asyncio
+async def test_auth_timeout_closes_socket(a_empty_project, make_communicator, mocker):
+    mocker.patch("tethysapp.tribs.consumers.backend.AUTH_TIMEOUT_SECONDS", 0.1)
+    async with make_communicator(a_empty_project.id, authenticate=False) as communicator:
+        event = await communicator.receive_output(timeout=2)
+        assert event == {"type": "websocket.close", "code": 4401}

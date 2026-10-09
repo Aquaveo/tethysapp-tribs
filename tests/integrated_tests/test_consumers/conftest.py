@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy import create_engine, select
 from sqlalchemy.exc import InvalidRequestError
 from sqlalchemy.orm import sessionmaker
+from rest_framework_simplejwt.tokens import AccessToken
 
 from tethysapp.tribs.app import Tribs as app
 from tethysapp.tribs.workflows.workflow_registry import TRIBS_WORKFLOWS
@@ -23,6 +24,7 @@ from tribs_adapter.resources import Project, Dataset, Scenario, Realization
 from tethysapp.tribs.consumers.backend import BackendConsumer
 from tethysapp.tribs.consumers.handlers.resource_backend_handler import ResourceBackendHandler
 from tethysapp.tribs.consumers.handlers.file_backend_handler import FileBackendHandler
+from tethysapp.tribs.consumers.backend_actions import BackendActions
 
 
 @pytest_asyncio.fixture
@@ -36,7 +38,7 @@ async def a_admin_user(transactional_db, django_user_model):
 @pytest_asyncio.fixture
 async def make_communicator(a_admin_user, django_user_model, mock_backend_app_get_ps_db, mocker):
     @asynccontextmanager
-    async def make(project_id, connect=True, user=True, authorized=True):
+    async def make(project_id, connect=True, user=True, authorized=True, authenticate=True):
         try:
             # Project access authorization is tested separately in test_backend_authorization.py
             mocker.patch(
@@ -47,16 +49,24 @@ async def make_communicator(a_admin_user, django_user_model, mock_backend_app_ge
                 path("apps/tribs/project/<resource_id>/editor/ws/", BackendConsumer.as_asgi()),
             ])
             communicator = WebsocketCommunicator(application, f"/apps/tribs/project/{str(project_id)}/editor/ws/")
+            token = None
             if user:
                 if isinstance(user, bool) or user == "admin":
-                    communicator.scope["user"] = a_admin_user
+                    the_user = a_admin_user
                 elif isinstance(user, str):
                     _async_create_user = database_sync_to_async(django_user_model.objects.create_user)
-                    not_admin_user = await _async_create_user(username=user, password="password")
-                    communicator.scope["user"] = not_admin_user
+                    the_user = await _async_create_user(username=user, password="password")
+                token = str(await database_sync_to_async(AccessToken.for_user)(the_user))
             if connect:
                 connected, _ = await communicator.connect()
                 assert connected
+                if authenticate and token:
+                    await communicator.send_json_to({
+                        "action": {"id": str(uuid4()), "type": BackendActions.AUTHENTICATE},
+                        "payload": {"token": token},
+                    })
+                    response = await communicator.receive_json_from()
+                    assert response["action"]["type"] == BackendActions.AUTHENTICATED
             yield communicator
         finally:
             await communicator.disconnect()
