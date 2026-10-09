@@ -48,7 +48,7 @@ const MeshTreeItem = ({
     if (isFirstProjectRender) {
       // Do Nothing
     } else if (visibleObjects[projectId] !== undefined) {
-      if (!visibleObjects[projectId].includes(mesh.id)) {
+      if (!visibleObjects[projectId]?.includes(mesh.id)) {
         // TODO Add test in Project for changing visibility of a collection.
         setVisible(false);
       } else {
@@ -96,7 +96,7 @@ const MeshTreeItem = ({
   };
 
   const handleFrame = () => {
-    if (!visibleObjects[projectId].includes(mesh.id)) {
+    if (!visibleObjects[projectId]?.includes(mesh.id)) {
       revealObject(mesh.id);
     }
     setFramedObject(mesh.viz.extent, FRAME_OBJECT);

@@ -16,6 +16,8 @@ jest.mock("resium", () => ({
 // Plain functions, not jest.fn: the jest config resets mock implementations before every test.
 jest.mock("cesium", () => ({
   Cartesian3: { fromDegrees: () => ({}) },
+  CustomShader: function CustomShader(options) { this.options = options; },
+  LightingModel: { UNLIT: "UNLIT" },
   Transforms: { northUpEastToFixedFrame: () => ({ matrix: true }) },
 }));
 
@@ -107,6 +109,14 @@ describe("GltfLayer double buffering", () => {
     expect(models().map((m) => m.url)).toContain(nwt0);
     act(() => mockModelProps[nwt0].onReady());
     expect(models()).toEqual([{ url: nwt0, show: true }]);
+  });
+
+  it("shades every model with a viewer-fixed light instead of the sun", () => {
+    const dataset = makeTimeSeriesMesh();
+    renderLayer(dataset, { [dataset.id]: "Mu" }, T0);
+    const props = mockModelProps["/media/" + dataset.viz.variables[0].timesteps[0].url];
+    expect(props.customShader.options.lightingModel).toBe("UNLIT");
+    expect(props.customShader.options.fragmentShaderText).toContain("fsInput.attributes.normalEC");
   });
 
   it("hides the model when the dataset is not visible and renders nothing without an origin", () => {
