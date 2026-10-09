@@ -178,6 +178,9 @@ const initAndRender = async (viz = false, disabled = false) => {
               visibleCZMLObject,
               setCZMLLayer,
               setSelectedCZMLPoint,
+              activeTimeSeries: null,
+              setActiveTimeSeries: jest.fn(),
+              meshClockTime: null,
             }}
           >
             <SidePanelContext.Provider value={{ showPanel, hideSidePanel, visibleSidePanel }}>

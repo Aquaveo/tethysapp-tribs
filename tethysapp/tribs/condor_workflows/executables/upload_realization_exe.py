@@ -68,14 +68,21 @@ def run(
                 input_file = check_files_and_folders_for_filetype(temp_dir, '.in')
 
             if input_file is None:
-                raise RuntimeError('Could not find tRIBS input file while initializing scenario.')
+                raise RuntimeError('Could not find tRIBS input file while initializing realization.')
 
-            # Use the directory containing the input file as the model root so that
-            # relative paths resolve correctly even if the archive has a top-level folder.
+            # The paths in the input file are relative to the directory that contains it, which is not the root of
+            # the extracted archive when the archive has a top-level folder (e.g. "SALAS/salas.in").
             model_root = os.path.dirname(input_file)
+            sys.stdout.write(f'Model root: {model_root}\n')
 
-            # Initialize the realization and datasets, including viz
+            # Initialize the realization and its output datasets, including viz
             realization.init(scenario=scenario, model_root=model_root, spatial_manager=gs_manager)
+            if not realization.linked_datasets:
+                raise RuntimeError(
+                    'No output files were found at the locations named by the OUTFILENAME and OUTHYDROFILENAME cards '
+                    f'of "{os.path.basename(input_file)}" (relative to {model_root}). Nothing was linked to the '
+                    'realization.'
+                )
 
         realization.set_status(status_key, Realization.STATUS_SUCCESS)
         resource_db_session.commit()
