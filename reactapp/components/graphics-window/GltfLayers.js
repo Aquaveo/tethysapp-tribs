@@ -2,7 +2,7 @@ import { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import PropTypes from "prop-types";
 import { datasetPropTypes } from "components/tree/propTypes";
 import { Model } from "resium";
-import { Cartesian3, Transforms } from "cesium";
+import { Cartesian3, CustomShader, LightingModel, Transforms } from "cesium";
 import { GraphicsWindowVisualsContext, ProjectContext } from "react-tethys/context";
 import extractLayerName from "lib/extractLayerName";
 import { findVariable, getVariables, timestepForTime } from "lib/meshTimeSeries";
@@ -28,6 +28,33 @@ export function desiredGltfUrl(dataset, visibleCZMLObject, meshClockTime) {
 }
 
 const OTHER_SLOT = { a: "b", b: "a" };
+
+let hillshadeShader = null;
+
+/**
+ * Shader shared by every mesh model. Cesium's own lighting is switched off (UNLIT) because it follows the sun, so the
+ * mesh brightens and darkens as the clock animates. Instead the surface is shaded by a light fixed relative to the
+ * viewer (above and to the left of the camera), which keeps the relief visible and stable while the clock runs.
+ * Built on first use so the cesium module is only touched at run time.
+ */
+export function getHillshadeShader() {
+  if (!hillshadeShader) {
+    hillshadeShader = new CustomShader({
+      lightingModel: LightingModel.UNLIT,
+      fragmentShaderText: `
+        const vec3 LIGHT_DIRECTION_EC = normalize(vec3(-0.4, 0.6, 1.0)); // eye coordinates: x right, y up, z toward the viewer
+        const float AMBIENT = 0.35;
+
+        void fragmentMain(FragmentInput fsInput, inout czm_modelMaterial material) {
+          vec3 normal = normalize(fsInput.attributes.normalEC);
+          float diffuse = max(dot(normal, LIGHT_DIRECTION_EC), 0.0);
+          material.diffuse *= AMBIENT + (1.0 - AMBIENT) * diffuse;
+        }
+      `,
+    });
+  }
+  return hillshadeShader;
+}
 
 /**
  * Renders a glTF mesh dataset with two model "slots" so time steps swap without a blank frame: the visible slot
@@ -77,6 +104,7 @@ const GltfLayer = ({ dataset }) => {
     [gltf_origin]
   );
   if (!enuMatrix) return null; // TODO: add warning icon to dataset to indicate issue
+  const customShader = getHillshadeShader();
 
   let show = false;
   if (visibleObjects?.[projectId] !== undefined) {
@@ -95,6 +123,7 @@ const GltfLayer = ({ dataset }) => {
             url={TETHYS_MEDIA_URL + url}
             modelMatrix={enuMatrix}
             minimumPixelSize={10}
+            customShader={customShader}
             show={isVisible && show}
             onReady={isVisible ? undefined : () => handleHiddenReady(slot)}
             onError={isVisible ? undefined : (error) => handleHiddenError(slot, error)}

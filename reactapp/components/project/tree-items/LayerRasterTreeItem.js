@@ -36,7 +36,7 @@ const LayerRasterTreeItem = ({
     if (isFirstProjectRender) {
       // Do Nothing
     } else if (visibleObjects[projectId] !== undefined) {
-      if (!visibleObjects[projectId].includes(layer)) {
+      if (!visibleObjects[projectId]?.includes(layer)) {
         // TODO Add test in Project for changing visibility of a collection.
         setVisible(false);
       } else {
@@ -61,7 +61,7 @@ const LayerRasterTreeItem = ({
   }
 
   const handleFrame = () => {
-    if (!visibleObjects[projectId].includes(layer)) {
+    if (!visibleObjects[projectId]?.includes(layer)) {
       revealObject(layer);
     }
     setFramedObject(extent, FRAME_OBJECT);
