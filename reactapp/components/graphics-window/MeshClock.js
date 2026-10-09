@@ -20,6 +20,7 @@ const MeshClock = () => {
   seriesRef.current = activeTimeSeries;
 
   // (Re)initialize the clock to the active variable's range, looping, one time step per ~0.5 s of wall time.
+  // Playback is never started here: the user starts and stops it with the animation widget.
   useEffect(() => {
     if (!viewer?.clock) return;
     const clock = viewer.clock;
@@ -35,7 +36,7 @@ const MeshClock = () => {
     clock.clockRange = ClockRange.LOOP_STOP;
     clock.clockStep = ClockStep.SYSTEM_CLOCK_MULTIPLIER;
     clock.multiplier = activeTimeSeries.multiplier;
-    clock.shouldAnimate = true;
+    clock.shouldAnimate = false;
     viewer.timeline?.zoomTo(startTime, stopTime);
     lastIndexRef.current = 0;
     setMeshClockTime(JulianDate.toDate(startTime).getTime());

@@ -48,7 +48,7 @@ const RasterTreeItem = ({
     if (isFirstProjectRender) {
       // Do nothing
     } else if (visibleObjects[projectId] !== undefined) {
-      if (!visibleObjects[projectId].includes(raster.id)) {
+      if (!visibleObjects[projectId]?.includes(raster.id)) {
         // TODO Add test in Project for changing visibility of a collection.
         setVisible(false);
       } else {
@@ -96,7 +96,7 @@ const RasterTreeItem = ({
   };
 
   const handleFrame = () => {
-    if (!visibleObjects[projectId].includes(raster.id)) {
+    if (!visibleObjects[projectId]?.includes(raster.id)) {
       revealObject(raster.id);
     }
     setFramedObject(raster.viz.extent, FRAME_OBJECT);
