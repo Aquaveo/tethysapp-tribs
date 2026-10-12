@@ -4,10 +4,9 @@ import { setTokens } from "react-tethys/services/api/tokens";
 async function getJWTToken() {
   const response = await apiClient.get("/api/token/", {});
   const access = response.access;
-  const refresh = response.refresh;
-  setTokens(access, refresh);
+  setTokens(access);
   scheduleRefresh(access);
-  return { access, refresh };
+  return { access };
 }
 
 function getUserData() {

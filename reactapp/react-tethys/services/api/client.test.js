@@ -1,13 +1,12 @@
 import { waitFor } from "@testing-library/react";
-import axios from "axios";
 import { rest } from "msw";
 
 import { server } from "config/tests/mocks/server";
-import { scheduleRefresh, logout } from "react-tethys/services/api/client";
+import { scheduleRefresh } from "react-tethys/services/api/client";
 import {
   getAccessToken,
-  getRefreshToken,
   setTokens,
+  clearTokens,
 } from "react-tethys/services/api/tokens";
 
 const PATHNAME = "/apps/tribs/";
@@ -25,7 +24,7 @@ function makeToken(expiresInSeconds) {
 
 describe("scheduleRefresh", () => {
   beforeEach(() => {
-    localStorage.clear();
+    clearTokens();
     Object.defineProperty(window, "location", {
       configurable: true,
       value: {
@@ -62,49 +61,28 @@ describe("scheduleRefresh", () => {
   });
 
   it("refreshes immediately when the token expires within 60s and stores the new access token", async () => {
-    let sentRefresh = null;
-    const rotatedAccess = makeToken(300);
+    const newAccess = makeToken(300);
     server.use(
-      rest.post("http://api.test/api/token/refresh/", async (req, res, ctx) => {
-        sentRefresh = (await req.json()).refresh;
-        return res(ctx.status(200), ctx.json({ access: rotatedAccess }));
+      rest.get("http://api.test/api/token/", (req, res, ctx) => {
+        // Session-authenticated: the portal issues a fresh pair; the client keeps only access.
+        return res(ctx.status(200), ctx.json({ access: newAccess, refresh: "ignored" }));
       })
     );
-    setTokens("old-access", "stored-refresh");
+    setTokens("old-access");
 
     scheduleRefresh(makeToken(30)); // < 60s to expiry, so delay clamps to 0
 
-    await waitFor(() => expect(getAccessToken()).toBe(rotatedAccess));
-    // The refresh request sends the stored refresh token.
-    expect(sentRefresh).toBe("stored-refresh");
-    // Without rotation, the stored refresh token is left untouched.
-    expect(getRefreshToken()).toBe("stored-refresh");
-  });
-
-  it("stores a rotated refresh token when the server returns one", async () => {
-    server.use(
-      rest.post("http://api.test/api/token/refresh/", (req, res, ctx) => {
-        return res(
-          ctx.status(200),
-          ctx.json({ access: makeToken(300), refresh: "rotated-refresh" })
-        );
-      })
-    );
-    setTokens("old-access", "stored-refresh");
-
-    scheduleRefresh(makeToken(30));
-
-    await waitFor(() => expect(getRefreshToken()).toBe("rotated-refresh"));
+    await waitFor(() => expect(getAccessToken()).toBe(newAccess));
   });
 
   it("re-arms the timer after a successful refresh", async () => {
     const setTimeoutSpy = jest.spyOn(global, "setTimeout");
     server.use(
-      rest.post("http://api.test/api/token/refresh/", (req, res, ctx) => {
+      rest.get("http://api.test/api/token/", (req, res, ctx) => {
         return res(ctx.status(200), ctx.json({ access: makeToken(300) }));
       })
     );
-    setTokens("old-access", "stored-refresh");
+    setTokens("old-access");
 
     scheduleRefresh(makeToken(30));
 
@@ -117,13 +95,14 @@ describe("scheduleRefresh", () => {
     );
   });
 
-  it("redirects to portal login when the refresh fails", async () => {
+  it("redirects to portal login when the session has expired", async () => {
+    // Unauthenticated: /api/token/ responds 200 with nulls, not 401.
     server.use(
-      rest.post("http://api.test/api/token/refresh/", (req, res, ctx) => {
-        return res(ctx.status(401));
+      rest.get("http://api.test/api/token/", (req, res, ctx) => {
+        return res(ctx.status(200), ctx.json({ access: null, refresh: null }));
       })
     );
-    setTokens("old-access", "expired-refresh");
+    setTokens("old-access");
 
     scheduleRefresh(makeToken(30));
 
@@ -132,71 +111,20 @@ describe("scheduleRefresh", () => {
       `/accounts/login?next=${PATHNAME}`
     );
   });
-});
 
-
-describe("logout", () => {
-  beforeEach(() => {
-    localStorage.clear();
-    Object.defineProperty(window, "location", {
-      configurable: true,
-      value: {
-        pathname: PATHNAME,
-        protocol: "http:",
-        assign: jest.fn(),
-      },
-    });
-  });
-
-  afterEach(() => {
-    jest.restoreAllMocks();
-  });
-
-  it("blacklists the refresh token, clears storage, and redirects to portal logout", async () => {
-    // Spy on axios.post directly: msw in this env cannot serve a POST with a JSON body.
-    const postSpy = jest.spyOn(axios, "post").mockResolvedValue({ data: {} });
-    setTokens("some-access", "stored-refresh");
-
-    await logout();
-
-    expect(postSpy).toHaveBeenCalledWith(
-      expect.stringContaining("/api/token/blacklist/"),
-      { refresh: "stored-refresh" }
-    );
-    expect(getAccessToken()).toBeNull();
-    expect(getRefreshToken()).toBeNull();
-    expect(window.location.assign).toHaveBeenCalled();
-    expect(window.location.assign.mock.calls[0][0]).toContain("/accounts/logout/");
-  });
-
-  it("still clears storage and redirects when blacklisting fails", async () => {
+  it("redirects to portal login when the refresh request fails", async () => {
     server.use(
-      rest.post("http://api.test/api/token/blacklist/", (req, res, ctx) =>
-        res(ctx.status(401))
-      )
-    );
-    setTokens("some-access", "stored-refresh");
-
-    await logout();
-
-    expect(getAccessToken()).toBeNull();
-    expect(getRefreshToken()).toBeNull();
-    expect(window.location.assign).toHaveBeenCalled();
-    expect(window.location.assign.mock.calls[0][0]).toContain("/accounts/logout/");
-  });
-
-  it("skips the blacklist call when there is no refresh token", async () => {
-    let called = false;
-    server.use(
-      rest.post("http://api.test/api/token/blacklist/", (req, res, ctx) => {
-        called = true;
-        return res(ctx.status(200), ctx.json({}));
+      rest.get("http://api.test/api/token/", (req, res, ctx) => {
+        return res(ctx.status(500));
       })
     );
+    setTokens("old-access");
 
-    await logout();
+    scheduleRefresh(makeToken(30));
 
-    expect(called).toBe(false);
-    expect(window.location.assign).toHaveBeenCalled();
+    await waitFor(() => expect(window.location.assign).toHaveBeenCalled());
+    expect(window.location.assign.mock.calls[0][0]).toContain(
+      `/accounts/login?next=${PATHNAME}`
+    );
   });
 });

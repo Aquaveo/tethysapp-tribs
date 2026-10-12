@@ -1,7 +1,7 @@
 import axios from "axios";
 
 import { getTethysPortalHost } from "react-tethys/services/utilities";
-import { getAccessToken, getRefreshToken, setTokens, clearTokens } from "react-tethys/services/api/tokens";
+import { getAccessToken, setTokens } from "react-tethys/services/api/tokens";
 
 const TETHYS_PORTAL_HOST = getTethysPortalHost();
 
@@ -14,11 +14,11 @@ const apiClient = axios.create({
 });
 
 async function refreshAccess() {
-  const res = await axios.post(
-    `${TETHYS_PORTAL_HOST.origin}/api/token/refresh/`,
-    { refresh: getRefreshToken() },
+  const res = await axios.get(
+    `${TETHYS_PORTAL_HOST.origin}/api/token/`, { withCredentials: true }
   );
-  setTokens(res.data.access, res.data.refresh);
+  if (!res.data.access) throw new Error("not authenticated");
+  setTokens(res.data.access);
   return res.data.access;
 }
 
@@ -61,18 +61,6 @@ export function scheduleRefresh(access) {
   }, delay);
 }
 
-export async function logout() {
-  const refresh = getRefreshToken();
-  if (refresh) {
-    try {
-      await axios.post(`${TETHYS_PORTAL_HOST.origin}/api/token/blacklist/`, { refresh });
-    } catch (e) {
-      // Best effort: even if blacklisting fails, still clear locally and log out.
-    }
-  }
-  clearTokens();
-  window.location.assign(`${TETHYS_PORTAL_HOST.origin}/accounts/logout/`);
-}
 
 function handleSuccess(response) {
   return response.data ? response.data : response;

@@ -24,7 +24,6 @@ const handlers = [
       ctx.status(200),
       ctx.json({
         access: "fake-access",
-        refresh: "fake-refresh"
       }),
     );
   }),
