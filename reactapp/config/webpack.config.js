@@ -96,6 +96,8 @@ module.exports = (env, argv) => {
       minimize: true,
     },
     devServer: {
+      host: "0.0.0.0",
+      port: 3000,
       proxy: {
         "/[A-Za-z0-9-/]+/ws/": {
           target: "ws://127.0.0.1:8000",
@@ -106,7 +108,7 @@ module.exports = (env, argv) => {
           changeOrigin: true,
         },
       },
-      open: true,
+      open: false,
     },
   };
 };
