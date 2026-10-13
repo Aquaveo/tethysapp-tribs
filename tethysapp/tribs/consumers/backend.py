@@ -118,7 +118,8 @@ class BackendConsumer(AsyncConsumer):
             return
 
         db_url = await database_sync_to_async(
-            app.get_persistent_store_database, thread_sensitive=True,
+            app.get_persistent_store_database,
+            thread_sensitive=True,
         )(app.DATABASE_NAME, as_url=True)
         # Specify the async driver for postgresql
         db_url = str(db_url).replace('postgresql', 'postgresql+asyncpg')

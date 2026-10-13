@@ -61,10 +61,17 @@ async def make_communicator(a_admin_user, django_user_model, mock_backend_app_ge
                 connected, _ = await communicator.connect()
                 assert connected
                 if authenticate and token:
-                    await communicator.send_json_to({
-                        "action": {"id": str(uuid4()), "type": BackendActions.AUTHENTICATE},
-                        "payload": {"token": token},
-                    })
+                    await communicator.send_json_to(
+                        {
+                            "action": {
+                                "id": str(uuid4()),
+                                "type": BackendActions.AUTHENTICATE
+                            },
+                            "payload": {
+                                "token": token
+                            },
+                        }
+                    )
                     response = await communicator.receive_json_from()
                     assert response["action"]["type"] == BackendActions.AUTHENTICATED
             yield communicator

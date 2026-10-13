@@ -14,10 +14,17 @@ from tethysapp.tribs.consumers.backend_actions import BackendActions
 async def test_backend_connect(a_empty_project, make_communicator, a_admin_user):
     async with make_communicator(a_empty_project.id, authenticate=False) as communicator:
         token = str(await database_sync_to_async(AccessToken.for_user)(a_admin_user))
-        await communicator.send_json_to({
-            "action": {"id": str(uuid.uuid4()), "type": BackendActions.AUTHENTICATE},
-            "payload": {"token": token},
-        })
+        await communicator.send_json_to(
+            {
+                "action": {
+                    "id": str(uuid.uuid4()),
+                    "type": BackendActions.AUTHENTICATE
+                },
+                "payload": {
+                    "token": token
+                },
+            }
+        )
         response = await communicator.receive_json_from()
         assert response["action"]["type"] == BackendActions.AUTHENTICATED
         assert response["payload"] == {"authenticated": True}
@@ -26,10 +33,17 @@ async def test_backend_connect(a_empty_project, make_communicator, a_admin_user)
 @pytest.mark.asyncio
 async def test_backend_connect_no_user(a_empty_project, make_communicator):
     async with make_communicator(a_empty_project.id, user=False) as communicator:
-        await communicator.send_json_to({
-            "action": {"id": str(uuid.uuid4()), "type": BackendActions.AUTHENTICATE},
-            "payload": {"token": "not.a.valid.token"},
-        })
+        await communicator.send_json_to(
+            {
+                "action": {
+                    "id": str(uuid.uuid4()),
+                    "type": BackendActions.AUTHENTICATE
+                },
+                "payload": {
+                    "token": "not.a.valid.token"
+                },
+            }
+        )
         event = await communicator.receive_output()
         assert event == {"type": "websocket.close", "code": 4401}
 
@@ -38,10 +52,17 @@ async def test_backend_connect_no_user(a_empty_project, make_communicator):
 async def test_backend_connect_unauthorized(a_empty_project, make_communicator, a_admin_user):
     async with make_communicator(a_empty_project.id, authorized=False, authenticate=False) as communicator:
         token = str(await database_sync_to_async(AccessToken.for_user)(a_admin_user))
-        await communicator.send_json_to({
-            "action": {"id": str(uuid.uuid4()), "type": BackendActions.AUTHENTICATE},
-            "payload": {"token": token},
-        })
+        await communicator.send_json_to(
+            {
+                "action": {
+                    "id": str(uuid.uuid4()),
+                    "type": BackendActions.AUTHENTICATE
+                },
+                "payload": {
+                    "token": token
+                },
+            }
+        )
         event = await communicator.receive_output()
         assert event == {"type": "websocket.close", "code": 4403}
 
@@ -256,10 +277,17 @@ async def test_connect_with_expired_token_rejected(a_empty_project, make_communi
     async with make_communicator(a_empty_project.id, authenticate=False) as communicator:
         token = await database_sync_to_async(AccessToken.for_user)(a_admin_user)
         token.set_exp(from_time=datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=5))
-        await communicator.send_json_to({
-            "action": {"id": str(uuid.uuid4()), "type": BackendActions.AUTHENTICATE},
-            "payload": {"token": str(token)},
-        })
+        await communicator.send_json_to(
+            {
+                "action": {
+                    "id": str(uuid.uuid4()),
+                    "type": BackendActions.AUTHENTICATE
+                },
+                "payload": {
+                    "token": str(token)
+                },
+            }
+        )
         event = await communicator.receive_output()
         assert event == {"type": "websocket.close", "code": 4401}
 
@@ -267,10 +295,17 @@ async def test_connect_with_expired_token_rejected(a_empty_project, make_communi
 @pytest.mark.asyncio
 async def test_message_before_auth_rejected(a_empty_project, make_communicator):
     async with make_communicator(a_empty_project.id, authenticate=False) as communicator:
-        await communicator.send_json_to({
-            "action": {"id": str(uuid.uuid4()), "type": BackendActions.PROJECT_DATA},
-            "payload": {"initial": True},
-        })
+        await communicator.send_json_to(
+            {
+                "action": {
+                    "id": str(uuid.uuid4()),
+                    "type": BackendActions.PROJECT_DATA
+                },
+                "payload": {
+                    "initial": True
+                },
+            }
+        )
         event = await communicator.receive_output()
         assert event == {"type": "websocket.close", "code": 4401}
 
