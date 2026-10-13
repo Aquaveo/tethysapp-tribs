@@ -13,7 +13,7 @@ const apiClient = axios.create({
   },
 });
 
-async function refreshAccess() {
+export async function refreshAccess() {
   const res = await axios.get(
     `${TETHYS_PORTAL_HOST.origin}/api/token/`, { withCredentials: true }
   );

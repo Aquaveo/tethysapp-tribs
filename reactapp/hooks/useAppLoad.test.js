@@ -79,6 +79,41 @@ describe("useAppLoad", () => {
     expect(result.current.isLoaded).toBe(false);
   });
 
+  it("redirects to login on visibilitychange when the session is gone", async () => {
+    const wsServer = new WS(`ws://api.test${PATHNAME}ws/`);
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "visible",
+    });
+
+    const { result } = renderHook(() => useAppLoad());
+
+    await wsServer.connected;
+    await wsServer.nextMessage;
+    wsServer.send(JSON.stringify({
+      action: { id: "auth", type: "AUTHENTICATED" },
+      payload: { authenticated: true },
+    }));
+    await waitFor(() => expect(result.current.isLoaded).toBe(true), {
+      timeout: 3000,
+    });
+    expect(window.location.assign).not.toHaveBeenCalled();
+
+    // Session deleted: /api/token/ now responds 200 with nulls.
+    server.use(
+      rest.get("http://api.test/api/token/", (req, res, ctx) => {
+        return res(ctx.status(200), ctx.json({ access: null, refresh: null }));
+      })
+    );
+
+    window.dispatchEvent(new Event("visibilitychange"));
+
+    await waitFor(() => expect(window.location.assign).toHaveBeenCalled());
+    expect(window.location.assign.mock.calls[0][0]).toContain(
+      `/accounts/login?next=${PATHNAME}`
+    );
+  });
+
   it("sets error when an API call fails", async () => {
     server.use(
       rest.get("http://api.test/api/whoami/", (req, res, ctx) => {

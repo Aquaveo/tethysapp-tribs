@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import tethysAPI from "react-tethys/services/api/tethys";
 import Backend from "services/Backend";
+import { redirectToLogin, refreshAccess } from "react-tethys/services/api/client";
 
 export const APP_ID = process.env.TETHYS_APP_ID;
 export const LOADER_DELAY = process.env.TETHYS_LOADER_DELAY;
@@ -17,6 +18,29 @@ export function useAppLoad() {
       setError(error);
     }, LOADER_DELAY);
   };
+
+  useEffect(() => {
+    if (!isLoaded) return;
+
+    const recheck = async () => {
+      if (document.visibilityState !== "visible") return;
+      try {
+        await refreshAccess();
+      } catch (error) {
+        redirectToLogin();
+      }
+    };
+
+    window.addEventListener("focus", recheck);
+    window.addEventListener("visibilitychange", recheck);
+    const timer = window.setInterval(recheck, 5 * 60_000);
+
+    return () => {
+      window.removeEventListener("focus", recheck);
+      window.removeEventListener("visibilitychange", recheck);
+      window.clearInterval(timer);
+    };
+  }, [isLoaded]);
 
   useEffect(() => {
     Promise.all([
