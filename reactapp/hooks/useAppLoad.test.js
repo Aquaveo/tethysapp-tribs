@@ -73,7 +73,7 @@ describe("useAppLoad", () => {
 
     await waitFor(() =>
       expect(window.location.assign).toHaveBeenCalledWith(
-        `/accounts/login?next=${PATHNAME}`
+        `http://api.test/accounts/login?next=${PATHNAME}`
       )
     );
     expect(result.current.isLoaded).toBe(false);

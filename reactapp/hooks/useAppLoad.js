@@ -50,10 +50,7 @@ export function useAppLoad() {
     ])
       .then(([tethysApp, user, jwt]) => {
         if (!jwt.access) {
-          // /api/token/ returns 200 with nulls when not logged in
-          window.location.assign(
-            `/accounts/login?next=${window.location.pathname}`
-          );
+          redirectToLogin();
           return;
         }
 

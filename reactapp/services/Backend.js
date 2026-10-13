@@ -166,7 +166,11 @@ export default class Backend {
       try {
         await getFreshAccessToken();
       } catch(e) {
-        if (e.response?.status === 401) return redirectToLogin();
+        // Session gone: /api/token/ returns 200 with null access (plain Error)
+        // or 401; either way reconnecting with a stale token is pointless.
+        if (e.response?.status === 401 || e.message === "not authenticated") {
+          return redirectToLogin();
+        }
       }
       this.connect(this.onConnectCallback);
     }, this.reconnectInterval);
