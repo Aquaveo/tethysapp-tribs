@@ -2,6 +2,8 @@ import base64ArrayBuffer from "lib/base64ArrayBuffer";
 import newUUID from "lib/uuid.js";
 
 import { getTethysPortalHost } from "react-tethys/services/utilities";
+import { getAccessToken } from "react-tethys/services/api/tokens";
+import { getFreshAccessToken, redirectToLogin } from "react-tethys/services/api/client";
 import { toast } from "react-toastify";
 
 export default class Backend {
@@ -33,6 +35,29 @@ export default class Backend {
     this.on(this.actions.UPLOAD_FILE_COMPLETE, (data) => {
       this.handle_upload_complete(data);
     });
+
+    // Register AUTHENTICATED action
+    this.on(this.actions.AUTHENTICATED, () => {
+      this.handle_authenticated();
+    });
+  }
+
+  handle_authenticated() {
+    if (this.isReconnecting) {
+      toast.dismiss(this.reconnectToastId);
+      toast.success("Successfully reconnected to the backend!", {
+        position: "top-right",
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+      });
+    }
+    this.isReconnecting = false;
+    this.reconnectInterval = 5000; // Reset the reconnect interval after a successful connection
+    this.onConnectCallback?.();
   }
 
   get actions() {
@@ -66,27 +91,20 @@ export default class Backend {
       WORKFLOW_UPDATE: "WORKFLOW_UPDATE",
       WORKFLOW_DELETE: "WORKFLOW_DELETE",
       WORKFLOW_DUPLICATE: "WORKFLOW_DUPLICATE",
+      AUTHENTICATE: "AUTHENTICATE",
+      AUTHENTICATED: "AUTHENTICATED",
     };
   }
 
   connect(onConnectCallback) {
-    this.onConnectCallback = onConnectCallback
-    this.webSocket = new WebSocket(this.wsUrl);
+    this.onConnectCallback = onConnectCallback;
+    const url = this.wsUrl;
+    this.webSocket = new WebSocket(url);
     this.webSocket.addEventListener("open", () => {
-      if (this.isReconnecting) {
-        toast.dismiss(this.reconnectToastId);
-        toast.success("Successfully reconnected to the backend!", {
-          position: "top-right",
-          autoClose: 3000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-          progress: undefined,
-        });
-      }
-      this.isReconnecting = false;
-      onConnectCallback();
+      this.webSocket.send(this.serialize({
+        action: {id: newUUID(), type: this.actions.AUTHENTICATE},
+        payload: {token: getAccessToken()}
+      }))
     });
     /***************************************************************************/
     /* On message received, parse the message and call the appropriate handler */
@@ -110,10 +128,8 @@ export default class Backend {
       }
     });
 
-    if (!this.reconnectInterval <= 320000) {
-      this.webSocket.addEventListener("close", this.reconnect);
-      this.webSocket.addEventListener("error", this.reconnect);
-    }
+    this.webSocket.addEventListener("close", this.reconnect);
+    this.webSocket.addEventListener("error", this.reconnect);
   }
 
   reconnect() {
@@ -146,7 +162,16 @@ export default class Backend {
       });
     }
     this.isReconnecting = true;
-    setTimeout(() => {
+    setTimeout(async () => {
+      try {
+        await getFreshAccessToken();
+      } catch(e) {
+        // Session gone: /api/token/ returns 200 with null access (plain Error)
+        // or 401; either way reconnecting with a stale token is pointless.
+        if (e.response?.status === 401 || e.message === "not authenticated") {
+          return redirectToLogin();
+        }
+      }
       this.connect(this.onConnectCallback);
     }, this.reconnectInterval);
     this.reconnectInterval *= 2;

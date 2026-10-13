@@ -213,6 +213,18 @@ async def test_get_scenario_dne(rbh, a_session):
 
 
 @pytest.mark.asyncio
+async def test_get_scenario_other_project_denied(rbh, b_complete_project, a_session):
+    """A scenario belonging to another project must not be accessible via this handler."""
+    def _data(session):
+        return b_complete_project.scenarios[0].id
+
+    other_scenario_id = await a_session.run_sync(_data)
+    with pytest.raises(ValueError) as exc:
+        await rbh.get_scenario(a_session, other_scenario_id)
+    assert str(exc.value) == f'Could not find Scenario with ID "{other_scenario_id}"'
+
+
+@pytest.mark.asyncio
 async def test_get_realization(rbh, a_complete_project, a_session):
     project = a_complete_project
 
@@ -234,6 +246,18 @@ async def test_get_realization_dne(rbh, a_session):
     with pytest.raises(ValueError) as exc:
         await rbh.get_realization(a_session, dne_realization_id)
     assert str(exc.value) == f'Could not find Realization with ID "{dne_realization_id}"'
+
+
+@pytest.mark.asyncio
+async def test_get_realization_other_project_denied(rbh, b_complete_project, a_session):
+    """A realization belonging to another project must not be accessible via this handler."""
+    def _data(session):
+        return b_complete_project.scenarios[0].realizations[0].id
+
+    other_realization_id = await a_session.run_sync(_data)
+    with pytest.raises(ValueError) as exc:
+        await rbh.get_realization(a_session, other_realization_id)
+    assert str(exc.value) == f'Could not find Realization with ID "{other_realization_id}"'
 
 
 @pytest.mark.asyncio
@@ -260,6 +284,18 @@ async def test_get_dataset_dne(rbh, a_session):
 
 
 @pytest.mark.asyncio
+async def test_get_dataset_other_project_denied(rbh, b_complete_project, a_session):
+    """A dataset belonging to another project must not be accessible via this handler."""
+    def _data(session):
+        return b_complete_project.datasets[0].id
+
+    other_dataset_id = await a_session.run_sync(_data)
+    with pytest.raises(ValueError) as exc:
+        await rbh.get_dataset(a_session, other_dataset_id)
+    assert str(exc.value) == f'Could not find Dataset with ID "{other_dataset_id}"'
+
+
+@pytest.mark.asyncio
 async def test_get_workflow(rbh, a_complete_project, a_session):
     project = a_complete_project
 
@@ -280,6 +316,18 @@ async def test_get_workflow_dne(rbh, a_session):
     with pytest.raises(ValueError) as exc:
         await rbh.get_workflow(a_session, dne_workflow_id)
     assert str(exc.value) == f'Could not find Workflow with ID "{dne_workflow_id}"'
+
+
+@pytest.mark.asyncio
+async def test_get_workflow_other_project_denied(rbh, b_complete_project, a_session):
+    """A workflow belonging to another project must not be accessible via this handler."""
+    def _data(session):
+        return b_complete_project.workflows[0].id
+
+    other_workflow_id = await a_session.run_sync(_data)
+    with pytest.raises(ValueError) as exc:
+        await rbh.get_workflow(a_session, other_workflow_id)
+    assert str(exc.value) == f'Could not find Workflow with ID "{other_workflow_id}"'
 
 
 @pytest.mark.asyncio

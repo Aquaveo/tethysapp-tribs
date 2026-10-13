@@ -1,13 +1,12 @@
-import apiClient from "react-tethys/services/api/client";
+import apiClient, { scheduleRefresh } from "react-tethys/services/api/client";
+import { setTokens } from "react-tethys/services/api/tokens";
 
-function getSession() {
-  return apiClient.get("/api/session/");
-}
-
-function getCSRF() {
-  return apiClient.get("/api/csrf/").then((response) => {
-    return response.headers["x-csrftoken"];
-  });
+async function getJWTToken() {
+  const response = await apiClient.get("/api/token/", {});
+  const access = response.access;
+  setTokens(access);
+  scheduleRefresh(access);
+  return { access };
 }
 
 function getUserData() {
@@ -19,8 +18,7 @@ function getAppData(tethys_app_url) {
 }
 
 const tethysAPI = {
-  getSession,
-  getCSRF,
+  getJWTToken,
   getAppData,
   getUserData,
 };

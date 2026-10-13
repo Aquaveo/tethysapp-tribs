@@ -147,7 +147,14 @@ class ResourceBackendHandler:
     async def get_scenario(self, session, scenario_id) -> Scenario:
         """Get Scenario from DB by ID."""
         def _query(session, scenario_id):
-            return session.query(Scenario).get(scenario_id)
+            scenario = session.query(Scenario).get(scenario_id)
+            if scenario is None:
+                return None
+            parent = scenario.project
+            # Belongs to another project -> treat as missing
+            if parent is None or str(parent.id) != str(self.get_project_id()):
+                return None
+            return scenario
 
         scenario = await session.run_sync(_query, scenario_id=scenario_id)
         if not scenario:
@@ -157,7 +164,14 @@ class ResourceBackendHandler:
     async def get_realization(self, session, realization_id) -> Realization:
         """Get Realization from DB by ID."""
         def _query(session, realization_id):
-            return session.query(Realization).get(realization_id)
+            realization = session.query(Realization).get(realization_id)
+            if realization is None:
+                return None
+            parent = realization.project
+            # Belongs to another project -> treat as missing
+            if parent is None or str(parent.id) != str(self.get_project_id()):
+                return None
+            return realization
 
         realization = await session.run_sync(_query, realization_id=realization_id)
         if not realization:
@@ -167,7 +181,14 @@ class ResourceBackendHandler:
     async def get_dataset(self, session, dataset_id) -> Dataset:
         """Get Dataset from DB by ID."""
         def _query(session, dataset_id):
-            return session.query(Dataset).get(dataset_id)
+            dataset = session.query(Dataset).get(dataset_id)
+            if dataset is None:
+                return None
+            parent = dataset.project
+            # Belongs to another project -> treat as missing
+            if parent is None or str(parent.id) != str(self.get_project_id()):
+                return None
+            return dataset
 
         dataset = await session.run_sync(_query, dataset_id=dataset_id)
         if not dataset:
@@ -177,7 +198,14 @@ class ResourceBackendHandler:
     async def get_workflow(self, session, workflow_id) -> ResourceWorkflow:
         """Get Workflow from DB by ID."""
         def _query(session, workflow_id):
-            return session.query(ResourceWorkflow).get(workflow_id)
+            workflow = session.query(ResourceWorkflow).get(workflow_id)
+            if workflow is None:
+                return None
+            parent = workflow.resource
+            # Belongs to another project -> treat as missing
+            if parent is None or str(parent.id) != str(self.get_project_id()):
+                return None
+            return workflow
 
         workflow = await session.run_sync(_query, workflow_id=workflow_id)
         if not workflow:

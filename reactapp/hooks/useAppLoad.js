@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import tethysAPI from "react-tethys/services/api/tethys";
 import Backend from "services/Backend";
+import { redirectToLogin, refreshAccess } from "react-tethys/services/api/client";
 
 export const APP_ID = process.env.TETHYS_APP_ID;
 export const LOADER_DELAY = process.env.TETHYS_LOADER_DELAY;
@@ -19,38 +20,59 @@ export function useAppLoad() {
   };
 
   useEffect(() => {
-    // Get the session first
-    tethysAPI
-      .getSession()
-        .then(() => {
-          // Then load all other app data
-          Promise.all([
-            tethysAPI.getAppData(APP_ID),
-            tethysAPI.getUserData(),
-            tethysAPI.getCSRF(),
-          ])
-            .then(([tethysApp, user, csrfToken]) => {
-              // Setup backend
-              const backend = new Backend(TETHYS_APP_ROOT_URL);
+    if (!isLoaded) return;
 
-              backend.connect(() => {
-                console.log("Connected to backend.");
-                setAppContext({
-                  tethysApp,
-                  user,
-                  csrfToken,
-                  backend,
-                });
+    const recheck = async () => {
+      if (document.visibilityState !== "visible") return;
+      try {
+        await refreshAccess();
+      } catch (error) {
+        redirectToLogin();
+      }
+    };
 
-                // Allow for minimum delay to display loader
-                setTimeout(() => {
-                  setIsLoaded(true);
-                }, LOADER_DELAY);
-              });
-            })
-            .catch(handleError);
-        })
-        .catch(handleError);
+    window.addEventListener("focus", recheck);
+    window.addEventListener("visibilitychange", recheck);
+    const timer = window.setInterval(recheck, 5 * 60_000);
+
+    return () => {
+      window.removeEventListener("focus", recheck);
+      window.removeEventListener("visibilitychange", recheck);
+      window.clearInterval(timer);
+    };
+  }, [isLoaded]);
+
+  useEffect(() => {
+    Promise.all([
+      tethysAPI.getAppData(APP_ID),
+      tethysAPI.getUserData(),
+      tethysAPI.getJWTToken(),
+    ])
+      .then(([tethysApp, user, jwt]) => {
+        if (!jwt.access) {
+          redirectToLogin();
+          return;
+        }
+
+        // Setup backend
+        const backend = new Backend(TETHYS_APP_ROOT_URL);
+
+        backend.connect(() => {
+          console.log("Connected to backend.");
+          setAppContext({
+            tethysApp,
+            user,
+            jwtToken: jwt,
+            backend,
+          });
+
+          // Allow for minimum delay to display loader
+          setTimeout(() => {
+            setIsLoaded(true);
+          }, LOADER_DELAY);
+        });
+      })
+      .catch(handleError);
   }, []);
 
   return { isLoaded, appContext, error };
