@@ -154,7 +154,7 @@ const initAndRender = async (viz = false, disabled = false) => {
     if (viz && disabled) {
       visibleCZMLObject[vizDataset.id] = DO_NOT_SET_LAYER;
       if (visibleObjects[projectId].includes(vizDataset.id)) {
-        visibleObjects[projectId] = {...visibleObjects[projectId].filter(id => id !== vizDataset.id)};
+        visibleObjects[projectId] = visibleObjects[projectId].filter(id => id !== vizDataset.id);
       }
     }
     return (
@@ -178,6 +178,9 @@ const initAndRender = async (viz = false, disabled = false) => {
               visibleCZMLObject,
               setCZMLLayer,
               setSelectedCZMLPoint,
+              activeTimeSeries: null,
+              setActiveTimeSeries: jest.fn(),
+              meshClockTime: null,
             }}
           >
             <SidePanelContext.Provider value={{ showPanel, hideSidePanel, visibleSidePanel }}>
