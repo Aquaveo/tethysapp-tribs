@@ -603,8 +603,10 @@ def test_delete_resource_artifacts_missing_resource(rf, db_url, mocker):
 def test_delete_resource_artifacts_repairs_cwd_after_each_step(rf, db_url, project, mocker):
     """validate_cwd runs before, between and after the delete steps, even when a step fails."""
     calls = []
-    for name in ('remove_visualizations', 'delete_resource_files', 'delete_filedatabase_artifacts',
-                 'delete_condor_jobs', 'delete_children'):
+    for name in (
+        'remove_visualizations', 'delete_resource_files', 'delete_filedatabase_artifacts', 'delete_condor_jobs',
+        'delete_children'
+    ):
         mocker.patch(
             f'tethysapp.tribs.controllers.manage_resource_delete_mixin.ManageResourceDeleteMixin.{name}',
             side_effect=lambda *a, _name=name, **k: calls.append(_name),
@@ -624,11 +626,16 @@ def test_delete_resource_artifacts_repairs_cwd_after_each_step(rf, db_url, proje
 
     assert calls == [
         'validate_cwd',
-        'remove_visualizations', 'validate_cwd',
-        'delete_resource_files', 'validate_cwd',
-        'delete_filedatabase_artifacts', 'validate_cwd',
-        'delete_condor_jobs', 'validate_cwd',
-        'delete_children', 'validate_cwd',
+        'remove_visualizations',
+        'validate_cwd',
+        'delete_resource_files',
+        'validate_cwd',
+        'delete_filedatabase_artifacts',
+        'validate_cwd',
+        'delete_condor_jobs',
+        'validate_cwd',
+        'delete_children',
+        'validate_cwd',
         'validate_cwd',
     ]
     mock_session.delete.assert_called()
