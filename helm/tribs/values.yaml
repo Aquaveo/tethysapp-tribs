@@ -96,6 +96,8 @@ condor:
   scheduler:
     name: 'condor-scheduler'
   worker:
+    image:
+      tag: v0.1.1
     condor_fdb_root:
       mountPath: '/fdbs'
     condor_proj_lib: '/var/lib/condor/micromamba/envs/tethys/share/proj/'
