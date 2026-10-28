@@ -50,6 +50,16 @@ class FileBackendHandler(RBH):
         file_name = _safe_basename(file_name, 'currFileName')
         file_names = [_safe_basename(f, 'fileNames entry') for f in file_names]
 
+        def _positive_int(value, label):
+            if not isinstance(value, int) or isinstance(value, bool) or value < 1:
+                raise ValueError(f'Invalid {label}: {value}')
+            return value
+
+        curr_chunk = _positive_int(curr_chunk, 'currChunk')
+        num_chunks = _positive_int(num_chunks, 'numChunks')
+        if curr_chunk > num_chunks:
+            raise ValueError(f'currChunk {curr_chunk} exceeds numChunks {num_chunks}')
+
         # Prepare directory
         uploads_dir = await self.get_uploads_dir()
         curr_upload_dir = uploads_dir / for_action_id

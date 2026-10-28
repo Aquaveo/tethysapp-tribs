@@ -164,3 +164,28 @@ async def test_upload_accepts_valid_upload(fbh, tmp_path, mocker):
     assert combined.read_text() == 'hello world'
     sent_types = [c.args[0] for c in fbh.backend_consumer.send_action.call_args_list]
     assert BackendActions.UPLOAD_FILE_COMPLETE in sent_types
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('overrides, message', [
+    ({'currChunk': '1/../../../../tmp/evil'}, 'Invalid currChunk'),  # traversal via chunk index
+    ({'currChunk': 0}, 'Invalid currChunk'),
+    ({'currChunk': -1}, 'Invalid currChunk'),
+    ({'currChunk': True}, 'Invalid currChunk'),
+    ({'currChunk': '1'}, 'Invalid currChunk'),
+    ({'numChunks': 0}, 'Invalid numChunks'),
+    ({'numChunks': 'x'}, 'Invalid numChunks'),
+    ({'currChunk': 2, 'numChunks': 1}, 'exceeds numChunks'),
+])
+async def test_upload_rejects_invalid_chunk_index(fbh, tmp_path, mocker, overrides, message):
+    """currChunk/numChunks must be positive ints with currChunk <= numChunks; nothing is written otherwise."""
+    uploads_root = AsyncPath(tmp_path / 'uploads' / 'proj')
+    mocker.patch.object(fbh, 'get_uploads_dir', new=mock.AsyncMock(return_value=uploads_root))
+    fbh.send_error = mock.AsyncMock()
+    data = _upload_data(**overrides)
+
+    await fbh.receive_upload_file(event={}, action={'id': '1', 'type': BackendActions.UPLOAD_FILE}, data=data)
+
+    fbh.send_error.assert_called_once()
+    assert message in fbh.send_error.call_args.args[0]
+    assert not (tmp_path / 'uploads').exists()
