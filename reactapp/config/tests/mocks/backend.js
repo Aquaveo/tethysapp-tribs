@@ -6,8 +6,9 @@ const backends = []
 const mockBackendAfterEach = () => {
   // Stop clients from earlier tests reconnecting into the next test's server.
   for (const backend of backends) {
-    backend.webSocket?.removeEventListener("close", backend.reconnect);
-    backend.webSocket?.removeEventListener("error", backend.reconnect);
+    // The close listener calls this.reconnect() at close time, so stubbing it
+    // on the instance is enough.
+    backend.reconnect = () => {};
   }
   backends.length = 0;
   WS.clean();

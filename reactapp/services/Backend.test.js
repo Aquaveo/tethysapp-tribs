@@ -1,4 +1,5 @@
 import newUUID from "lib/uuid";
+import { toast } from "react-toastify";
 import { mockBackend, mockBackendAfterEach } from "config/tests/mocks/backend";
 
 afterEach(() => {
@@ -107,4 +108,23 @@ it("Logs a warning if no handler callback registered for type of message receive
     'Warning: no handler found for message of type "FOO_BAR".'
   );
   console.warn.mockRestore();
+});
+
+it("Does not reconnect when server closes with 4403", async () => {
+  const { server, backend } = await mockBackend();
+  const reconnect = jest.spyOn(backend, "reconnect").mockImplementation(() => {});
+  const errorToast = jest.spyOn(toast, "error").mockImplementation(() => {});
+  server.close({ code: 4403, reason: "", wasClean: true });
+  expect(reconnect).not.toHaveBeenCalled();
+  expect(errorToast).toHaveBeenCalledWith(
+    "You no longer have access to this project.", expect.anything()
+  );
+  errorToast.mockRestore();
+});
+
+it("Reconnects once on a normal close", async () => {
+  const { server, backend } = await mockBackend();
+  const reconnect = jest.spyOn(backend, "reconnect").mockImplementation(() => {});
+  server.error({ code: 1006, reason: "", wasClean: false });
+  expect(reconnect).toHaveBeenCalledTimes(1);
 });

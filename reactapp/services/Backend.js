@@ -60,6 +60,18 @@ export default class Backend {
     this.onConnectCallback?.();
   }
 
+  handle_forbidden() {
+    this.isReconnecting = false;
+    toast.dismiss(this.reconnectToastId);
+    toast.error("You no longer have access to this project.", {
+      position: "top-right",
+      autoClose: false,
+      closeOnClick: false,
+      draggable: false,
+      toastId: this.couldNotReconnectToastId,
+    });
+  }
+
   get actions() {
     return {
       UPLOAD_FILE: "UPLOAD_FILE",
@@ -128,8 +140,14 @@ export default class Backend {
       }
     });
 
-    this.webSocket.addEventListener("close", this.reconnect);
-    this.webSocket.addEventListener("error", this.reconnect);
+    this.webSocket.addEventListener("close", (event) => {
+      if (event.code === 4403) {
+        this.handle_forbidden();
+        return;
+      }
+      this.reconnect();
+    });
+    // No "error" listener: per the WebSocket spec, "error" is always followed by "close".
   }
 
   reconnect() {
