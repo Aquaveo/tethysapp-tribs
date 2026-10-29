@@ -2,8 +2,8 @@
 import { act, render, screen } from "@testing-library/react";
 
 import { GraphicsWindowVisualsContext, ProjectContext } from "react-tethys/context";
-import { makeMesh, makeTimeSeriesMesh } from "config/tests/mocks/meshMock";
-import GltfLayer, { desiredGltfUrl } from "./GltfLayers";
+import { makeMesh, makeStaticMesh, makeTimeSeriesMesh } from "config/tests/mocks/meshMock";
+import GltfLayer, { desiredGltfUrl, getHillshadeShader, getRampShader } from "./GltfLayers";
 
 const mockModelProps = {};
 jest.mock("resium", () => ({
@@ -18,15 +18,17 @@ jest.mock("cesium", () => ({
   Cartesian3: { fromDegrees: () => ({}) },
   CustomShader: function CustomShader(options) { this.options = options; },
   LightingModel: { UNLIT: "UNLIT" },
+  TextureUniform: function TextureUniform(options) { this.options = options; },
   Transforms: { northUpEastToFixedFrame: () => ({ matrix: true }) },
+  UniformType: { SAMPLER_2D: "sampler2D" },
 }));
 
 const T0 = Date.UTC(2004, 5, 1, 0);
 const HOUR = 60 * 60 * 1000;
 const projectId = "project-1";
 
-const renderLayer = (dataset, visibleCZMLObject, meshClockTime) => {
-  const value = { visibleObjects: { [projectId]: [dataset.id] }, visibleCZMLObject, meshClockTime };
+const renderLayer = (dataset, visibleCZMLObject, meshClockTime, colorRamps = {}) => {
+  const value = { visibleObjects: { [projectId]: [dataset.id] }, visibleCZMLObject, meshClockTime, colorRamps };
   const tree = (
     <ProjectContext.Provider value={{ projectId }}>
       <GraphicsWindowVisualsContext.Provider value={value}>
@@ -117,6 +119,41 @@ describe("GltfLayer double buffering", () => {
     const props = mockModelProps["/media/" + dataset.viz.variables[0].timesteps[0].url];
     expect(props.customShader.options.lightingModel).toBe("UNLIT");
     expect(props.customShader.options.fragmentShaderText).toContain("fsInput.attributes.normalEC");
+    expect(props.customShader.options.uniforms).toBeUndefined(); // default ramp: the color baked into the file
+    expect(props.customShader).toBe(getHillshadeShader());
+  });
+
+  it("colors the model with the ramp saved on the dataset, on both slots across a time step swap", () => {
+    const dataset = { ...makeTimeSeriesMesh(), attributes: { color_ramp: "viridis" } };
+    const { rerenderAt } = renderLayer(dataset, { [dataset.id]: "Mu" }, T0);
+    rerenderAt(T0 + 10 * HOUR);
+    const [step0, step1] = dataset.viz.variables[0].timesteps.map((t) => "/media/" + t.url);
+    const shader = mockModelProps[step0].customShader;
+    expect(mockModelProps[step1].customShader).toBe(shader);
+    expect(shader).toBe(getRampShader("viridis"));
+    expect(shader).not.toBe(getHillshadeShader());
+    expect(shader.options.lightingModel).toBe("UNLIT");
+    const glsl = shader.options.fragmentShaderText;
+    expect(glsl).toContain("fsInput.attributes.texCoord_0");
+    expect(glsl).toContain("texture(u_colorRamp");
+    expect(glsl).toContain("discard");
+    expect(glsl).toContain("fsInput.attributes.normalEC");
+    const texture = shader.options.uniforms.u_colorRamp;
+    expect(texture.type).toBe("sampler2D");
+    expect(texture.value.options).toMatchObject({ width: 256, height: 1, repeat: false });
+    expect(texture.value.options.typedArray).toBeInstanceOf(Uint8Array);
+    expect(texture.value.options.typedArray.length).toBe(256 * 4);
+  });
+
+  it("shares one shader per ramp and lets the session selection override the saved ramp", () => {
+    expect(getRampShader("turbo")).toBe(getRampShader("turbo"));
+    expect(getRampShader("turbo")).not.toBe(getRampShader("viridis"));
+    expect(getRampShader("no-such-ramp")).toBe(getHillshadeShader());
+
+    const dataset = { ...makeStaticMesh(), attributes: { color_ramp: "viridis" } };
+    renderLayer(dataset, {}, null, { [dataset.id]: "turbo" });
+    const props = mockModelProps["/media/" + dataset.viz.url[0]];
+    expect(props.customShader).toBe(getRampShader("turbo"));
   });
 
   it("hides the model when the dataset is not visible and renders nothing without an origin", () => {

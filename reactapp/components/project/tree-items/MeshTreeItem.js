@@ -8,6 +8,7 @@ import TINTreeItem from "./TINTreeItem";
 import { meshDatasetPropTypes } from "components/tree/propTypes";
 import { GraphicsWindowVisualsContext, ProjectContext, SidePanelContext } from "react-tethys/context";
 import { FRAME_OBJECT } from "constants/GraphicsWindowConstants";
+import { getVariables } from "lib/meshTimeSeries";
 import { ConfirmDeleteModal } from "components/dialogs/ConfirmDeleteModal";
 import DetailsAction from "../actions/DetailsAction";
 import LegendsAction from "../actions/LegendsAction";
@@ -112,6 +113,11 @@ const MeshTreeItem = ({
     handleUpdate(newGeometry);
   };
 
+  // Only the chosen ramp is sent: the backend merges attributes one key at a time.
+  const handleColorRampChange = (rampName) => {
+    handleUpdate({ id: mesh.id, attributes: { color_ramp: rampName } });
+  };
+
   const toggleVisibility = (event, visibility) => {
     if (!visibility) {
       hideObject(mesh.id)
@@ -207,6 +213,8 @@ const MeshTreeItem = ({
           dataset={mesh}
           panelId={`legend-panel-${mesh.id}`}
           uniqueId={mesh.id}
+          variable={getVariables(mesh)?.[0] ?? undefined}
+          onColorRampChange={handleColorRampChange}
         />
       )}
     </>

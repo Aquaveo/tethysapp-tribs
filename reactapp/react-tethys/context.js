@@ -67,6 +67,8 @@ const GraphicsWindowVisualsContext = createContext({
   setActiveTimeSeries: () => {},
   meshClockTime: null,
   setMeshClockTime: () => {},
+  colorRamps: {},
+  setColorRamp: () => {},
 });
 
 const SidePanelContext = createContext({
@@ -225,6 +227,9 @@ const AppContextProvider = ({ children }) => {
   // and the clock time (ms since epoch, UTC) the mesh layers render; written by MeshClock when the time step changes.
   const [activeTimeSeries, setActiveTimeSeries] = useState(null);
   const [meshClockTime, setMeshClockTime] = useState(null);
+  // Color ramp chosen for a glTF mesh dataset in this session ({datasetId: ramp name}, see lib/colorRamps). It
+  // applies immediately; the choice is also saved on the dataset (attributes.color_ramp) for later sessions.
+  const [colorRamps, setColorRamps] = useState({});
 
   const setFramedObject = (extent, key) => {
     setNewFramedObject((prevObjects) => ({...prevObjects, [key]: extent}))
@@ -272,6 +277,10 @@ const AppContextProvider = ({ children }) => {
     });
   };
 
+  const setColorRamp = (datasetID, rampName) => {
+    setColorRamps((prevRamps) => ({ ...prevRamps, [datasetID]: rampName }));
+  };
+
   const VisualsContextValue = {
     framedObject,
     setFramedObject,
@@ -292,6 +301,8 @@ const AppContextProvider = ({ children }) => {
     setActiveTimeSeries,
     meshClockTime,
     setMeshClockTime,
+    colorRamps,
+    setColorRamp,
   };
 
   const [visibleSidePanel, setVisibleSidePanel] = useState([]);

@@ -67,6 +67,8 @@ export function makeTimeSeriesMesh(id = "1c1f3a5e-5d0b-4f8e-9a2a-6d6a7e1c2b3d") 
       start: "2004-06-01T00:00:00Z",
       end: "2004-06-01T20:00:00Z",
       step_hours: 10,
+      min: 0,
+      max: 10,
       timesteps: [
         timestep("Mu", 0, "2004-06-01T00:00:00Z"),
         timestep("Mu", 10, "2004-06-01T10:00:00Z"),
@@ -78,6 +80,8 @@ export function makeTimeSeriesMesh(id = "1c1f3a5e-5d0b-4f8e-9a2a-6d6a7e1c2b3d") 
       start: "2004-06-01T00:00:00Z",
       end: "2004-06-01T20:00:00Z",
       step_hours: 20,
+      min: 1.5,
+      max: 3.5,
       timesteps: [timestep("Nwt", 0, "2004-06-01T00:00:00Z"), timestep("Nwt", 20, "2004-06-01T20:00:00Z")],
     },
   ];
@@ -117,6 +121,8 @@ export function makeStaticMesh(id = "2d2f4b6f-6e1c-4a9f-8b3b-7e7b8f2d3c4e") {
           start: null,
           end: null,
           step_hours: null,
+          min: 1868,
+          max: 2167,
           timesteps: [{ hours: null, time: null, url: `${FDB}/abc-salas.glb`, legend: `${FDB}/abc-salas_legend.png` }],
         },
       ],

@@ -6,6 +6,8 @@ import RealizationOutputTreeItem from "./RealizationOutputTreeItem";
 import { AppContext, GraphicsWindowVisualsContext, ProjectContext, SidePanelContext } from "react-tethys/context";
 import { DO_NOT_SET_LAYER, FRAME_OBJECT } from "constants/GraphicsWindowConstants";
 import newUUID from "lib/uuid";
+import { select } from "react-select-event";
+import { makeTimeSeriesMesh } from "config/tests/mocks/meshMock";
 
 const vizDataset = {
   "id": "ef458c1c-e390-4196-a152-405683d9b0c9",
@@ -366,4 +368,46 @@ it("Creates a tree item with details and download actions in options menu", asyn
   const downloadButton = await screen.findByRole("button", { name: /Download/ });
   expect(detailsButton).toBeVisible();
   expect(downloadButton).toBeVisible();
+});
+
+it("Saves a color ramp chosen in the legend panel of a glTF mesh output as a dataset attribute", async () => {
+  const { backend } = await mockBackend();
+  const dataset = makeTimeSeriesMesh();
+  const projectId = newUUID();
+  const updateCallback = jest.fn();
+  const setColorRamp = jest.fn();
+  render(
+    <AppContext.Provider value={{ backend, csrf: "12345" }}>
+      <ProjectContext.Provider value={{ projectId, setProjectId: jest.fn(), openFolders: {}, closeFolder: jest.fn(), openFolder: jest.fn() }}>
+        <GraphicsWindowVisualsContext.Provider
+          value={{
+            visibleObjects: { [projectId]: [dataset.id] },
+            hideObject: jest.fn(),
+            revealObject: jest.fn(),
+            setFramedObject: jest.fn(),
+            setZoomToExtent: jest.fn(),
+            visibleCZMLObject: { [dataset.id]: "Nwt" },
+            setCZMLLayer: jest.fn(),
+            setSelectedCZMLPoint: jest.fn(),
+            activeTimeSeries: null,
+            setActiveTimeSeries: jest.fn(),
+            meshClockTime: null,
+            colorRamps: {},
+            setColorRamp,
+          }}
+        >
+          <SidePanelContext.Provider
+            value={{ showPanel: jest.fn(), hideSidePanel: jest.fn(), visibleSidePanel: [`legend-panel-${dataset.id}`] }}
+          >
+            <RealizationOutputTreeItem dataset={dataset} onDelete={jest.fn()} onUpdate={updateCallback} realizationIndex={0} />
+          </SidePanelContext.Provider>
+        </GraphicsWindowVisualsContext.Provider>
+      </ProjectContext.Provider>
+    </AppContext.Provider>
+  );
+  await select(screen.getByLabelText("Color ramp"), "Viridis", { container: document.body });
+  expect(setColorRamp).toHaveBeenCalledWith(dataset.id, "viridis");
+  // Only the id and the ramp are sent; the backend merges attributes one key at a time
+  expect(updateCallback).toHaveBeenCalledWith({ id: dataset.id, attributes: { color_ramp: "viridis" } });
+  // (The recolored legend itself is covered by LegendPanel.test.js; here the context setter is a mock.)
 });

@@ -119,6 +119,11 @@ const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationInd
     handleUpdate(newDataset);
   };
 
+  // Only the chosen ramp is sent: the backend merges attributes one key at a time.
+  const handleColorRampChange = (rampName) => {
+    handleUpdate({ id: dataset.id, attributes: { color_ramp: rampName } });
+  };
+
   const toggleVisibility = (event, visibility) => {
     if (!visibility) {
       hideObject(dataset.id);
@@ -254,6 +259,8 @@ const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationInd
             uniqueId={visibleCZMLObject[dataset.id]}
             legendUrls={currentTimestep?.legend ? [currentTimestep.legend] : undefined}
             subtitle={currentTimestep?.time ?? undefined}
+            variable={activeVariable ?? undefined}
+            onColorRampChange={handleColorRampChange}
           />
         </>
       )}

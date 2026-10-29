@@ -6,6 +6,9 @@ import { makeMesh } from "config/tests/mocks/meshMock";
 import { GraphicsWindowVisualsContext, ProjectContext } from "react-tethys/context";
 import { FRAME_OBJECT } from "constants/GraphicsWindowConstants";
 import newUUID from "lib/uuid";
+import { select } from "react-select-event";
+import { makeStaticMesh } from "config/tests/mocks/meshMock";
+import { SidePanelContext } from "react-tethys/context";
 
 function initAndRender({ visibleObjects: visibleObjectsOverride } = {}) {
   const user = userEvent.setup();
@@ -189,4 +192,36 @@ it("Creates a tree item with details and download actions in options menu", asyn
   const downloadButton = await screen.findByRole("button", { name: /Download/ });
   expect(detailsButton).toBeVisible();
   expect(downloadButton).toBeVisible();
+});
+
+it("Saves a color ramp chosen in the legend panel of a bare TIN mesh as a dataset attribute", async () => {
+  const mesh = { ...makeStaticMesh(), datasets: [] }; // the mesh tree item lists the TIN datasets under it
+  const projectId = newUUID();
+  const updateCallback = jest.fn();
+  const setColorRamp = jest.fn();
+  render(
+    <ProjectContext.Provider value={{ projectId, setProjectId: jest.fn(), openFolders: { [projectId]: [] }, closeFolder: jest.fn(), openFolder: jest.fn() }}>
+      <GraphicsWindowVisualsContext.Provider
+        value={{
+          visibleObjects: { [projectId]: [mesh.id] },
+          hideObject: jest.fn(),
+          revealObject: jest.fn(),
+          setFramedObject: jest.fn(),
+          setZoomToExtent: jest.fn(),
+          colorRamps: {},
+          setColorRamp,
+        }}
+      >
+        <SidePanelContext.Provider
+          value={{ showPanel: jest.fn(), hideSidePanel: jest.fn(), visibleSidePanel: [`legend-panel-${mesh.id}`] }}
+        >
+          <MeshTreeItem mesh={mesh} datasetIndex={0} onDelete={jest.fn()} onDuplicate={jest.fn()} onUpdate={updateCallback} />
+        </SidePanelContext.Provider>
+      </GraphicsWindowVisualsContext.Provider>
+    </ProjectContext.Provider>
+  );
+  await select(screen.getByLabelText("Color ramp"), "Turbo", { container: document.body });
+  expect(setColorRamp).toHaveBeenCalledWith(mesh.id, "turbo");
+  expect(updateCallback).toHaveBeenCalledWith({ id: mesh.id, attributes: { color_ramp: "turbo" } });
+  // (The recolored legend itself is covered by LegendPanel.test.js; here the context setter is a mock.)
 });
