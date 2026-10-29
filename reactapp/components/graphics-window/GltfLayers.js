@@ -2,9 +2,10 @@ import { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import PropTypes from "prop-types";
 import { datasetPropTypes } from "components/tree/propTypes";
 import { Model } from "resium";
-import { Cartesian3, CustomShader, LightingModel, Transforms } from "cesium";
+import { Cartesian3, CustomShader, LightingModel, TextureUniform, Transforms, UniformType } from "cesium";
 import { GraphicsWindowVisualsContext, ProjectContext } from "react-tethys/context";
 import extractLayerName from "lib/extractLayerName";
+import { RAMP_TEXTURE_WIDTH, isDefaultRamp, rampTexels, resolveRampName } from "lib/colorRamps";
 import { findVariable, getVariables, timestepForTime } from "lib/meshTimeSeries";
 
 /**
@@ -29,31 +30,84 @@ export function desiredGltfUrl(dataset, visibleCZMLObject, meshClockTime) {
 
 const OTHER_SLOT = { a: "b", b: "a" };
 
+/**
+ * Relief shading shared by the mesh shaders. Cesium's own lighting is switched off (UNLIT) because it follows the
+ * sun, so the mesh brightens and darkens as the clock animates. Instead the surface is shaded by a light fixed
+ * relative to the viewer (above and to the left of the camera), which keeps the relief visible and stable while
+ * the clock runs.
+ */
+const HILLSHADE_GLSL = `
+  const vec3 LIGHT_DIRECTION_EC = normalize(vec3(-0.4, 0.6, 1.0)); // eye coordinates: x right, y up, z toward the viewer
+  const float AMBIENT = 0.35;
+
+  float hillshade(vec3 normalEC) {
+    float diffuse = max(dot(normalize(normalEC), LIGHT_DIRECTION_EC), 0.0);
+    return AMBIENT + (1.0 - AMBIENT) * diffuse;
+  }
+`;
+
 let hillshadeShader = null;
 
 /**
- * Shader shared by every mesh model. Cesium's own lighting is switched off (UNLIT) because it follows the sun, so the
- * mesh brightens and darkens as the clock animates. Instead the surface is shaded by a light fixed relative to the
- * viewer (above and to the left of the camera), which keeps the relief visible and stable while the clock runs.
- * Built on first use so the cesium module is only touched at run time.
+ * Shader for meshes drawn with the color ramp baked into the glTF file: keeps the color Cesium sampled from that
+ * texture and only applies the relief shading. Built on first use so the cesium module is only touched at run time.
  */
 export function getHillshadeShader() {
   if (!hillshadeShader) {
     hillshadeShader = new CustomShader({
       lightingModel: LightingModel.UNLIT,
       fragmentShaderText: `
-        const vec3 LIGHT_DIRECTION_EC = normalize(vec3(-0.4, 0.6, 1.0)); // eye coordinates: x right, y up, z toward the viewer
-        const float AMBIENT = 0.35;
-
+        ${HILLSHADE_GLSL}
         void fragmentMain(FragmentInput fsInput, inout czm_modelMaterial material) {
-          vec3 normal = normalize(fsInput.attributes.normalEC);
-          float diffuse = max(dot(normal, LIGHT_DIRECTION_EC), 0.0);
-          material.diffuse *= AMBIENT + (1.0 - AMBIENT) * diffuse;
+          material.diffuse *= hillshade(fsInput.attributes.normalEC);
         }
       `,
     });
   }
   return hillshadeShader;
+}
+
+const rampShaders = new Map();
+
+/**
+ * Shader for meshes drawn with a user-selected color ramp (see lib/colorRamps). The glTF files store each cell's
+ * normalized value (0 = variable minimum, 1 = maximum) as the v texture coordinate, with u = 1 marking cells
+ * without a value, so the ramp is looked up in a small ramp texture instead of the one baked into the file. One
+ * shader per ramp, shared by every model that uses it, so the texture is uploaded once.
+ */
+export function getRampShader(rampName) {
+  if (isDefaultRamp(rampName)) return getHillshadeShader();
+  if (!rampShaders.has(rampName)) {
+    rampShaders.set(
+      rampName,
+      new CustomShader({
+        lightingModel: LightingModel.UNLIT,
+        uniforms: {
+          u_colorRamp: {
+            type: UniformType.SAMPLER_2D,
+            value: new TextureUniform({
+              typedArray: rampTexels(rampName),
+              width: RAMP_TEXTURE_WIDTH,
+              height: 1,
+              repeat: false, // clamp to the edge: the maximum must not blend with the minimum's texel
+            }),
+          },
+        },
+        fragmentShaderText: `
+          ${HILLSHADE_GLSL}
+          void fragmentMain(FragmentInput fsInput, inout czm_modelMaterial material) {
+            vec2 uv = fsInput.attributes.texCoord_0;
+            if (uv.x > 0.5) {
+              discard; // no value for this cell
+            }
+            vec3 color = texture(u_colorRamp, vec2(uv.y, 0.5)).rgb;
+            material.diffuse = color * hillshade(fsInput.attributes.normalEC);
+          }
+        `,
+      })
+    );
+  }
+  return rampShaders.get(rampName);
 }
 
 /**
@@ -63,7 +117,7 @@ export function getHillshadeShader() {
  */
 const GltfLayer = ({ dataset }) => {
   const TETHYS_MEDIA_URL = process.env.TETHYS_MEDIA_URL;
-  const { visibleObjects, visibleCZMLObject, meshClockTime } = useContext(GraphicsWindowVisualsContext);
+  const { visibleObjects, visibleCZMLObject, meshClockTime, colorRamps } = useContext(GraphicsWindowVisualsContext);
   const { projectId } = useContext(ProjectContext);
   const [slots, setSlots] = useState({ a: null, b: null, visible: "a" });
 
@@ -104,7 +158,7 @@ const GltfLayer = ({ dataset }) => {
     [gltf_origin]
   );
   if (!enuMatrix) return null; // TODO: add warning icon to dataset to indicate issue
-  const customShader = getHillshadeShader();
+  const customShader = getRampShader(resolveRampName(dataset, colorRamps));
 
   let show = false;
   if (visibleObjects?.[projectId] !== undefined) {

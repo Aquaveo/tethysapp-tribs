@@ -595,7 +595,7 @@ async def test_dataset_receive_create_tin(
             'legend': [legend_url],
             'origin':
                 pytest.approx([-106.58421362030992, 34.309707781406104, 1960.196533203125]),
-            # A bare TIN has a single, time-independent 'Elevation' variable
+            # A bare TIN has a single, time-independent 'Elevation' variable, colored over its elevation range
             'variables':
                 [
                     {
@@ -603,6 +603,8 @@ async def test_dataset_receive_create_tin(
                         'start': None,
                         'end': None,
                         'step_hours': None,
+                        'min': pytest.approx(1868.0003662109375),
+                        'max': pytest.approx(2167.0),
                         'timesteps': [{
                             'hours': None,
                             'time': None,
@@ -700,10 +702,12 @@ async def test_dataset_receive_update(a_session, a_dataset_with_files, make_comm
             "id": str(dataset.id),
             "name": "updated name",
             "description": "changed description",
-            "attributes": {
-                "foo": "bar",
-                "dataset_type": "garbage",  # dataset_type is handled separately
-            },
+            "attributes":
+                {
+                    "foo": "bar",
+                    "color_ramp": "viridis",  # user-selected mesh color ramp, persisted as a plain attribute
+                    "dataset_type": "garbage",  # dataset_type is handled separately
+                },
             "dataset_type": Dataset.DatasetTypes.TRIBS_POINTS,
             'status': 'Dirty',
         }
@@ -724,6 +728,7 @@ async def test_dataset_receive_update(a_session, a_dataset_with_files, make_comm
         assert payload["description"] == data["description"]
         assert payload["status"] == data["status"]
         assert payload["attributes"]["foo"] == data["attributes"]["foo"]
+        assert payload["attributes"]["color_ramp"] == "viridis"
         assert "dataset_type" not in payload["attributes"]  # dataset_type should be moved out of attributes
         assert payload["dataset_type"] == data["dataset_type"]
 

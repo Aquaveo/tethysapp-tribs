@@ -73,6 +73,8 @@ const datasetProps = {
         start: PropTypes.string, // ISO 8601 UTC; null for a static variable (bare mesh)
         end: PropTypes.string,
         step_hours: PropTypes.number,
+        min: PropTypes.number, // value range the colors are scaled to over all time steps (absent on old datasets)
+        max: PropTypes.number,
         timesteps: PropTypes.arrayOf(
           PropTypes.shape({
             hours: PropTypes.number, // hours since the simulation start; null for a static variable
