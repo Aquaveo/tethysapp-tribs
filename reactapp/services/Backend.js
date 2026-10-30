@@ -23,6 +23,8 @@ export default class Backend {
     this.webSocket = null;
     this.messageHandlers = {};
     this.pendingActions = {};
+    this.authenticated = false;
+    this.outbox = []; // messages queued until AUTHENTICATED
     this.reconnectToastId = "toast-reconnect";
     this.couldNotReconnectToastId = "toast-disconnect";
     this.connect = this.connect.bind(this);
@@ -50,10 +52,13 @@ export default class Backend {
         }));
       }
     });
-
   }
 
   handle_authenticated() {
+    this.authenticated = true;
+    const queued = this.outbox;
+    this.outbox = [];
+    queued.forEach(message => this.send(message));
     if (this.isReconnecting) {
       toast.dismiss(this.reconnectToastId);
       toast.success("Successfully reconnected to the backend!", {
@@ -72,6 +77,7 @@ export default class Backend {
   }
 
   handle_forbidden() {
+    this.outbox = [];
     this.isReconnecting = false;
     toast.dismiss(this.reconnectToastId);
     toast.error("You no longer have access to this project.", {
@@ -120,6 +126,7 @@ export default class Backend {
   }
 
   connect(onConnectCallback) {
+    this.authenticated = false;
     this.onConnectCallback = onConnectCallback;
     const url = this.wsUrl;
     this.webSocket = new WebSocket(url);
@@ -152,6 +159,7 @@ export default class Backend {
     });
 
     this.webSocket.addEventListener("close", (event) => {
+      this.authenticated = false;
       if (event.code === 4403) {
         this.handle_forbidden();
         return;
@@ -210,6 +218,14 @@ export default class Backend {
     this.messageHandlers[type] = func;
   }
 
+  send(message) {
+    if (this.authenticated && this.webSocket?.readyState === WebSocket.OPEN) {
+      this.webSocket.send(message);
+    } else {
+      this.outbox.push(message);
+    }
+  }
+
   do(action, data) {
     const actionId = newUUID();
     let actionMessage = {
@@ -231,7 +247,7 @@ export default class Backend {
       this.pendingActions[actionMessage.action.id] = actionMessage;
     } else {
       // Send the message
-      this.webSocket.send(this.serialize(actionMessage));
+      this.send(this.serialize(actionMessage));
     }
 
     return actionId;
@@ -272,7 +288,7 @@ export default class Backend {
             chunk: base64,
           },
         });
-        this.webSocket.send(actionMsg);
+        this.send(actionMsg);
         offset += event.target.result.byteLength;
         currChunk += 1;
         if (offset < file.size) {
@@ -289,7 +305,7 @@ export default class Backend {
     const actionId = data.forActionId;
     const actionMessage = this.pendingActions[actionId];
     if (actionMessage) {
-      this.webSocket.send(this.serialize(actionMessage));
+      this.send(this.serialize(actionMessage));
       delete this.pendingActions[actionId];
     }
   }
