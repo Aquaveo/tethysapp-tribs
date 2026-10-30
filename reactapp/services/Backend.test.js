@@ -1,5 +1,6 @@
 import newUUID from "lib/uuid";
 import { toast } from "react-toastify";
+import { setTokens } from "react-tethys/services/api/tokens";
 import { mockBackend, mockBackendAfterEach } from "config/tests/mocks/backend";
 
 afterEach(() => {
@@ -127,4 +128,21 @@ it("Reconnects once on a normal close", async () => {
   const reconnect = jest.spyOn(backend, "reconnect").mockImplementation(() => {});
   server.error({ code: 1006, reason: "", wasClean: false });
   expect(reconnect).toHaveBeenCalledTimes(1);
+});
+
+it("Re-authenticates the open socket when the access token is refreshed", async () => {
+  const { server } = await mockBackend();
+  setTokens("refreshed-token");
+  const message = JSON.parse(await server.nextMessage);
+  expect(message.action.type).toEqual("AUTHENTICATE");
+  expect(message.payload).toEqual({ token: "refreshed-token" });
+});
+
+it("Does not send AUTHENTICATE when the token is refreshed while the socket is closed", async () => {
+  const { server, backend } = await mockBackend();
+  jest.spyOn(backend, "reconnect").mockImplementation(() => {});
+  server.close();
+  const send = jest.spyOn(backend.webSocket, "send");
+  setTokens("refreshed-token");
+  expect(send).not.toHaveBeenCalled();
 });

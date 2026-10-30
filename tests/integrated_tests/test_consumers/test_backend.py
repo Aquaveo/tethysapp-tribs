@@ -271,6 +271,79 @@ async def test_receive_allowed_before_token_expiry():
     consumer.send.assert_not_called()
 
 
+def _authenticated_consumer(mocker, jwt_user, jwt_exp, can_access=True):
+    """An already-authenticated consumer whose token check and access check return the given values."""
+    consumer = BackendConsumer()
+    consumer.send = mock.AsyncMock()
+    consumer.authenticated = True
+    consumer.handlers = ()
+    consumer.project_id = 'a-project-id'
+    consumer.scope = {'user': mock.Mock(pk=1), 'path': '/apps/tribs/project/a-project-id/editor/ws/'}
+    consumer.token_exp = datetime.datetime.now(datetime.timezone.utc).timestamp() + 30
+    mocker.patch(
+        'tethysapp.tribs.consumers.backend._get_user_from_jwt',
+        new=mock.AsyncMock(return_value=(jwt_user, jwt_exp)),
+    )
+    mocker.patch(
+        'tethysapp.tribs.consumers.backend._user_can_access_project',
+        new=mock.AsyncMock(return_value=can_access),
+    )
+    return consumer
+
+
+def _authenticate_event(token='a.refreshed.token'):
+    return {'text': f'{{"action": {{"type": "AUTHENTICATE"}}, "payload": {{"token": "{token}"}}}}'}
+
+
+@pytest.mark.asyncio
+async def test_reauthenticate_updates_token_exp(mocker):
+    """A refreshed token on an open socket moves the expiry forward without closing or replying."""
+    new_exp = datetime.datetime.now(datetime.timezone.utc).timestamp() + 300
+    consumer = _authenticated_consumer(mocker, jwt_user=mock.Mock(pk=1), jwt_exp=new_exp)
+
+    await consumer.websocket_receive(_authenticate_event())
+
+    assert consumer.token_exp == new_exp
+    consumer.send.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('jwt_user', [None, mock.Mock(pk=2)], ids=['invalid_token', 'other_user'])
+async def test_reauthenticate_rejected_closes_4401(mocker, jwt_user):
+    """An invalid token, or a valid token for a different user, closes the socket and keeps the old expiry."""
+    new_exp = None if jwt_user is None else datetime.datetime.now(datetime.timezone.utc).timestamp() + 300
+    consumer = _authenticated_consumer(mocker, jwt_user=jwt_user, jwt_exp=new_exp)
+    old_exp = consumer.token_exp
+
+    await consumer.websocket_receive(_authenticate_event())
+
+    consumer.send.assert_awaited_once_with({'type': 'websocket.close', 'code': 4401})
+    assert consumer.token_exp == old_exp
+
+
+@pytest.mark.asyncio
+async def test_reauthenticate_without_project_access_closes_4403(mocker):
+    """A refreshed token for a user who lost access to the project closes the socket with 4403."""
+    new_exp = datetime.datetime.now(datetime.timezone.utc).timestamp() + 300
+    consumer = _authenticated_consumer(mocker, jwt_user=mock.Mock(pk=1), jwt_exp=new_exp, can_access=False)
+    old_exp = consumer.token_exp
+
+    await consumer.websocket_receive(_authenticate_event())
+
+    consumer.send.assert_awaited_once_with({'type': 'websocket.close', 'code': 4403})
+    assert consumer.token_exp == old_exp
+
+
+@pytest.mark.asyncio
+async def test_reauthenticate_without_token_closes_4401(mocker):
+    """An AUTHENTICATE with an empty token on an open socket closes it with 4401."""
+    consumer = _authenticated_consumer(mocker, jwt_user=mock.Mock(pk=1), jwt_exp=None)
+
+    await consumer.websocket_receive(_authenticate_event(token=''))
+
+    consumer.send.assert_awaited_once_with({'type': 'websocket.close', 'code': 4401})
+
+
 @pytest.mark.asyncio
 async def test_connect_with_expired_token_rejected(a_empty_project, make_communicator, a_admin_user):
     """An expired JWT is rejected at the handshake with 4401."""

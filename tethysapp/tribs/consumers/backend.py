@@ -173,6 +173,20 @@ class BackendConsumer(AsyncConsumer):
                     await self._authenticate(token)
                     return
 
+                # Re-authentication after the client refreshed its token: update the
+                # expiry only; the engine, handlers and group are already set up.
+                if message_type == BackendActions.AUTHENTICATE:
+                    token = message_data.get("token") if isinstance(message_data, dict) else None
+                    user, exp = await _get_user_from_jwt(token) if token else (None, None)
+                    if user is None or user.pk != self.scope["user"].pk:
+                        await self.send({"type": "websocket.close", "code": 4401})
+                        return
+                    if not await _user_can_access_project(user, self.project_id, self.scope.get("path")):
+                        await self.send({"type": "websocket.close", "code": 4403})
+                        return
+                    self.token_exp = exp
+                    return
+
                 if not message_action or not message_type or not message_data:
                     msg = f"Malformed message received: {event.get('text', 'no text in message')}"
                     log.error(msg)

@@ -2,7 +2,7 @@ import base64ArrayBuffer from "lib/base64ArrayBuffer";
 import newUUID from "lib/uuid.js";
 
 import { getTethysPortalHost } from "react-tethys/services/utilities";
-import { getAccessToken } from "react-tethys/services/api/tokens";
+import { getAccessToken, onTokenChange } from "react-tethys/services/api/tokens";
 import { getFreshAccessToken, redirectToLogin } from "react-tethys/services/api/client";
 import { toast } from "react-toastify";
 
@@ -40,6 +40,17 @@ export default class Backend {
     this.on(this.actions.AUTHENTICATED, () => {
       this.handle_authenticated();
     });
+
+    // Re-authenticate the open socket whenever the HTTP token is refreshed
+    onTokenChange((token) => {
+      if (token && this.webSocket?.readyState === WebSocket.OPEN) {
+        this.webSocket.send(this.serialize({
+          action: {id: newUUID(), type: this.actions.AUTHENTICATE},
+          payload: {token}
+        }));
+      }
+    });
+
   }
 
   handle_authenticated() {
