@@ -600,6 +600,12 @@ async def test_dataset_receive_create_tin(
                 [
                     {
                         'name': 'Elevation',
+                        # not in the output variable table: raw name, no units, no tier, no conversion
+                        'label': 'Elevation',
+                        'units': None,
+                        'tier': None,
+                        'description': '',
+                        'factor': 1.0,
                         'start': None,
                         'end': None,
                         'step_hours': None,
@@ -950,5 +956,66 @@ async def test_dataset_receive_timeseries(a_session, a_pixel_dataset_with_files,
         payload = response["payload"]
         assert payload == {
             'x': [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0],
-            'y': [0.0, 0.0, 0.0, 0.0, 18.3, 57.7, 88.2, 106.9, 118.7, 127.5, 134.6]
+            'y': [0.0, 0.0, 0.0, 0.0, 18.3, 57.7, 88.2, 106.9, 118.7, 127.5, 134.6],
+            # Pixel variables are not in the output variable table: raw name, units from the header token
+            'name': 'Nf_mm',
+            'label': 'Nf',
+            'units': 'mm',
         }
+
+
+async def _request_output_timeseries(communicator, dataset, variable):
+    action_id = str(uuid.uuid4())
+    await communicator.send_json_to(
+        {
+            "action": {
+                "id": action_id,
+                "type": BackendActions.DATASET_GET_MRF_OR_RFT_TIMESERIES,
+            },
+            "payload": {
+                "id": str(dataset.id),
+                "variable": variable,
+            }
+        }
+    )
+    response = await communicator.receive_json_from()
+    assert response["action"]["type"] == BackendActions.DATASET_GET_MRF_OR_RFT_TIMESERIES
+    return response["payload"]
+
+
+@pytest.mark.asyncio
+async def test_dataset_receive_mrf_timeseries_labels_and_converts_sheet_variables(
+    a_session, a_mrf_dataset_with_files, make_communicator, test_files
+):
+    """An mrf variable in the output variable table comes back with its friendly label and in display units; the older
+    column name MGW is recognised as MDGW (depth to groundwater, mm in the file -> m)."""
+    dataset = a_mrf_dataset_with_files
+    project = await a_session.run_sync(_get_project, dataset)
+    with open(test_files / 'backend' / 'datasets' / 'hyd' / 'salas0700_00.mrf') as f:
+        header = f.readline().split('\t')
+        f.readline()  # units row
+        raw = [float(line.split()[header.index('MGW')]) for line in f if line.strip()]
+
+    async with make_communicator(project.id) as communicator:
+        payload = await _request_output_timeseries(communicator, dataset, 'MGW')
+        assert (payload['name'], payload['label'], payload['units']) == ('MGW', 'Depth to groundwater', 'm')
+        assert len(payload['y']) == len(raw) == len(payload['x'])
+        assert payload['y'] == pytest.approx([v / 1000 for v in raw])
+        assert payload['x'][:3] == [1.0, 2.0, 3.0]
+
+        # A variable without a conversion keeps its values; units come from the sheet
+        payload = await _request_output_timeseries(communicator, dataset, 'MAP')
+        assert (payload['label'], payload['units']) == ('Mean areal precipitation', 'mm/hr')
+
+
+@pytest.mark.asyncio
+async def test_dataset_receive_rft_timeseries_uses_the_units_row(
+    a_session, a_rft_dataset_with_files, make_communicator
+):
+    """rft variables are not in the table: the raw name is the label and the units come from the file's units row."""
+    dataset = a_rft_dataset_with_files
+    project = await a_session.run_sync(_get_project, dataset)
+    async with make_communicator(project.id) as communicator:
+        payload = await _request_output_timeseries(communicator, dataset, 'Hsrf')
+        assert (payload['name'], payload['label'], payload['units']) == ('Hsrf', 'Hsrf', 'm3/s')
+        assert len(payload['y']) == len(payload['x']) > 0

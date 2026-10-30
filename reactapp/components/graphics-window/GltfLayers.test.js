@@ -56,13 +56,13 @@ const models = () => screen.queryAllByTestId("model").map((el) => ({
 describe("desiredGltfUrl", () => {
   it("picks the time step of the selected variable", () => {
     const dataset = makeTimeSeriesMesh();
-    expect(desiredGltfUrl(dataset, { [dataset.id]: "Mu" }, T0)).toContain("0000_00d_Mu.glb");
-    expect(desiredGltfUrl(dataset, { [dataset.id]: "Mu" }, T0 + 12 * HOUR)).toContain("0010_00d_Mu.glb");
-    expect(desiredGltfUrl(dataset, { [dataset.id]: "Nwt" }, T0 + 12 * HOUR)).toContain("0000_00d_Nwt.glb");
+    expect(desiredGltfUrl(dataset, { [dataset.id]: "Mu" }, T0)).toContain("0000_00i_Mu.glb");
+    expect(desiredGltfUrl(dataset, { [dataset.id]: "Mu" }, T0 + 12 * HOUR)).toContain("0010_00i_Mu.glb");
+    expect(desiredGltfUrl(dataset, { [dataset.id]: "Nwt" }, T0 + 12 * HOUR)).toContain("0000_00i_Nwt.glb");
   });
   it("defaults to the first variable and keeps the url behaviour for datasets without variables", () => {
     const dataset = makeTimeSeriesMesh();
-    expect(desiredGltfUrl(dataset, {}, null)).toContain("0000_00d_Mu.glb");
+    expect(desiredGltfUrl(dataset, {}, null)).toContain("0000_00i_Mu.glb");
     const mesh = makeMesh("x");
     expect(desiredGltfUrl(mesh, {}, null)).toBe(mesh.viz.url[0]);
   });

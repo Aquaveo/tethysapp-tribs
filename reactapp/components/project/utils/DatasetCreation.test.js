@@ -82,7 +82,7 @@ describe("filterDatasets", () => {
   it("Should return only OTHER group datasets", () => {
     // The OTHER group is currently set to be Output data or any dataset that doesn't have a dataset_type.
     const datasets = filterDatasets(serialized_project.datasets, ProjectConstants.DATASET_GROUPS.OTHER);
-    expect(datasets).toHaveLength(7);
+    expect(datasets).toHaveLength(6);
 
     const otherDataset = datasets[0];
     expect(otherDataset).toHaveProperty("id");

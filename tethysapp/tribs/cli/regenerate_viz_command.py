@@ -4,19 +4,14 @@ A dataset's visualization (glTF meshes and legends, GeoServer layers, CZML) and 
 reads are only built when the dataset is created. Datasets created before a change to that pipeline keep their old
 artifacts and metadata until they are regenerated, which this command does in bulk.
 """
-import json
 import logging
-import os
 import sys
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from tethys_dataset_services.engines import GeoServerSpatialDatasetEngine
-from tethysext.atcore.utilities import parse_url
-from tribs_adapter.common.dataset_types import DatasetTypes
 from tribs_adapter.resources import Dataset
-from tribs_adapter.services.tribs_spatial_manager import TribsSpatialManager
-from tethysapp.tribs.cli.cli_helpers import print_error, print_header, print_info, print_success, print_warning
+from tethysapp.tribs.cli.cli_helpers import (
+    add_dataset_filter_arguments, make_session, make_spatial_manager, parse_dataset_type, print_error, print_header,
+    print_info, print_success, print_warning
+)
 
 log = logging.getLogger(f'tethys.apps.{__name__}')
 
@@ -40,55 +35,9 @@ def add_regenerate_viz_parser(subparsers):
         help='GeoServer url to geoserver rest endpoint '
         '(e.g.: "http://admin:geoserver@localhost:8181/geoserver/rest/").'
     )
-    parser.add_argument(
-        '--dataset-type',
-        action='append',
-        dest='dataset_types',
-        metavar='TYPE',
-        default=[],
-        help='Only datasets of this type (e.g. TRIBS_TIN, TRIBS_OUT_TIME_DYNAMIC). Repeatable.',
-    )
-    parser.add_argument(
-        '--dataset-id',
-        action='append',
-        dest='dataset_ids',
-        metavar='ID',
-        default=[],
-        help='Only the dataset with this id. Repeatable.',
-    )
-    parser.add_argument('--project-id', metavar='ID', help='Only datasets of this project.')
-    parser.add_argument(
-        '--dry-run', action='store_true', help='List the datasets that would be regenerated without changing anything.'
-    )
+    add_dataset_filter_arguments(parser, verb='regenerated')
     parser.set_defaults(func=main)
     return parser
-
-
-def parse_dataset_type(value):
-    """The ``DatasetTypes`` member named ``value`` (case-insensitive), e.g. ``TRIBS_TIN``."""
-    try:
-        return DatasetTypes[value.upper()]
-    except KeyError:
-        valid = ', '.join(member.name for member in DatasetTypes)
-        raise ValueError(f'Unknown dataset type "{value}". Valid types: {valid}')
-
-
-def make_session(primary_db):
-    """A SQLAlchemy session on the primary tRIBS database."""
-    return sessionmaker(bind=create_engine(primary_db))()
-
-
-def make_spatial_manager(gsurl):
-    """The spatial manager for the given GeoServer REST url (same setup as ``tribs init``)."""
-    url = parse_url(gsurl)
-    try:
-        node_ports = json.loads(os.environ.get('GEOSERVER_CLUSTER_PORTS'))
-    except (json.JSONDecodeError, TypeError):
-        node_ports = [8081, 8082, 8083, 8084]
-    geoserver_engine = GeoServerSpatialDatasetEngine(
-        endpoint=url.endpoint, username=url.username, password=url.password, node_ports=node_ports
-    )
-    return TribsSpatialManager(geoserver_engine=geoserver_engine)
 
 
 def select_datasets(session, dataset_types=(), dataset_ids=(), project_id=None):

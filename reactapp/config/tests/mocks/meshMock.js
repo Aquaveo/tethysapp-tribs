@@ -38,8 +38,8 @@ function timestep(variable, hours, time) {
   return {
     hours,
     time,
-    url: `${FDB}/abc-salas_salas-${stamp}_00d_${variable}.glb`,
-    legend: `${FDB}/abc-salas_salas-${stamp}_00d_${variable}_legend.png`,
+    url: `${FDB}/abc-salas_salas-${stamp}_00i_${variable}.glb`,
+    legend: `${FDB}/abc-salas_salas-${stamp}_00i_${variable}_legend.png`,
   };
 }
 
@@ -59,11 +59,16 @@ const datasetBase = (id) => ({
   srid: null,
 });
 
-/** A time-dynamic glTF mesh output dataset with viz.variables (Mu: 3 time steps, Nwt: 2 time steps). */
+/** A time-integrated glTF mesh output dataset with viz.variables (Mu: 3 time steps, Nwt: 2 time steps). */
 export function makeTimeSeriesMesh(id = "1c1f3a5e-5d0b-4f8e-9a2a-6d6a7e1c2b3d") {
   const variables = [
     {
       name: "Mu",
+      label: "Mu", // a column that is not in the sheet: raw name, no units, no tier
+      units: null,
+      tier: null,
+      description: "",
+      factor: 1,
       start: "2004-06-01T00:00:00Z",
       end: "2004-06-01T20:00:00Z",
       step_hours: 10,
@@ -77,6 +82,11 @@ export function makeTimeSeriesMesh(id = "1c1f3a5e-5d0b-4f8e-9a2a-6d6a7e1c2b3d") 
     },
     {
       name: "Nwt",
+      label: "Nwt",
+      units: null,
+      tier: null,
+      description: "",
+      factor: 1,
       start: "2004-06-01T00:00:00Z",
       end: "2004-06-01T20:00:00Z",
       step_hours: 20,
@@ -88,9 +98,9 @@ export function makeTimeSeriesMesh(id = "1c1f3a5e-5d0b-4f8e-9a2a-6d6a7e1c2b3d") 
   const timesteps = variables.flatMap((variable) => variable.timesteps);
   return {
     ...datasetBase(id),
-    name: "Time Dynamic Output",
-    description: "Time Dynamic Output for test.",
-    dataset_type: "TRIBS_OUT_TIME_DYNAMIC",
+    name: "Time-Integrated Variable Output",
+    description: "Time-Integrated Variable Output for test.",
+    dataset_type: "TRIBS_OUT_TIME_INTEGRATED",
     viz: {
       type: "gltf",
       url: timesteps.map((t) => t.url),
@@ -126,6 +136,47 @@ export function makeStaticMesh(id = "2d2f4b6f-6e1c-4a9f-8b3b-7e7b8f2d3c4e") {
           timesteps: [{ hours: null, time: null, url: `${FDB}/abc-salas.glb`, legend: `${FDB}/abc-salas_legend.png` }],
         },
       ],
+    },
+  };
+}
+
+const CZML_DIR = "4beeb62d-ca82-476a-9257-94092c419bf2/d0e1f2a3-b4c5-4d6e-8f90-a1b2c3d4e5f6/czml";
+
+/**
+ * A basin-averages (.mrf) CZML dataset visualized with the output variable table: two priority variables, two
+ * secondary ones (the backend lists priority first), hidden ones already left out.
+ */
+export function makeMrfDataset(id = "3e3f5c7a-7f2d-4b0a-9c4c-8f8c9a3e4d5f") {
+  const variables = [
+    {
+      name: "MAP", label: "Mean areal precipitation", units: "mm/hr", tier: "priority",
+      description: "Basin-average precipitation rate.", factor: 1,
+    },
+    {
+      name: "MDGW", label: "Depth to groundwater", units: "m", tier: "priority",
+      description: "Basin-average depth from the land surface to the water table (vertical).", factor: 0.001,
+    },
+    {
+      name: "Srf", label: "Basin runoff discharge", units: "m³/s", tier: "secondary",
+      description: "Basin runoff hydrograph at the outlet from the flow-results accumulator.", factor: 1,
+    },
+    {
+      name: "MSM100", label: "Surface soil moisture (top 10 cm)", units: "% saturation", tier: "secondary",
+      description: "Basin-average relative saturation of the top 100 mm of soil.", factor: 100,
+    },
+  ];
+  return {
+    ...datasetBase(id),
+    name: "Basin Averages",
+    description: "Basin averages for test.",
+    dataset_type: "TRIBS_OUT_MRF",
+    viz: {
+      type: "czml",
+      url: variables.map((v) => `${CZML_DIR}/${id}-${v.name}.czml`),
+      legend: variables.map((v) => `${CZML_DIR}/${id}-${v.name}_polygon_legend.png`),
+      origin: [-112.5841635588148, 34.29805405819842],
+      extent: [-124.914551, 24.766785, -67.412109, 49.15297],
+      variables,
     },
   };
 }

@@ -7,27 +7,44 @@ import { datasetPropTypes } from "components/tree/propTypes";
 import SlideSheet from "components/dialogs/SlideSheet"
 import { AppContext, GraphicsWindowVisualsContext, SidePanelContext } from "react-tethys/context";
 import Select from "react-select";
-import { UNIT_NAMES, VARIABLE_SEPARATOR } from "constants/PlotConstants";
+import { VARIABLE_SEPARATOR } from "constants/PlotConstants";
 import { Button } from "react-bootstrap";
 import { DO_NOT_SET_LAYER } from "constants/GraphicsWindowConstants";
+import { describeLayer, variableTitle, variableLabel, variableUnits } from "lib/outputVariables";
 
 const DEFAULT_PLOT_LAYOUT = {
-  title: 'A Fancy Plot',
+  title: 'Time series',
   showlegend: true,
   yaxis: {
     type: "linear",
     autorange: true,
     title: {
-      text: "The Y Axis",
+      text: "Value",
       font: { size: 18 }
     }
   },
   xaxis: {
-    title: { text: "Time in Hours", font: { size: 18 }},
+    title: { text: "Time", font: { size: 18 }},
     type: "date",
     tickformat: ' %H:%M\n%b %d, %Y'
   },
 };
+
+/**
+ * Plot title and y-axis text for a series: the friendly label and display units the backend sends with the
+ * timeseries, falling back to the layer name (and its header unit token) for older or uncovered variables.
+ */
+export function seriesTitles(dataset, layerName, plotData = {}) {
+  const fallback = describeLayer(dataset, layerName);
+  const variable = {
+    name: layerName,
+    label: plotData.label ?? fallback.label,
+    units: plotData.units !== undefined ? plotData.units : fallback.units,
+  };
+  const label = variableLabel(variable);
+  const units = variableUnits(variable);
+  return { label, units, title: variableTitle(variable), yAxis: units ?? label };
+}
 
 const DEFAULT_PLOT_CONFIG = { responsive: true, displayModeBar: true };
 
@@ -104,76 +121,65 @@ const PlotlyPanel = ({
     if (datasetId === dataset.id) {
       const datasetId = selectedCZMLPoint.match(/\[(.*?)\]/)[1]; // This grabs any string inbetween brackets "[" or "]"
       const variableName = visibleCZMLObject?.[datasetId];
+      const applyTitles = (plotData = {}) => {
+        const titles = seriesTitles(dataset, variableName, plotData);
+        setPlotLayout((prevData) => ({
+          ...prevData,
+          title: titles.title,
+          yaxis: {
+            ...prevData.yaxis,
+            title: {
+              ...prevData.yaxis.title,
+              text: titles.yAxis,
+            },
+          },
+        }));
+      };
       if (variableName !== DO_NOT_SET_LAYER && selectedCZMLPoint.includes("point") && variableName) {
         const pointId = selectedCZMLPoint.split(" [")[0].split(VARIABLE_SEPARATOR)[1];
         backend.do(
           backend.actions.DATASET_GET_PIXEL_TIMESERIES,
           {id: datasetId, point_id: pointId, variable: variableName}
         );
-        const splitVariableNameArray = variableName.split(VARIABLE_SEPARATOR);
-        const unitName = splitVariableNameArray[splitVariableNameArray.length - 1];
-        const normalizedUnitName = UNIT_NAMES?.[unitName] ? UNIT_NAMES?.[unitName]: unitName;
-        setPlotLayout((prevData) => ({
-          ...prevData,
-          title: variableName.replace("_[]", ""),
-          yaxis: {
-            ...prevData.yaxis,
-            title: {
-              ...prevData.yaxis.title,
-              text: normalizedUnitName,
-            },
-          },
-        }));
+        applyTitles();
       } else if (variableName !== DO_NOT_SET_LAYER && selectedCZMLPoint.includes("polygon") && variableName) {
         backend.do(
           backend.actions.DATASET_GET_MRF_OR_RFT_TIMESERIES,
           {id: datasetId, variable: variableName}
         );
-        const splitVariableNameArray = variableName.split(VARIABLE_SEPARATOR);
-        const unitName = splitVariableNameArray[splitVariableNameArray.length - 1];
-        const normalizedUnitName = UNIT_NAMES?.[unitName] ? UNIT_NAMES?.[unitName] : unitName;
-        setPlotLayout((prevData) => ({
-          ...prevData,
-          title: variableName.replace("_[]", ""),
-          yaxis: {
-            ...prevData.yaxis,
-            title: {
-              ...prevData.yaxis.title,
-              text: normalizedUnitName,
-            },
-          },
-        }));
+        applyTitles();
       }
     }
-  }, [backend, dataset.id, selectedCZMLPoint, visibleCZMLObject]);
+  }, [backend, dataset, selectedCZMLPoint, visibleCZMLObject]);
 
-  backend.on(backend.actions.DATASET_GET_PIXEL_TIMESERIES, (plotData) => {
+  // The series arrives with its values already in display units and how to label it (label, units); older
+  // backends send only x and y, in which case the titles derived from the layer name stay.
+  const handleTimeseries = (plotData) => {
     const startDate = startDates[realizationIndex];
     const timeConverted = plotData.x.map(
       (timeInHours) => hoursToDateConverter(startDate, timeInHours)
     )
+    const layerName = plotData.name ?? visibleCZMLObject?.[dataset.id];
+    const titles = seriesTitles(dataset, layerName, plotData);
     setCurrentData({
       x: timeConverted,
       y: plotData.y,
+      name: titles.label,
       type: "scatter",
       mode: "lines+markers",
       marker: {color: 'red'},
     });
-  });
+    if (plotData.label !== undefined || plotData.units !== undefined) {
+      setPlotLayout((prevData) => ({
+        ...prevData,
+        title: titles.title,
+        yaxis: { ...prevData.yaxis, title: { ...prevData.yaxis.title, text: titles.yAxis } },
+      }));
+    }
+  };
 
-  backend.on(backend.actions.DATASET_GET_MRF_OR_RFT_TIMESERIES, (plotData) => {
-    const startDate = startDates[realizationIndex];
-    const timeConverted = plotData.x.map(
-      (timeInHours) => hoursToDateConverter(startDate, timeInHours)
-    )
-    setCurrentData({
-      x: timeConverted,
-      y: plotData.y,
-      type: "scatter",
-      mode: "lines+markers",
-      marker: {color: 'red'},
-    });
-  });
+  backend.on(backend.actions.DATASET_GET_PIXEL_TIMESERIES, handleTimeseries);
+  backend.on(backend.actions.DATASET_GET_MRF_OR_RFT_TIMESERIES, handleTimeseries);
 
   const yAxisScaleOptions = [
     { value: "linear", label: "Linear" },
@@ -199,7 +205,9 @@ const PlotlyPanel = ({
 
   const SlideSheetTitle = (
     <CustomHeader>
-      <div>{`${visibleCZMLObject?.[dataset.id] ? visibleCZMLObject?.[dataset.id].replace("_[]", "") : "Empty"} Plot`}</div>
+      <div>
+        {`${visibleCZMLObject?.[dataset.id] ? seriesTitles(dataset, visibleCZMLObject[dataset.id]).title : "Empty"} Plot`}
+      </div>
     </CustomHeader>
   );
 

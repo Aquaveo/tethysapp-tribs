@@ -27,3 +27,12 @@ it("shows the bar without labels and a note when the dataset has no value range"
   expect(screen.getByTestId("gltf-legend-note")).toHaveTextContent("Value range unavailable");
   expect(screen.getAllByTestId("gltf-legend-stop").length).toBeGreaterThan(2);
 });
+
+it("shows the variable title above the bar when given", () => {
+  render(<GltfLegend rampName="viridis" min={0} max={100} title="Root-zone soil moisture (% saturation)" />);
+  expect(screen.getByTestId("gltf-legend-title")).toHaveTextContent("Root-zone soil moisture (% saturation)");
+  expect(screen.getByRole("img", { name: "Root-zone soil moisture (% saturation) legend" })).toBeInTheDocument();
+  expect(screen.getAllByTestId("gltf-legend-tick").map((el) => el.textContent)).toEqual([
+    "0.00", "25.00", "50.00", "75.00", "100.00",
+  ]);
+});

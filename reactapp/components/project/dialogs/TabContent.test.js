@@ -148,11 +148,6 @@ describe('groupByIdAndType Function', () => {
           name: 'Qout File'
         },
         {
-          id: '2627de66-2508-4391-850e-59333c7fa5d6',
-          name: 'Time-Dynamic Variable Output'
-        },
-
-        {
           id: '44d36f74-1e70-40f8-a66d-25e3c5645936',
           name: 'Node Dynamic Output'
         }

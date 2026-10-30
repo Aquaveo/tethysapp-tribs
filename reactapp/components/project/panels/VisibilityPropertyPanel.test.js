@@ -4,7 +4,7 @@ import { render, screen } from '@testing-library/react';
 import { SidePanelContext, GraphicsWindowVisualsContext } from 'react-tethys/context';
 import VisibilityPropertyPanel from './VisibilityPropertyPanel';
 import { DO_NOT_SET_LAYER } from "constants/GraphicsWindowConstants";
-import { makeStaticMesh, makeTimeSeriesMesh } from "config/tests/mocks/meshMock";
+import { makeMrfDataset, makeStaticMesh, makeTimeSeriesMesh } from "config/tests/mocks/meshMock";
 
 
 const dataset = {
@@ -154,23 +154,27 @@ describe('VisibilityPropertyPanel', () => {
     expect(mockSidePanelContextValue.hideSidePanel).toHaveBeenCalled();
   });
 
-  it('should render TreeItem components for each URL in the dataset', () => {
+  it('should render TreeItem components for each URL in the dataset, named by variable and units', () => {
     setupPanel(true);
     const treeItems = screen.getAllByTestId("tree-item-child");
     expect(treeItems).toHaveLength(47);
-    expect(screen.getByText('Mi_mm')).toBeInTheDocument();
-    expect(screen.getByText('HFlux_W-m2')).toBeInTheDocument();
+    // Pixel variables are not in the output variable table: the layer name is split into name and header units
+    expect(screen.getByText('Mi (mm)')).toBeInTheDocument();
+    expect(screen.getByText('HFlux (W/m²)')).toBeInTheDocument();
+    expect(screen.getByText('Srf_Hour (mm)')).toBeInTheDocument();
+    expect(screen.getByText('LngRadOutW-m2_')).toBeInTheDocument(); // no unit token: shown as is
+    expect(screen.queryByTestId(/more-variables/)).not.toBeInTheDocument(); // nothing is tiered
   });
 
-  it('should call setCZMLLayer with the correct arguments when a TreeItem is clicked', async () => {
+  it('should call setCZMLLayer with the raw layer name when a TreeItem is clicked', async () => {
     const { user, mockGraphicsWindowVisualsContextValue } = setupPanel(true);
-    await user.click(screen.getByText('Intercept_mm'));
+    await user.click(screen.getByText('Intercept (mm)'));
     expect(mockGraphicsWindowVisualsContextValue.setCZMLLayer).toHaveBeenCalledWith(dataset.id, 'Intercept_mm');
   });
 
   it('should not call setCZMLLayer if the visibleCZMLObject is set to DO_NOT_SET_LAYER', () => {
     const { user, mockGraphicsWindowVisualsContextValue } = setupPanel(true, true);
-    user.click(screen.getByText('Mi_mm'));
+    user.click(screen.getByText('Mi (mm)'));
     expect(mockGraphicsWindowVisualsContextValue.setCZMLLayer).not.toHaveBeenCalled();
   });
 
@@ -222,6 +226,38 @@ describe('VisibilityPropertyPanel with glTF mesh variables', () => {
     expect(screen.getAllByTestId("tree-item-child")).toHaveLength(1);
     expect(screen.getByText('Elevation')).toBeInTheDocument();
     expect(mockGraphicsWindowVisualsContextValue.setCZMLLayer).toHaveBeenCalledWith(mesh.id, 'Elevation');
+    expect(mockGraphicsWindowVisualsContextValue.setActiveTimeSeries).not.toHaveBeenCalled();
+  });
+});
+
+describe('VisibilityPropertyPanel with tiered output variables', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('lists priority variables up front, secondary ones in a collapsed group, and selects the first priority one', () => {
+    const mrf = makeMrfDataset();
+    const { mockGraphicsWindowVisualsContextValue } = setupPanel(true, false, mrf);
+    expect(mockGraphicsWindowVisualsContextValue.setCZMLLayer).toHaveBeenCalledWith(mrf.id, 'MAP');
+    expect(screen.getByText('Mean areal precipitation (mm/hr)')).toBeInTheDocument();
+    expect(screen.getByText('Depth to groundwater (m)')).toBeInTheDocument();
+    expect(screen.getByText('More variables (2)')).toBeInTheDocument();
+    const group = screen.getByTestId(`more-variables-(2)-${mrf.id}-tree-item-content`);
+    expect(group).toHaveTextContent('Basin runoff discharge (m³/s)');
+    expect(group).toHaveTextContent('Surface soil moisture (top 10 cm) (% saturation)');
+    // Collapsed: the group's toggle reports it closed
+    expect(screen.getByRole('button', { expanded: false })).toBeInTheDocument();
+    // Descriptions are the hover text of the items
+    expect(screen.getByTitle('Basin-average precipitation rate.')).toBeInTheDocument();
+  });
+
+  it('selects a secondary variable from the group by its raw name', async () => {
+    const mrf = makeMrfDataset();
+    const { user, mockGraphicsWindowVisualsContextValue } = setupPanel(true, false, mrf);
+    jest.clearAllMocks();
+    await user.click(screen.getByRole('button', { expanded: false }));
+    await user.click(screen.getByText('Basin runoff discharge (m³/s)'));
+    expect(mockGraphicsWindowVisualsContextValue.setCZMLLayer).toHaveBeenCalledWith(mrf.id, 'Srf');
     expect(mockGraphicsWindowVisualsContextValue.setActiveTimeSeries).not.toHaveBeenCalled();
   });
 });

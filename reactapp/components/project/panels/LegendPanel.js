@@ -8,6 +8,7 @@ import { useContext } from "react";
 import { GraphicsWindowVisualsContext, SidePanelContext } from "react-tethys/context";
 import { isDefaultRamp, rampOptions, rampStops, resolveRampName } from "lib/colorRamps";
 import { formatTimestepTime } from "lib/meshTimeSeries";
+import { describeLayer, isLayerOf, variableTitle } from "lib/outputVariables";
 
 const RAMP_OPTIONS = rampOptions();
 
@@ -76,16 +77,16 @@ const LegendPanel = ({
     legend_urls = legend_urls.map((url) => TETHYS_MEDIA_URL + url);
   }
 
-  if (
-    dataset?.viz?.type === DATASET_VIZ_TYPES.CZML
-  ) {
-    const uniqueName = uniqueId ? uniqueId.replace("_[]", "").split('_').slice(1).join("") : null;
-    slideSheetTitle = `${uniqueName} ${title}`;
+  // The variable the legend is for: the one given, else the dataset layer named by uniqueId (a layer name for
+  // CZML output and glTF mesh output, but the dataset id for station data and bare TIN meshes).
+  const legendVariable = variable ?? (isLayerOf(dataset, uniqueId) ? describeLayer(dataset, uniqueId) : null);
+  if (dataset?.viz?.type === DATASET_VIZ_TYPES.CZML) {
+    slideSheetTitle = legendVariable ? `${variableTitle(legendVariable)} ${title}` : `${dataset.name} ${title}`;
   } else if (dataset?.viz?.type === DATASET_VIZ_TYPES.WMS_COMPOUND) {
     const uniqueName = uniqueId ? uniqueId.split('_').slice(1).join("") : null;
     slideSheetTitle = `${uniqueName} ${title}`;
-  } else if (dataset?.viz?.type === DATASET_VIZ_TYPES.GLTF && uniqueId) {
-    slideSheetTitle = `${dataset.name} ${uniqueId} ${title}`;
+  } else if (dataset?.viz?.type === DATASET_VIZ_TYPES.GLTF && legendVariable) {
+    slideSheetTitle = `${dataset.name} ${variableTitle(legendVariable)} ${title}`;
   } else {
     slideSheetTitle = `${dataset.name} ${title}`
   }
@@ -126,7 +127,13 @@ const LegendPanel = ({
           </div>
         )}
         {drawsOwnLegend && (
-          <GltfLegend rampName={rampName} min={variable?.min} max={variable?.max} variableName={variable?.name} />
+          <GltfLegend
+            rampName={rampName}
+            min={variable?.min}
+            max={variable?.max}
+            variableName={variable?.name}
+            title={variable ? variableTitle(variable) : undefined}
+          />
         )}
         {!drawsOwnLegend && legend_urls.map((legend_url, i) => {
           let final_url = legend_url;
@@ -164,9 +171,11 @@ LegendPanel.propTypes = {
   dataset: datasetPropTypes.isRequired,
   legendUrls: PropTypes.arrayOf(PropTypes.string),
   subtitle: PropTypes.string,
-  // glTF meshes: the variable shown (for its min/max) and the callback that saves a chosen color ramp
+  // glTF meshes: the variable shown (for its label, units and min/max) and the callback that saves a chosen ramp
   variable: PropTypes.shape({
     name: PropTypes.string,
+    label: PropTypes.string,
+    units: PropTypes.string,
     min: PropTypes.number,
     max: PropTypes.number,
   }),

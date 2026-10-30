@@ -22,7 +22,7 @@ const CzmlLayer = ({ dataset, datasetIndex }) => {
     }
   }, [dataset.id, dataset?.viz?.url, visibleCZMLObject]);
 
-  if (dataset?.viz?.url && dataset?.viz?.url.length > 1) {
+  if (dataset?.viz?.url && dataset?.viz?.url.length >= 1) { // a qout dataset may have a single (Qstrm) layer
     const dataset_url = dataset?.viz?.url[visibleLayerIndex];
     const layerName = extractLayerName(dataset_url, dataset.id);
     let show = false;

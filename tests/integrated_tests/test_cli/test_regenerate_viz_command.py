@@ -83,7 +83,7 @@ def run(capsys, **options):
 
 def test_parse_dataset_type():
     assert cmd.parse_dataset_type('tribs_tin') is DatasetTypes.TRIBS_TIN
-    assert cmd.parse_dataset_type('TRIBS_OUT_TIME_DYNAMIC') is DatasetTypes.TRIBS_OUT_TIME_DYNAMIC
+    assert cmd.parse_dataset_type('TRIBS_OUT_TIME_INTEGRATED') is DatasetTypes.TRIBS_OUT_TIME_INTEGRATED
     with pytest.raises(ValueError, match='Unknown dataset type "bogus"'):
         cmd.parse_dataset_type('bogus')
 
@@ -95,12 +95,12 @@ def test_regenerate_viz_is_registered_on_the_tribs_cli():
     args = parser.parse_args(
         [
             'regenerate-viz', 'postgresql://db', 'http://gs', '--dataset-type', 'TRIBS_TIN', '--dataset-type',
-            'TRIBS_OUT_TIME_DYNAMIC', '--dataset-id', MISSING_ID, '--project-id', 'p1', '--dry-run'
+            'TRIBS_OUT_TIME_INTEGRATED', '--dataset-id', MISSING_ID, '--project-id', 'p1', '--dry-run'
         ]
     )
     assert args.func is cmd.main
     assert args.primary_db == 'postgresql://db' and args.gsurl == 'http://gs'
-    assert args.dataset_types == ['TRIBS_TIN', 'TRIBS_OUT_TIME_DYNAMIC']
+    assert args.dataset_types == ['TRIBS_TIN', 'TRIBS_OUT_TIME_INTEGRATED']
     assert args.dataset_ids == [MISSING_ID] and args.project_id == 'p1' and args.dry_run is True
 
 
@@ -131,7 +131,7 @@ def test_dry_run_and_filters_leave_datasets_alone(db_session, tin_dataset, mock_
     assert 'Dry run: nothing regenerated.' in out
 
     for options in [
-        dict(dataset_types=['TRIBS_OUT_TIME_DYNAMIC']),
+        dict(dataset_types=['TRIBS_OUT_TIME_INTEGRATED']),
         dict(dataset_ids=[MISSING_ID]),
         dict(project_id=MISSING_ID),
     ]:

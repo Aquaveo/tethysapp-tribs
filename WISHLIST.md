@@ -29,12 +29,6 @@ Follow-ups that were noted but deliberately deferred. Newest at the bottom.
 - **Mesh time series follow-ups** (the clock-driven animation itself landed 2026-10-08: `viz.variables` from the
   spatial manager, `lib/meshTimeSeries.js`, `MeshClock.js`, double-buffered `GltfLayers.js`, variables listed once in
   `VisibilityPropertyPanel.js`):
-  - *Legend colour range per variable across the run.* `tRIBSMeshViz.to_gltf` scales each legend to that one
-    file's min/max, so colours are not comparable between time steps while animating. Fix is to compute the range
-    over all time steps of a variable once and pass it to `_build_voronoi_gltf`/`_generate_legend_for_values`.
-  - *`regenerate_viz` management command.* `viz` is only built at dataset creation (`Dataset.generate_visualization`),
-    so existing glTF datasets need a one-off shell loop to pick up `viz.variables`. A
-    `tethysapp/tribs/management/commands/regenerate_viz.py` with a `--dataset-type` filter would make this routine.
   - *Preload a window of time steps.* `GltfLayers.js` double-buffers (current + next), so playback waits for each
     ~7 MB file when the network is slow; a small cache of adjacent steps would smooth it.
   - *Time-step axis in the UI.* The Cesium timeline shows the range, but nothing labels the current time step in
@@ -48,6 +42,46 @@ Follow-ups that were noted but deliberately deferred. Newest at the bottom.
   the bare TIN view (6 s, cells median 6.7 m) and raise a clear error for output datasets without a `_voi` file, since
   the output ids cannot be mapped to node rows. Recovering the id permutation without a `_voi` is possible via
   Delaunay/edge-graph isomorphism but was judged not worth it. Neither TIN workflow produces a `_voi`; only tRIBS runs do.
+
+- **Selectable colour ramps follow-ups** (the client-side ramps landed 2026-10-15: `lib/colorRamps.js`,
+  `getRampShader` in `GltfLayers.js`, selector + browser-drawn `GltfLegend` in `LegendPanel.js`, ramp saved as the
+  dataset attribute `color_ramp`, `min`/`max` per variable in `viz.variables`):
+  - *Other users only see a saved ramp after reloading.* The consumer answers the requesting socket only
+    (`BackendConsumer.send_action` never calls `group_send`), so a ramp change is not pushed to other open sessions.
+    Live propagation needs a group event handler in `tethysapp/tribs/consumers/backend.py` and would change every
+    action, so it was deferred.
+  - *Old datasets have no `min`/`max`.* glTF datasets generated before 2026-10-15 recolour fine but their drawn
+    legend has no tick labels until `viz` is rebuilt: run `tribs regenerate-viz` (landed 2026-10-29, see the README)
+    on each deployment, e.g. `--dataset-type TRIBS_TIN --dataset-type TRIBS_OUT_TIME_INTEGRATED`. Production has
+    not been regenerated yet.
+  - *Default ramp as a texture.* The "Topo Atlas" default still uses the texture baked into the GLB, so its swatch in
+    the selector is an approximation and its legend is the server PNG. Exposing the baked ramp's colours as a JS
+    interpolator would let every ramp share one code path (and drop the PNG legend for glTF datasets entirely).
+
+## Output variable labels and priorities
+
+Landed 2026-10-30 (FHMB III 1.2/1.3): `tribs_adapter/common/output_variables.py` holds the scientist's sheet (qout,
+mrf, integrated `_i`); the backend renders only priority/secondary variables of those kinds, labels them with
+friendly names and display units in `viz.variables` and the timeseries responses, and the frontend groups secondary
+variables under "More variables". Deferred:
+
+- **Extend the sheet to the other output files.** Pixel, `.rft` and SDF station variables are not in the sheet, so
+  they keep their raw names (plus the header unit token where there is one) and all stay visible. Once the scientist
+  adds them, extend `OUTPUT_VARIABLES` and `KIND_BY_DATASET_TYPE`, then `tribs regenerate-viz` those types.
+  (Time-dynamic `_d` output was dropped from realizations on 2026-10-30 at the scientist's request, as it is only an
+  instantaneous snapshot; the `TRIBS_OUT_TIME_DYNAMIC` enum member stays until every environment has run
+  `tribs delete-datasets --dataset-type TRIBS_OUT_TIME_DYNAMIC`, after which it and the `_d` branches of the mesh
+  writer tests can go.)
+- **Snow variables when there is no snow.** `peakWE`, `cSnSub`, `cSnEvap` (priority) are all zero in snow-free
+  runs; grey them out or drop to secondary when the range is 0..0 (the sheet asks for this).
+- **Plot conveniences from the sheet.** Inverted y-axis for `MDGW` (depth to groundwater), log colour scale for
+  `CAr` (contributing area) and `Ks`, and promoting `SCA`/`cMelt` to priority for snow-dominated basins (maybe a
+  per-project setting).
+- **Older mrf column names.** Older tRIBS builds wrote `MGW`, `Max`, `Min`, `%Sat`, `%Rain` (the salas fixtures);
+  they are aliased in the table. If other historical spellings show up (`Aspct`-style), add aliases rather than
+  fuzzy matching.
+- **Post-upgrade regeneration job.** `tribs regenerate-viz` stays a manual step (see README). If regenerations
+  become routine, add a version-gated Helm post-upgrade job in the wrapper repo.
 
 ## App
 

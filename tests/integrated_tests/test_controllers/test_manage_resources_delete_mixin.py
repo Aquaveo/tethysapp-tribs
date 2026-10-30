@@ -156,14 +156,14 @@ def test_delete_resource_files_project(rf, complete_project, tmp_path, mocker):
         }
     )
 
-    assert len(list(tmp_path.glob('**/*.*'))) == 48  # FDB files + uploaded files in the "files" attribute
+    assert len(list(tmp_path.glob('**/*.*'))) == 45  # FDB files + uploaded files in the "files" attribute
 
     mtd_controller.delete_resource_files(
         request=request,
         resource=project,
     )
 
-    assert len(list(tmp_path.glob('**/*.*'))) == 45  # 3 files deleted - scenario, dataset, and realization uploads
+    assert len(list(tmp_path.glob('**/*.*'))) == 42  # 3 files deleted - scenario, dataset, and realization uploads
 
 
 def test_delete_resource_files_scenario(rf, complete_project, tmp_path, mocker):
@@ -181,14 +181,14 @@ def test_delete_resource_files_scenario(rf, complete_project, tmp_path, mocker):
         }
     )
 
-    assert len(list(tmp_path.glob('**/*.*'))) == 48  # FDB files + uploaded files in the "files" attribute
+    assert len(list(tmp_path.glob('**/*.*'))) == 45  # FDB files + uploaded files in the "files" attribute
 
     mtd_controller.delete_resource_files(
         request=request,
         resource=scenario,
     )
 
-    assert len(list(tmp_path.glob('**/*.*'))) == 45  # 2 files deleted - scenario and dataset uploads
+    assert len(list(tmp_path.glob('**/*.*'))) == 42  # 2 files deleted - scenario and dataset uploads
 
 
 def test_delete_resource_files_realization(rf, complete_project, tmp_path, mocker):
@@ -207,14 +207,14 @@ def test_delete_resource_files_realization(rf, complete_project, tmp_path, mocke
         }
     )
 
-    assert len(list(tmp_path.glob('**/*.*'))) == 48  # FDB files + uploaded files in the "files" attribute
+    assert len(list(tmp_path.glob('**/*.*'))) == 45  # FDB files + uploaded files in the "files" attribute
 
     mtd_controller.delete_resource_files(
         request=request,
         resource=realization,
     )
 
-    assert len(list(tmp_path.glob('**/*.*'))) == 47  # 1 file deleted - realization upload
+    assert len(list(tmp_path.glob('**/*.*'))) == 44  # 1 file deleted - realization upload
 
 
 def test_delete_workspace_artifacts(mock_request, mocker, test_files, tmp_path):
@@ -280,7 +280,7 @@ def test_delete_children_project(rf, db_session, complete_project, tmp_path, moc
 
     assert len(project.scenarios) == 1
     assert len(project.scenarios[0].realizations) == 1
-    assert len(project.datasets) == 19
+    assert len(project.datasets) == 18
 
     scenario_id = project.scenarios[0].id
     realization_id = project.scenarios[0].realizations[0].id
@@ -306,7 +306,7 @@ def test_delete_children_scenario(rf, db_session, complete_project, tmp_path, mo
 
     assert len(project.scenarios) == 1
     assert len(project.scenarios[0].realizations) == 1
-    assert len(project.datasets) == 19
+    assert len(project.datasets) == 18
 
     scenario_id = project.scenarios[0].id
     realization_id = project.scenarios[0].realizations[0].id
@@ -333,7 +333,7 @@ def test_delete_children_realization(rf, db_session, complete_project, tmp_path,
 
     assert len(project.scenarios) == 1
     assert len(project.scenarios[0].realizations) == 1
-    assert len(project.datasets) == 19
+    assert len(project.datasets) == 18
 
     scenario_id = project.scenarios[0].id
     realization_id = project.scenarios[0].realizations[0].id
@@ -367,7 +367,7 @@ def test_delete_filedatabase_artifacts_project(rf, complete_project, tmp_path, m
         }
     )
 
-    assert len(list(tmp_path.glob('**/*.*'))) == 48  # FDB files + 3 uploaded files in the "files" attributes
+    assert len(list(tmp_path.glob('**/*.*'))) == 45  # FDB files + 3 uploaded files in the "files" attributes
 
     mtd_controller.delete_filedatabase_artifacts(
         request=request,
@@ -391,7 +391,7 @@ def test_delete_filedatabase_artifacts_scenario(rf, complete_project, tmp_path, 
         }
     )
 
-    assert len(list(tmp_path.glob('**/*.*'))) == 48  # FDB files + 3 uploaded files in the "files" attributes
+    assert len(list(tmp_path.glob('**/*.*'))) == 45  # FDB files + 3 uploaded files in the "files" attributes
 
     mtd_controller.delete_filedatabase_artifacts(
         request=request,
@@ -415,7 +415,7 @@ def test_delete_filedatabase_artifacts_realization(rf, complete_project, tmp_pat
             'action': 'delete',
         }
     )
-    assert len(list(tmp_path.glob('**/*.*'))) == 48  # FDB files + 3 uploaded files in the "files" attributes
+    assert len(list(tmp_path.glob('**/*.*'))) == 45  # FDB files + 3 uploaded files in the "files" attributes
 
     mtd_controller.delete_filedatabase_artifacts(
         request=request,
@@ -475,7 +475,7 @@ def test_remove_visualizations_project(rf, db_session, complete_project, tmp_pat
     )
 
     # remove_visualization called on all 19 datasets in project
-    assert mock_rv.call_count == 19
+    assert mock_rv.call_count == 18
 
 
 def test_remove_visualizations_scenario(rf, db_session, complete_project, tmp_path, mocker):
@@ -500,7 +500,7 @@ def test_remove_visualizations_scenario(rf, db_session, complete_project, tmp_pa
     )
 
     # remove_visualization called on all 19 datasets in project (Scenario + Realization child)
-    assert mock_rv.call_count == 19
+    assert mock_rv.call_count == 18
 
 
 def test_remove_visualizations_realization(rf, db_session, complete_project, tmp_path, mocker):
@@ -526,7 +526,7 @@ def test_remove_visualizations_realization(rf, db_session, complete_project, tmp
     )
 
     # remove_visualization called on 7 dataset linked with realization
-    assert mock_rv.call_count == 7
+    assert mock_rv.call_count == 6
 
 
 def test_remove_visualizations_dataset(rf, db_session, complete_project, tmp_path, mocker):
