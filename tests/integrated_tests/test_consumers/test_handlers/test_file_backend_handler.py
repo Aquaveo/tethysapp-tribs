@@ -167,16 +167,36 @@ async def test_upload_accepts_valid_upload(fbh, tmp_path, mocker):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize('overrides, message', [
-    ({'currChunk': '1/../../../../tmp/evil'}, 'Invalid currChunk'),  # traversal via chunk index
-    ({'currChunk': 0}, 'Invalid currChunk'),
-    ({'currChunk': -1}, 'Invalid currChunk'),
-    ({'currChunk': True}, 'Invalid currChunk'),
-    ({'currChunk': '1'}, 'Invalid currChunk'),
-    ({'numChunks': 0}, 'Invalid numChunks'),
-    ({'numChunks': 'x'}, 'Invalid numChunks'),
-    ({'currChunk': 2, 'numChunks': 1}, 'exceeds numChunks'),
-])
+@pytest.mark.parametrize(
+    'overrides, message',
+    [
+        ({
+            'currChunk': '1/../../../../tmp/evil'
+        }, 'Invalid currChunk'),  # traversal via chunk index
+        ({
+            'currChunk': 0
+        }, 'Invalid currChunk'),
+        ({
+            'currChunk': -1
+        }, 'Invalid currChunk'),
+        ({
+            'currChunk': True
+        }, 'Invalid currChunk'),
+        ({
+            'currChunk': '1'
+        }, 'Invalid currChunk'),
+        ({
+            'numChunks': 0
+        }, 'Invalid numChunks'),
+        ({
+            'numChunks': 'x'
+        }, 'Invalid numChunks'),
+        ({
+            'currChunk': 2,
+            'numChunks': 1
+        }, 'exceeds numChunks'),
+    ]
+)
 async def test_upload_rejects_invalid_chunk_index(fbh, tmp_path, mocker, overrides, message):
     """currChunk/numChunks must be positive ints with currChunk <= numChunks; nothing is written otherwise."""
     uploads_root = AsyncPath(tmp_path / 'uploads' / 'proj')
