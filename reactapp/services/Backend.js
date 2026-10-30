@@ -87,6 +87,7 @@ export default class Backend {
       draggable: false,
       toastId: this.couldNotReconnectToastId,
     });
+    this.onForbiddenCallback?.();
   }
 
   get actions() {
@@ -125,9 +126,10 @@ export default class Backend {
     };
   }
 
-  connect(onConnectCallback) {
+  connect(onConnectCallback, onForbiddenCallback) {
     this.authenticated = false;
     this.onConnectCallback = onConnectCallback;
+    this.onForbiddenCallback = onForbiddenCallback;
     const url = this.wsUrl;
     this.webSocket = new WebSocket(url);
     this.webSocket.addEventListener("open", () => {
@@ -209,7 +211,7 @@ export default class Backend {
           return redirectToLogin();
         }
       }
-      this.connect(this.onConnectCallback);
+      this.connect(this.onConnectCallback, this.onForbiddenCallback);
     }, this.reconnectInterval);
     this.reconnectInterval *= 2;
   }

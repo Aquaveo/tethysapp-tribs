@@ -70,7 +70,7 @@ export function useAppLoad() {
           setTimeout(() => {
             setIsLoaded(true);
           }, LOADER_DELAY);
-        });
+        }, () => handleError(new Error("You do not have access to this project.")));
       })
       .catch(handleError);
   }, []);

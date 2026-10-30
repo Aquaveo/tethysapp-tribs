@@ -128,4 +128,20 @@ describe("useAppLoad", () => {
     });
     expect(result.current.isLoaded).toBe(false);
   });
+
+  it("sets error when the server closes with 4403 before AUTHENTICATED", async () => {
+    const wsServer = new WS(`ws://api.test${PATHNAME}ws/`);
+
+    const { result } = renderHook(() => useAppLoad());
+
+    await wsServer.connected;
+    await wsServer.nextMessage; // AUTHENTICATE
+    wsServer.close({ code: 4403, reason: "", wasClean: true });
+
+    await waitFor(() => expect(result.current.error).not.toBeNull(), {
+      timeout: 3000,
+    });
+    expect(result.current.error.message).toBe("You do not have access to this project.");
+    expect(result.current.isLoaded).toBe(false);
+  });
 });
