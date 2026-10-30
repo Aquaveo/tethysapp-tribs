@@ -279,7 +279,7 @@ and GeoServer REST urls that `tribs init` takes:
 ```bash
 tribs regenerate-viz "postgresql://tethys_super:***@localhost:5435/tribs_primary_db" \
     "http://admin:geoserver@localhost:8181/geoserver/rest/" --dry-run
-tribs regenerate-viz <primary_db> <gsurl> --dataset-type TRIBS_TIN --dataset-type TRIBS_OUT_TIME_DYNAMIC
+tribs regenerate-viz <primary_db> <gsurl> --dataset-type TRIBS_TIN --dataset-type TRIBS_OUT_TIME_INTEGRATED
 tribs regenerate-viz <primary_db> <gsurl> --project-id <project id>
 tribs regenerate-viz <primary_db> <gsurl> --dataset-id <dataset id>
 ```
@@ -287,6 +287,47 @@ tribs regenerate-viz <primary_db> <gsurl> --dataset-id <dataset id>
 `--dataset-type`, `--dataset-id` and `--project-id` narrow the selection and can be combined (`--dataset-type` and
 `--dataset-id` are repeatable); without them every dataset that has a visualization is regenerated. Failures are
 reported per dataset at the end, leave that dataset in the `Error` status, and make the command exit with status 1.
+
+Friendly variable labels, display units and priority tiers (`tribs_adapter/common/output_variables.py`, from the
+scientist's sheet) are written into `viz` when a visualization is generated, so datasets created before 2026-10-30
+show raw names and every variable until they are regenerated. Deploy the code first, then run, per environment:
+
+```bash
+tribs regenerate-viz <primary_db> <gsurl> --dataset-type TRIBS_OUT_TIME_INTEGRATED --dataset-type TRIBS_OUT_MRF \
+    --dataset-type TRIBS_OUT_QOUT --dry-run   # then without --dry-run
+```
+
+Each dataset is briefly without files while it is rebuilt (status `Processing`), so run it during low usage, per
+project with `--project-id` for large tables. Verify afterwards that every variable carries a label:
+
+```sql
+select r.name, r.status,
+       (select count(*) from json_array_elements(r._attributes::json->'viz'->'variables')) as n_vars,
+       (select count(*) from json_array_elements(r._attributes::json->'viz'->'variables') v
+         where (v->>'label') is not null) as n_labelled
+from app_users_resources r
+where r._attributes::json->>'dataset_type' in ('TRIBS_OUT_TIME_INTEGRATED', 'TRIBS_OUT_MRF', 'TRIBS_OUT_QOUT');
+```
+
+## Deleting Legacy Datasets
+
+Since 2026-10-30 realizations no longer get a "Time-Dynamic Variable Output" dataset: the time-dynamic `_d` spatial
+output is an instantaneous snapshot of the state variables, and the scientist asked for only the time-integrated `_i`
+output to be offered. The `_d` files tRIBS writes stay in the model directory and are not copied into a dataset.
+Realizations created earlier still carry that dataset (type `TRIBS_OUT_TIME_DYNAMIC`); the frontend no longer lists
+it, and `tribs delete-datasets` removes it for good, with its visualization, file collection and the references in
+the realization's input file:
+
+```bash
+tribs delete-datasets <primary_db> <gsurl> --dataset-type TRIBS_OUT_TIME_DYNAMIC --dry-run   # lists them
+tribs delete-datasets <primary_db> <gsurl> --dataset-type TRIBS_OUT_TIME_DYNAMIC
+tribs delete-datasets <primary_db> <gsurl> --dataset-id <dataset id>
+```
+
+At least one of `--dataset-type` or `--dataset-id` is required (the command never deletes every dataset);
+`--project-id` narrows the selection. Deletion is permanent, so back up the resources table first
+(`pg_dump -t app_users_resources ...`) and run it per environment after the code is deployed. Failures are reported
+per dataset at the end and make the command exit with status 1.
 
 ## PDM Tips
 

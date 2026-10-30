@@ -20,6 +20,8 @@ import LegendPanel from "../panels/LegendPanel";
 import LegendsAction from "../actions/LegendsAction";
 import extractLayerName from "lib/extractLayerName";
 import { findVariable, getVariables, isTimeDynamic, makeActiveTimeSeries, timestepForTime } from "lib/meshTimeSeries";
+import { describeLayer, variableTitle } from "lib/outputVariables";
+import { getLayerItems } from "components/project/panels/VisibilityPropertyPanel";
 
 const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationIndex }) => {
   const TETHYS_ROOT_URL = process.env.TETHYS_APP_ROOT_URL;
@@ -89,9 +91,10 @@ const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationInd
     setShowConfirmDelete(false);
   };
 
-  // Show the dataset with its first layer (and, for time-dynamic mesh output, hand the Cesium clock its first variable).
+  // Show the dataset with its first listed layer, the first priority variable when the output is tiered (and, for
+  // time series mesh output, hand the Cesium clock its first variable).
   const reveal = () => {
-    const layerName = variables ? variables[0].name : extractLayerName(dataset.viz.url[0], dataset.id);
+    const layerName = getLayerItems(dataset)[0]?.key ?? extractLayerName(dataset.viz.url[0], dataset.id);
     revealObject(dataset.id);
     setCZMLLayer(dataset.id, layerName);
     if (variables && isTimeDynamic(variables[0])) {
@@ -186,7 +189,7 @@ const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationInd
       <PropertiesAction
         key="visibility properties"
         onClick={handleShowProperties}
-        title={`Visible: ${visibleCZMLObject[dataset.id]}`}
+        title={`Visible: ${variableTitle(describeLayer(dataset, visibleCZMLObject[dataset.id]))}`}
         disabled={visibleCZMLObject[dataset.id] === DO_NOT_SET_LAYER || !visible}
       />,
     ])
@@ -198,7 +201,7 @@ const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationInd
         key="legends"
         onClick={handleShowLegend}
         title={
-          `${visibleSidePanel.includes(`legend-panel-${dataset.id}`) ? "Close" : "Open"} Legend for ${visibleCZMLObject[dataset.id]}`
+          `${visibleSidePanel.includes(`legend-panel-${dataset.id}`) ? "Close" : "Open"} Legend for ${variableTitle(describeLayer(dataset, visibleCZMLObject[dataset.id]))}`
         }
         disabled={visibleCZMLObject[dataset.id] === DO_NOT_SET_LAYER || !visible}
       />,

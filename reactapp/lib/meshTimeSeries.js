@@ -26,8 +26,13 @@ export function isoToUtcMs(iso) {
   return Number.isNaN(ms) ? null : ms;
 }
 
-/** The variables list of a glTF dataset, or null when the dataset does not carry one. */
+/**
+ * The variables list of a glTF dataset, or null when the dataset does not carry one. CZML datasets also carry
+ * `viz.variables` (labels and units, see lib/outputVariables.js) but those have no time steps, so they are not
+ * mesh time series.
+ */
 export function getVariables(dataset) {
+  if (dataset?.viz?.type !== "gltf") return null;
   const variables = dataset?.viz?.variables;
   return Array.isArray(variables) && variables.length > 0 ? variables : null;
 }

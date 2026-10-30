@@ -66,10 +66,16 @@ const datasetProps = {
       PropTypes.object, // The keys to this object are dynamically created so this is as granular as it can get
       PropTypes.string,
     ]),
-    // glTF mesh output: one entry per variable with its time steps (see lib/meshTimeSeries.js)
+    // One entry per variable/layer (see lib/outputVariables.js); glTF mesh output adds the time steps of each
+    // variable (see lib/meshTimeSeries.js)
     variables: PropTypes.arrayOf(
       PropTypes.shape({
-        name: PropTypes.string.isRequired,
+        name: PropTypes.string.isRequired, // raw layer key
+        label: PropTypes.string, // friendly name; absent on datasets visualized before labels existed
+        units: PropTypes.string, // display units (values, min/max and timeseries are in these); null for none
+        tier: PropTypes.oneOf(["priority", "secondary"]), // null/absent: not tiered, always listed
+        description: PropTypes.string,
+        factor: PropTypes.number, // display value = file value * factor
         start: PropTypes.string, // ISO 8601 UTC; null for a static variable (bare mesh)
         end: PropTypes.string,
         step_hours: PropTypes.number,
@@ -82,7 +88,7 @@ const datasetProps = {
             url: PropTypes.string.isRequired,
             legend: PropTypes.string,
           })
-        ).isRequired,
+        ), // glTF only
       })
     ),
   }),

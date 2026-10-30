@@ -5,23 +5,24 @@ import { GraphicsWindowVisualsContext, SidePanelContext } from "react-tethys/con
 import SlideSheet from "components/dialogs/SlideSheet";
 import { datasetPropTypes } from "components/tree/propTypes";
 import TreeItem from "components/tree/TreeItem";
-import { DO_NOT_SET_LAYER } from "constants/GraphicsWindowConstants";
-import extractLayerName from "lib/extractLayerName";
-import { getVariables, isTimeDynamic, makeActiveTimeSeries } from "lib/meshTimeSeries";
+import { DATASET_VIZ_TYPES, DO_NOT_SET_LAYER } from "constants/GraphicsWindowConstants";
+import { isTimeDynamic, makeActiveTimeSeries } from "lib/meshTimeSeries";
+import { groupByTier, layerEntries, variableTitle } from "lib/outputVariables";
 
 /**
- * The selectable layers of a dataset: one per variable for glTF mesh output that carries viz.variables (each
- * variable spans all of its time steps), otherwise one per viz url (e.g. CZML).
+ * The selectable layers of a dataset, in display order: one per `viz.variables` entry (glTF mesh output and
+ * labelled CZML output; the backend lists priority variables before secondary ones), otherwise one per viz url
+ * (e.g. older CZML). `key` is the raw layer name the rest of the app selects by; `label` is what is shown.
  */
 export function getLayerItems(dataset) {
-  const variables = getVariables(dataset);
-  if (variables) {
-    return variables.map((variable) => ({ key: variable.name, label: variable.name, variable }));
-  }
-  return (dataset?.viz?.url ?? []).map((url) => {
-    const layerName = extractLayerName(url, dataset.id);
-    return { key: layerName, label: layerName.replace("_[]", ""), variable: null };
-  });
+  const isGltf = dataset?.viz?.type === DATASET_VIZ_TYPES.GLTF;
+  return layerEntries(dataset).map((entry) => ({
+    key: entry.name,
+    label: variableTitle(entry),
+    tooltip: entry.description || variableTitle(entry),
+    tier: entry.tier ?? null,
+    variable: isGltf ? entry : null,
+  }));
 }
 
 const VisibilityPropertySlideSheet = ({ dataset, panelId }) => {
@@ -32,6 +33,9 @@ const VisibilityPropertySlideSheet = ({ dataset, panelId }) => {
   }
 
   const items = getLayerItems(dataset);
+  // Priority (and untiered) variables are listed up front; secondary ones wait in a collapsed group.
+  const { primary, more } = groupByTier(items);
+  const selectedKey = visibleCZMLObject?.[dataset.id];
 
   const selectLayer = (item) => {
     if (!item || visibleCZMLObject[dataset.id] === DO_NOT_SET_LAYER) {
@@ -40,16 +44,29 @@ const VisibilityPropertySlideSheet = ({ dataset, panelId }) => {
     }
     setCZMLLayer(dataset.id, item.key);
     if (item.variable && isTimeDynamic(item.variable)) {
-      // The most recently selected time-dynamic variable drives the Cesium clock.
+      // The most recently selected time series variable drives the Cesium clock.
       setActiveTimeSeries?.(makeActiveTimeSeries(dataset, item.variable));
     }
   };
 
   useEffect(() => {
-    selectLayer(items[0]);
+    selectLayer(primary[0] ?? items[0]);
   // This uses an empty dependency array so that it only fires on the first render.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const renderItem = (item) => (
+    <TreeItem
+      key={`visibility-panel-item-${item.key}`}
+      title={item.label}
+      tooltip={item.tooltip}
+      leaf
+      button
+      highlightNow={selectedKey === item.key}
+      onClick={() => selectLayer(item)}
+      disabled={selectedKey === DO_NOT_SET_LAYER}
+    />
+  );
 
   return (
     <SlideSheet
@@ -58,17 +75,17 @@ const VisibilityPropertySlideSheet = ({ dataset, panelId }) => {
       onClose={handleClose}
       resizable
     >
-      {items.map((item) => (
+      {primary.map(renderItem)}
+      {more.length > 0 && (
         <TreeItem
-          key={`visibility-panel-item-${item.key}`}
-          title={item.label}
-          leaf
-          button
-          highlightNow={visibleCZMLObject[dataset.id] === item.key}
-          onClick={() => selectLayer(item)}
-          disabled={visibleCZMLObject[dataset.id] === DO_NOT_SET_LAYER}
-        />
-      ))}
+          title={`More variables (${more.length})`}
+          uniqueId={dataset.id}
+          defaultOpen={more.some((item) => item.key === selectedKey)}
+          disabled={selectedKey === DO_NOT_SET_LAYER}
+        >
+          {more.map(renderItem)}
+        </TreeItem>
+      )}
     </SlideSheet>
   );
 };
