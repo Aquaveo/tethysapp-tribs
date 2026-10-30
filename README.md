@@ -269,6 +269,25 @@ The webpack dev server is configured to proxy the Tethys development server (see
     npm start
     ```
 
+## Regenerating Visualizations
+
+A dataset's visualization (glTF meshes and legends, GeoServer layers, CZML) and the `viz` metadata the frontend reads
+are built once, when the dataset is created. After a change to that pipeline, rebuild existing datasets with the
+`tribs regenerate-viz` command (installed with the app package, like `tribs init`). It takes the primary database
+and GeoServer REST urls that `tribs init` takes:
+
+```bash
+tribs regenerate-viz "postgresql://tethys_super:***@localhost:5435/tribs_primary_db" \
+    "http://admin:geoserver@localhost:8181/geoserver/rest/" --dry-run
+tribs regenerate-viz <primary_db> <gsurl> --dataset-type TRIBS_TIN --dataset-type TRIBS_OUT_TIME_DYNAMIC
+tribs regenerate-viz <primary_db> <gsurl> --project-id <project id>
+tribs regenerate-viz <primary_db> <gsurl> --dataset-id <dataset id>
+```
+
+`--dataset-type`, `--dataset-id` and `--project-id` narrow the selection and can be combined (`--dataset-type` and
+`--dataset-id` are repeatable); without them every dataset that has a visualization is regenerated. Failures are
+reported per dataset at the end, leave that dataset in the `Error` status, and make the command exit with status 1.
+
 ## PDM Tips
 
 See below for more PDM tips like how to manage dependencies, install dependencies, and run scripts.
