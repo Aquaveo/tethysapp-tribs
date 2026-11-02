@@ -149,19 +149,19 @@ const CZML_DIR = "4beeb62d-ca82-476a-9257-94092c419bf2/d0e1f2a3-b4c5-4d6e-8f90-a
 export function makeMrfDataset(id = "3e3f5c7a-7f2d-4b0a-9c4c-8f8c9a3e4d5f") {
   const variables = [
     {
-      name: "MAP", label: "Mean areal precipitation", units: "mm/hr", tier: "priority",
+      name: "MAP", label: "Mean Areal Precipitation", units: "mm/hr", tier: "priority",
       description: "Basin-average precipitation rate.", factor: 1,
     },
     {
-      name: "MDGW", label: "Depth to groundwater", units: "m", tier: "priority",
+      name: "MDGW", label: "Depth to Groundwater", units: "m", tier: "priority",
       description: "Basin-average depth from the land surface to the water table (vertical).", factor: 0.001,
     },
     {
-      name: "Srf", label: "Basin runoff discharge", units: "m³/s", tier: "secondary",
+      name: "Srf", label: "Basin Runoff Discharge", units: "m³/s", tier: "secondary",
       description: "Basin runoff hydrograph at the outlet from the flow-results accumulator.", factor: 1,
     },
     {
-      name: "MSM100", label: "Surface soil moisture (top 10 cm)", units: "% saturation", tier: "secondary",
+      name: "MSM100", label: "Surface Soil Moisture (Top 10 cm)", units: "% saturation", tier: "secondary",
       description: "Basin-average relative saturation of the top 100 mm of soil.", factor: 100,
     },
   ];

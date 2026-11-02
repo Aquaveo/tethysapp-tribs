@@ -32,9 +32,9 @@ describe("describeLayer / labels", () => {
   it("uses the backend's entry when the dataset carries one", () => {
     const mrf = makeMrfDataset();
     const mdgw = describeLayer(mrf, "MDGW");
-    expect(mdgw.label).toBe("Depth to groundwater");
-    expect(variableTitle(mdgw)).toBe("Depth to groundwater (m)");
-    expect(variableLabel(mdgw)).toBe("Depth to groundwater");
+    expect(mdgw.label).toBe("Depth to Groundwater");
+    expect(variableTitle(mdgw)).toBe("Depth to Groundwater (m)");
+    expect(variableLabel(mdgw)).toBe("Depth to Groundwater");
     expect(variableUnits(mdgw)).toBe("m");
   });
 

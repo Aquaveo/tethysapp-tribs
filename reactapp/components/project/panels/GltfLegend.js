@@ -59,7 +59,7 @@ GltfLegend.propTypes = {
   min: PropTypes.number,
   max: PropTypes.number,
   variableName: PropTypes.string,
-  title: PropTypes.string, // "Root-zone soil moisture (% saturation)"
+  title: PropTypes.string, // "Root-Zone Soil Moisture (% saturation)"
 };
 
 export default GltfLegend;
