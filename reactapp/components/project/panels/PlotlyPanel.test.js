@@ -45,17 +45,17 @@ describe("seriesTitles", () => {
   it("prefers the label and units sent with the series, then the dataset's variables, then the layer name", () => {
     const mrf = makeMrfDataset();
     expect(seriesTitles(mrf, "MDGW")).toEqual({
-      label: "Depth to groundwater", units: "m", title: "Depth to groundwater (m)", yAxis: "m",
+      label: "Depth to Groundwater", units: "m", title: "Depth to Groundwater (m)", yAxis: "Depth to Groundwater (m)",
     });
     expect(seriesTitles(mrf, "MDGW", { label: "Groundwater depth", units: "mm" }).title).toBe("Groundwater depth (mm)");
     expect(seriesTitles({ id: "x", viz: { type: "czml", url: [] } }, "Nwt_mm")).toEqual({
-      label: "Nwt", units: "mm", title: "Nwt (mm)", yAxis: "mm",
+      label: "Nwt", units: "mm", title: "Nwt (mm)", yAxis: "Nwt (mm)",
     });
-    // No units anywhere: the label doubles as the y-axis title instead of the old raw layer name
+    // No units anywhere: the y-axis title is just the label
     expect(seriesTitles({ id: "x", viz: { type: "czml", url: [] } }, "Hsrf")).toEqual({
       label: "Hsrf", units: null, title: "Hsrf", yAxis: "Hsrf",
     });
-    expect(seriesTitles({ id: "x", viz: { type: "czml", url: [] } }, "Hsrf", { label: "Hsrf", units: "m³/s" }).yAxis).toBe("m³/s");
+    expect(seriesTitles({ id: "x", viz: { type: "czml", url: [] } }, "Hsrf", { label: "Hsrf", units: "m³/s" }).yAxis).toBe("Hsrf (m³/s)");
   });
 });
 
@@ -66,10 +66,10 @@ describe("PlotlyPanel", () => {
     await expect(server).toReceiveMessage(
       expect.stringContaining(`"type":"DATASET_GET_MRF_OR_RFT_TIMESERIES"},"payload":{"id":"${mrf.id}","variable":"MDGW"}`)
     );
-    expect(screen.getByText("Depth to groundwater (m) Plot")).toBeInTheDocument();
+    expect(screen.getByText("Depth to Groundwater (m) Plot")).toBeInTheDocument();
     const plot = screen.getByTestId("plot");
-    expect(plot).toHaveAttribute("data-title", "Depth to groundwater (m)");
-    expect(plot).toHaveAttribute("data-yaxis", "m");
+    expect(plot).toHaveAttribute("data-title", "Depth to Groundwater (m)");
+    expect(plot).toHaveAttribute("data-yaxis", "Depth to Groundwater (m)");
     expect(plot).toHaveAttribute("data-xaxis", "Time");
   });
 
@@ -80,13 +80,13 @@ describe("PlotlyPanel", () => {
     await act(async () => {
       server.send(JSON.stringify({
         action: { id: newUUID(), type: backend.actions.DATASET_GET_MRF_OR_RFT_TIMESERIES },
-        payload: { x: [1, 2], y: [1.9, 2.0], name: "MDGW", label: "Depth to groundwater", units: "m" },
+        payload: { x: [1, 2], y: [1.9, 2.0], name: "MDGW", label: "Depth to Groundwater", units: "m" },
       }));
     });
     const plot = screen.getByTestId("plot");
-    expect(plot).toHaveAttribute("data-trace", "Depth to groundwater");
+    expect(plot).toHaveAttribute("data-trace", "Depth to Groundwater");
     expect(plot).toHaveAttribute("data-y", "[1.9,2]");
-    expect(plot).toHaveAttribute("data-yaxis", "m");
+    expect(plot).toHaveAttribute("data-yaxis", "Depth to Groundwater (m)");
   });
 
   it("keeps the layer-name titles for a series from an older backend", async () => {
@@ -102,7 +102,7 @@ describe("PlotlyPanel", () => {
     expect(screen.getByText("Nwt (mm) Plot")).toBeInTheDocument();
     const plot = screen.getByTestId("plot");
     expect(plot).toHaveAttribute("data-title", "Nwt (mm)");
-    expect(plot).toHaveAttribute("data-yaxis", "mm");
+    expect(plot).toHaveAttribute("data-yaxis", "Nwt (mm)");
     expect(plot).toHaveAttribute("data-trace", "Nwt");
   });
 });

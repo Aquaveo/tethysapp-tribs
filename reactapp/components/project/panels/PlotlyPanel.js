@@ -31,8 +31,9 @@ const DEFAULT_PLOT_LAYOUT = {
 };
 
 /**
- * Plot title and y-axis text for a series: the friendly label and display units the backend sends with the
- * timeseries, falling back to the layer name (and its header unit token) for older or uncovered variables.
+ * Plot title and y-axis text for a series: the friendly label with its display units ("Depth to Groundwater (m)"),
+ * from what the backend sends with the timeseries, falling back to the layer name (and its header unit token) for
+ * older or uncovered variables. The y axis repeats the title so the units are never shown alone.
  */
 export function seriesTitles(dataset, layerName, plotData = {}) {
   const fallback = describeLayer(dataset, layerName);
@@ -43,7 +44,8 @@ export function seriesTitles(dataset, layerName, plotData = {}) {
   };
   const label = variableLabel(variable);
   const units = variableUnits(variable);
-  return { label, units, title: variableTitle(variable), yAxis: units ?? label };
+  const title = variableTitle(variable);
+  return { label, units, title, yAxis: title };
 }
 
 const DEFAULT_PLOT_CONFIG = { responsive: true, displayModeBar: true };

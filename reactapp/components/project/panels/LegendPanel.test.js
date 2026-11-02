@@ -94,7 +94,7 @@ describe("legend titles", () => {
   it("names a CZML legend after the variable's friendly label and units", () => {
     const mrf = makeMrfDataset();
     renderPanel({ dataset: mrf, uniqueId: "MDGW", legendUrls: [mrf.viz.legend[1]] });
-    expect(screen.getByText("Depth to groundwater (m) Legend")).toBeInTheDocument();
+    expect(screen.getByText("Depth to Groundwater (m) Legend")).toBeInTheDocument();
     expect(screen.queryByLabelText("Color ramp")).not.toBeInTheDocument();
   });
 

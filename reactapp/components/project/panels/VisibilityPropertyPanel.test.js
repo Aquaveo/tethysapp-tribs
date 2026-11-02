@@ -239,12 +239,12 @@ describe('VisibilityPropertyPanel with tiered output variables', () => {
     const mrf = makeMrfDataset();
     const { mockGraphicsWindowVisualsContextValue } = setupPanel(true, false, mrf);
     expect(mockGraphicsWindowVisualsContextValue.setCZMLLayer).toHaveBeenCalledWith(mrf.id, 'MAP');
-    expect(screen.getByText('Mean areal precipitation (mm/hr)')).toBeInTheDocument();
-    expect(screen.getByText('Depth to groundwater (m)')).toBeInTheDocument();
+    expect(screen.getByText('Mean Areal Precipitation (mm/hr)')).toBeInTheDocument();
+    expect(screen.getByText('Depth to Groundwater (m)')).toBeInTheDocument();
     expect(screen.getByText('More variables (2)')).toBeInTheDocument();
     const group = screen.getByTestId(`more-variables-(2)-${mrf.id}-tree-item-content`);
-    expect(group).toHaveTextContent('Basin runoff discharge (m³/s)');
-    expect(group).toHaveTextContent('Surface soil moisture (top 10 cm) (% saturation)');
+    expect(group).toHaveTextContent('Basin Runoff Discharge (m³/s)');
+    expect(group).toHaveTextContent('Surface Soil Moisture (Top 10 cm) (% saturation)');
     // Collapsed: the group's toggle reports it closed
     expect(screen.getByRole('button', { expanded: false })).toBeInTheDocument();
     // Descriptions are the hover text of the items
@@ -256,7 +256,7 @@ describe('VisibilityPropertyPanel with tiered output variables', () => {
     const { user, mockGraphicsWindowVisualsContextValue } = setupPanel(true, false, mrf);
     jest.clearAllMocks();
     await user.click(screen.getByRole('button', { expanded: false }));
-    await user.click(screen.getByText('Basin runoff discharge (m³/s)'));
+    await user.click(screen.getByText('Basin Runoff Discharge (m³/s)'));
     expect(mockGraphicsWindowVisualsContextValue.setCZMLLayer).toHaveBeenCalledWith(mrf.id, 'Srf');
     expect(mockGraphicsWindowVisualsContextValue.setActiveTimeSeries).not.toHaveBeenCalled();
   });

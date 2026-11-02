@@ -998,14 +998,14 @@ async def test_dataset_receive_mrf_timeseries_labels_and_converts_sheet_variable
 
     async with make_communicator(project.id) as communicator:
         payload = await _request_output_timeseries(communicator, dataset, 'MGW')
-        assert (payload['name'], payload['label'], payload['units']) == ('MGW', 'Depth to groundwater', 'm')
+        assert (payload['name'], payload['label'], payload['units']) == ('MGW', 'Depth to Groundwater', 'm')
         assert len(payload['y']) == len(raw) == len(payload['x'])
         assert payload['y'] == pytest.approx([v / 1000 for v in raw])
         assert payload['x'][:3] == [1.0, 2.0, 3.0]
 
         # A variable without a conversion keeps its values; units come from the sheet
         payload = await _request_output_timeseries(communicator, dataset, 'MAP')
-        assert (payload['label'], payload['units']) == ('Mean areal precipitation', 'mm/hr')
+        assert (payload['label'], payload['units']) == ('Mean Areal Precipitation', 'mm/hr')
 
 
 @pytest.mark.asyncio
