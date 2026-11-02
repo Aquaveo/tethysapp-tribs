@@ -8,7 +8,7 @@ import { useContext } from "react";
 import { GraphicsWindowVisualsContext, SidePanelContext } from "react-tethys/context";
 import { isDefaultRamp, rampOptions, rampStops, resolveRampName } from "lib/colorRamps";
 import { formatTimestepTime } from "lib/meshTimeSeries";
-import { describeLayer, isLayerOf, variableTitle } from "lib/outputVariables";
+import { describeLayer, isLayerOf, variableLabel, variableUnits } from "lib/outputVariables";
 
 const RAMP_OPTIONS = rampOptions();
 
@@ -43,6 +43,7 @@ const LegendPanel = ({
   legendUrls,
   subtitle,
   variable,
+  realizationName,
   onColorRampChange,
   ...props
 }) => {
@@ -61,7 +62,6 @@ const LegendPanel = ({
     onColorRampChange?.(option.value); // saved on the dataset
   };
 
-  let slideSheetTitle = title;
   // legendUrls (e.g. the legend of the current time step of a glTF mesh variable) overrides the lookup by name
   const all_legend_urls = dataset.viz.legend ?? [];
   let legend_urls = legendUrls ?? (
@@ -80,16 +80,14 @@ const LegendPanel = ({
   // The variable the legend is for: the one given, else the dataset layer named by uniqueId (a layer name for
   // CZML output and glTF mesh output, but the dataset id for station data and bare TIN meshes).
   const legendVariable = variable ?? (isLayerOf(dataset, uniqueId) ? describeLayer(dataset, uniqueId) : null);
-  if (dataset?.viz?.type === DATASET_VIZ_TYPES.CZML) {
-    slideSheetTitle = legendVariable ? `${variableTitle(legendVariable)} ${title}` : `${dataset.name} ${title}`;
-  } else if (dataset?.viz?.type === DATASET_VIZ_TYPES.WMS_COMPOUND) {
-    const uniqueName = uniqueId ? uniqueId.split('_').slice(1).join("") : null;
-    slideSheetTitle = `${uniqueName} ${title}`;
-  } else if (dataset?.viz?.type === DATASET_VIZ_TYPES.GLTF && legendVariable) {
-    slideSheetTitle = `${dataset.name} ${variableTitle(legendVariable)} ${title}`;
-  } else {
-    slideSheetTitle = `${dataset.name} ${title}`
+  // The panel itself is just "Legend". What it describes is written around the color scale: the realization and
+  // dataset on one line, the variable on the next, the units under the scale and the time step last.
+  let variableName = legendVariable ? variableLabel(legendVariable) : null;
+  if (dataset?.viz?.type === DATASET_VIZ_TYPES.WMS_COMPOUND && uniqueId) {
+    variableName = uniqueId.split('_').slice(1).join("");
   }
+  const unitsText = legendVariable ? variableUnits(legendVariable) : null;
+  const ownerText = realizationName ? `${realizationName} · ${dataset.name}` : dataset.name;
   const subtitleText = subtitle ? formatTimestepTime(subtitle) ?? subtitle : null;
 
   const handleClose = () => {
@@ -98,7 +96,7 @@ const LegendPanel = ({
 
   return (
     <SlideSheet
-      title={slideSheetTitle}
+      title={title}
       show={visibleSidePanel.includes(panelId)}
       placement={placement}
       onClose={handleClose}
@@ -121,9 +119,12 @@ const LegendPanel = ({
             />
           </div>
         )}
-        {subtitleText && (
-          <div data-testid="legend-subtitle" style={{ fontSize: "0.85em", marginBottom: "0.25rem" }}>
-            {subtitleText} UTC
+        <div data-testid="legend-owner" style={{ fontSize: "0.85em", color: "#555" }}>
+          {ownerText}
+        </div>
+        {variableName && (
+          <div data-testid="legend-variable" style={{ fontSize: "0.95em", fontWeight: 600, marginBottom: "0.25rem" }}>
+            {variableName}
           </div>
         )}
         {drawsOwnLegend && (
@@ -132,7 +133,6 @@ const LegendPanel = ({
             min={variable?.min}
             max={variable?.max}
             variableName={variable?.name}
-            title={variable ? variableTitle(variable) : undefined}
           />
         )}
         {!drawsOwnLegend && legend_urls.map((legend_url, i) => {
@@ -158,6 +158,16 @@ const LegendPanel = ({
             />
           );
         })}
+        {unitsText && (
+          <div data-testid="legend-units" style={{ fontSize: "0.85em", color: "#555" }}>
+            {unitsText}
+          </div>
+        )}
+        {subtitleText && (
+          <div data-testid="legend-subtitle" style={{ fontSize: "0.85em", color: "#555", marginTop: "0.5rem" }}>
+            {subtitleText} UTC
+          </div>
+        )}
       </div>
     </SlideSheet>
   );
@@ -171,6 +181,7 @@ LegendPanel.propTypes = {
   dataset: datasetPropTypes.isRequired,
   legendUrls: PropTypes.arrayOf(PropTypes.string),
   subtitle: PropTypes.string,
+  realizationName: PropTypes.string, // written with the dataset name above the variable, for realization output
   // glTF meshes: the variable shown (for its label, units and min/max) and the callback that saves a chosen ramp
   variable: PropTypes.shape({
     name: PropTypes.string,
