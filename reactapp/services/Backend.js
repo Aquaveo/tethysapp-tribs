@@ -2,6 +2,8 @@ import base64ArrayBuffer from "lib/base64ArrayBuffer";
 import newUUID from "lib/uuid.js";
 
 import { getTethysPortalHost } from "react-tethys/services/utilities";
+import { getAccessToken, onTokenChange } from "react-tethys/services/api/tokens";
+import { getFreshAccessToken, redirectToLogin } from "react-tethys/services/api/client";
 import { toast } from "react-toastify";
 
 export default class Backend {
@@ -21,6 +23,8 @@ export default class Backend {
     this.webSocket = null;
     this.messageHandlers = {};
     this.pendingActions = {};
+    this.authenticated = false;
+    this.outbox = []; // messages queued until AUTHENTICATED
     this.reconnectToastId = "toast-reconnect";
     this.couldNotReconnectToastId = "toast-disconnect";
     this.connect = this.connect.bind(this);
@@ -33,6 +37,57 @@ export default class Backend {
     this.on(this.actions.UPLOAD_FILE_COMPLETE, (data) => {
       this.handle_upload_complete(data);
     });
+
+    // Register AUTHENTICATED action
+    this.on(this.actions.AUTHENTICATED, () => {
+      this.handle_authenticated();
+    });
+
+    // Re-authenticate the open socket whenever the HTTP token is refreshed
+    onTokenChange((token) => {
+      if (token && this.webSocket?.readyState === WebSocket.OPEN) {
+        this.webSocket.send(this.serialize({
+          action: {id: newUUID(), type: this.actions.AUTHENTICATE},
+          payload: {token}
+        }));
+      }
+    });
+  }
+
+  handle_authenticated() {
+    this.authenticated = true;
+    const queued = this.outbox;
+    this.outbox = [];
+    queued.forEach(message => this.send(message));
+    if (this.isReconnecting) {
+      toast.dismiss(this.reconnectToastId);
+      toast.success("Successfully reconnected to the backend!", {
+        position: "top-right",
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+      });
+    }
+    this.isReconnecting = false;
+    this.reconnectInterval = 5000; // Reset the reconnect interval after a successful connection
+    this.onConnectCallback?.();
+  }
+
+  handle_forbidden() {
+    this.outbox = [];
+    this.isReconnecting = false;
+    toast.dismiss(this.reconnectToastId);
+    toast.error("You no longer have access to this project.", {
+      position: "top-right",
+      autoClose: false,
+      closeOnClick: false,
+      draggable: false,
+      toastId: this.couldNotReconnectToastId,
+    });
+    this.onForbiddenCallback?.();
   }
 
   get actions() {
@@ -66,27 +121,22 @@ export default class Backend {
       WORKFLOW_UPDATE: "WORKFLOW_UPDATE",
       WORKFLOW_DELETE: "WORKFLOW_DELETE",
       WORKFLOW_DUPLICATE: "WORKFLOW_DUPLICATE",
+      AUTHENTICATE: "AUTHENTICATE",
+      AUTHENTICATED: "AUTHENTICATED",
     };
   }
 
-  connect(onConnectCallback) {
-    this.onConnectCallback = onConnectCallback
-    this.webSocket = new WebSocket(this.wsUrl);
+  connect(onConnectCallback, onForbiddenCallback) {
+    this.authenticated = false;
+    this.onConnectCallback = onConnectCallback;
+    this.onForbiddenCallback = onForbiddenCallback;
+    const url = this.wsUrl;
+    this.webSocket = new WebSocket(url);
     this.webSocket.addEventListener("open", () => {
-      if (this.isReconnecting) {
-        toast.dismiss(this.reconnectToastId);
-        toast.success("Successfully reconnected to the backend!", {
-          position: "top-right",
-          autoClose: 3000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-          progress: undefined,
-        });
-      }
-      this.isReconnecting = false;
-      onConnectCallback();
+      this.webSocket.send(this.serialize({
+        action: {id: newUUID(), type: this.actions.AUTHENTICATE},
+        payload: {token: getAccessToken()}
+      }))
     });
     /***************************************************************************/
     /* On message received, parse the message and call the appropriate handler */
@@ -110,10 +160,15 @@ export default class Backend {
       }
     });
 
-    if (!this.reconnectInterval <= 320000) {
-      this.webSocket.addEventListener("close", this.reconnect);
-      this.webSocket.addEventListener("error", this.reconnect);
-    }
+    this.webSocket.addEventListener("close", (event) => {
+      this.authenticated = false;
+      if (event.code === 4403) {
+        this.handle_forbidden();
+        return;
+      }
+      this.reconnect();
+    });
+    // No "error" listener: per the WebSocket spec, "error" is always followed by "close".
   }
 
   reconnect() {
@@ -146,14 +201,31 @@ export default class Backend {
       });
     }
     this.isReconnecting = true;
-    setTimeout(() => {
-      this.connect(this.onConnectCallback);
+    setTimeout(async () => {
+      try {
+        await getFreshAccessToken();
+      } catch(e) {
+        // Session gone: /api/token/ returns 200 with null access (plain Error)
+        // or 401; either way reconnecting with a stale token is pointless.
+        if (e.response?.status === 401 || e.message === "not authenticated") {
+          return redirectToLogin();
+        }
+      }
+      this.connect(this.onConnectCallback, this.onForbiddenCallback);
     }, this.reconnectInterval);
     this.reconnectInterval *= 2;
   }
 
   on(type, func) {
     this.messageHandlers[type] = func;
+  }
+
+  send(message) {
+    if (this.authenticated && this.webSocket?.readyState === WebSocket.OPEN) {
+      this.webSocket.send(message);
+    } else {
+      this.outbox.push(message);
+    }
   }
 
   do(action, data) {
@@ -177,7 +249,7 @@ export default class Backend {
       this.pendingActions[actionMessage.action.id] = actionMessage;
     } else {
       // Send the message
-      this.webSocket.send(this.serialize(actionMessage));
+      this.send(this.serialize(actionMessage));
     }
 
     return actionId;
@@ -218,7 +290,7 @@ export default class Backend {
             chunk: base64,
           },
         });
-        this.webSocket.send(actionMsg);
+        this.send(actionMsg);
         offset += event.target.result.byteLength;
         currChunk += 1;
         if (offset < file.size) {
@@ -235,7 +307,7 @@ export default class Backend {
     const actionId = data.forActionId;
     const actionMessage = this.pendingActions[actionId];
     if (actionMessage) {
-      this.webSocket.send(this.serialize(actionMessage));
+      this.send(this.serialize(actionMessage));
       delete this.pendingActions[actionId];
     }
   }

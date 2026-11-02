@@ -1,4 +1,7 @@
+import WS from "jest-websocket-mock";
 import newUUID from "lib/uuid";
+import { toast } from "react-toastify";
+import { setTokens } from "react-tethys/services/api/tokens";
 import { mockBackend, mockBackendAfterEach } from "config/tests/mocks/backend";
 
 afterEach(() => {
@@ -107,4 +110,81 @@ it("Logs a warning if no handler callback registered for type of message receive
     'Warning: no handler found for message of type "FOO_BAR".'
   );
   console.warn.mockRestore();
+});
+
+it("Does not reconnect when server closes with 4403", async () => {
+  const { server, backend } = await mockBackend();
+  const reconnect = jest.spyOn(backend, "reconnect").mockImplementation(() => {});
+  const errorToast = jest.spyOn(toast, "error").mockImplementation(() => {});
+  server.close({ code: 4403, reason: "", wasClean: true });
+  expect(reconnect).not.toHaveBeenCalled();
+  expect(errorToast).toHaveBeenCalledWith(
+    "You no longer have access to this project.", expect.anything()
+  );
+  errorToast.mockRestore();
+});
+
+it("Reconnects once on a normal close", async () => {
+  const { server, backend } = await mockBackend();
+  const reconnect = jest.spyOn(backend, "reconnect").mockImplementation(() => {});
+  server.error({ code: 1006, reason: "", wasClean: false });
+  expect(reconnect).toHaveBeenCalledTimes(1);
+});
+
+it("Re-authenticates the open socket when the access token is refreshed", async () => {
+  const { server } = await mockBackend();
+  setTokens("refreshed-token");
+  const message = JSON.parse(await server.nextMessage);
+  expect(message.action.type).toEqual("AUTHENTICATE");
+  expect(message.payload).toEqual({ token: "refreshed-token" });
+});
+
+it("Does not send AUTHENTICATE when the token is refreshed while the socket is closed", async () => {
+  const { server, backend } = await mockBackend();
+  jest.spyOn(backend, "reconnect").mockImplementation(() => {});
+  server.close();
+  const send = jest.spyOn(backend.webSocket, "send");
+  setTokens("refreshed-token");
+  expect(send).not.toHaveBeenCalled();
+});
+
+const authenticated = JSON.stringify({
+  action: { id: "auth", type: "AUTHENTICATED" },
+  payload: { authenticated: true },
+});
+
+const closeClient = (backend) => new Promise((resolve) => {
+  backend.webSocket.addEventListener("close", resolve);
+  backend.webSocket.close();
+});
+
+it("Queues actions while not authenticated and sends them in order after AUTHENTICATED", async () => {
+  const { server, backend } = await mockBackend();
+  jest.spyOn(backend, "reconnect").mockImplementation(() => {});
+  await closeClient(backend);
+  const closedId = backend.do(backend.actions.PROJECT_DATA, { initial: true });
+  backend.connect();
+  const connectingId = backend.do(backend.actions.PROJECT_DATA, { initial: false });
+  expect(JSON.parse(await server.nextMessage).action.type).toEqual("AUTHENTICATE");
+  server.send(authenticated);
+  expect(JSON.parse(await server.nextMessage).action.id).toEqual(closedId);
+  expect(JSON.parse(await server.nextMessage).action.id).toEqual(connectingId);
+});
+
+it("Drops queued actions when the server closes with 4403", async () => {
+  const { server, backend, wsUrl } = await mockBackend();
+  jest.spyOn(backend, "reconnect").mockImplementation(() => {});
+  jest.spyOn(toast, "error").mockImplementation(() => {});
+  await closeClient(backend);
+  backend.do(backend.actions.PROJECT_DATA, { initial: true });
+  backend.connect();
+  await server.nextMessage; // AUTHENTICATE
+  server.close({ code: 4403, reason: "", wasClean: true });
+  const newServer = new WS(wsUrl);
+  backend.connect();
+  await newServer.nextMessage; // AUTHENTICATE
+  newServer.send(authenticated);
+  const nextId = backend.do(backend.actions.PROJECT_DATA, { initial: false });
+  expect(JSON.parse(await newServer.nextMessage).action.id).toEqual(nextId);
+  toast.error.mockRestore();
 });

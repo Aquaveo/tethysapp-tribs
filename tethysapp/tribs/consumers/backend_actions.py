@@ -37,3 +37,5 @@ class BackendActions(StrEnum):
     WORKFLOW_UPDATE = auto()
     WORKFLOW_DELETE = auto()
     WORKFLOW_DUPLICATE = auto()
+    AUTHENTICATE = auto()
+    AUTHENTICATED = auto()
