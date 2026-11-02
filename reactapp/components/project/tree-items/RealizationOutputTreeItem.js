@@ -23,7 +23,7 @@ import { findVariable, getVariables, isTimeDynamic, makeActiveTimeSeries, timest
 import { describeLayer, variableTitle } from "lib/outputVariables";
 import { getLayerItems } from "components/project/panels/VisibilityPropertyPanel";
 
-const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationIndex }) => {
+const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationIndex, realizationName }) => {
   const TETHYS_ROOT_URL = process.env.TETHYS_APP_ROOT_URL;
   const dataset_url = `datasets/${dataset.id}/details/summary/`;
 
@@ -263,6 +263,7 @@ const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationInd
             legendUrls={currentTimestep?.legend ? [currentTimestep.legend] : undefined}
             subtitle={currentTimestep?.time ?? undefined}
             variable={activeVariable ?? undefined}
+            realizationName={realizationName}
             onColorRampChange={handleColorRampChange}
           />
         </>
@@ -276,6 +277,7 @@ RealizationOutputTreeItem.propTypes = {
   onDelete: PropTypes.func.isRequired,
   onUpdate: PropTypes.func.isRequired,
   realizationIndex: PropTypes.number.isRequired,
+  realizationName: PropTypes.string,
 };
 
 export default RealizationOutputTreeItem;

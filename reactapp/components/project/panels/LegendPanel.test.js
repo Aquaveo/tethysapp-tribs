@@ -90,11 +90,15 @@ it("offers no ramp selector for other visualization types", () => {
   expect(screen.getByRole("img")).toBeInTheDocument();
 });
 
-describe("legend titles", () => {
-  it("names a CZML legend after the variable's friendly label and units", () => {
+describe("legend layout", () => {
+  it("is titled just Legend and writes the dataset, variable, units and time step around a CZML legend", () => {
     const mrf = makeMrfDataset();
-    renderPanel({ dataset: mrf, uniqueId: "MDGW", legendUrls: [mrf.viz.legend[1]] });
-    expect(screen.getByText("Depth to Groundwater (m) Legend")).toBeInTheDocument();
+    renderPanel({ dataset: mrf, uniqueId: "MDGW", legendUrls: [mrf.viz.legend[1]], realizationName: "Run 1" });
+    expect(screen.getByText("Legend")).toBeInTheDocument();
+    expect(screen.queryByText(/Depth to Groundwater.*Legend/)).not.toBeInTheDocument();
+    expect(screen.getByTestId("legend-owner")).toHaveTextContent("Run 1 · Basin Averages");
+    expect(screen.getByTestId("legend-variable")).toHaveTextContent("Depth to Groundwater");
+    expect(screen.getByTestId("legend-units")).toHaveTextContent("m");
     expect(screen.queryByLabelText("Color ramp")).not.toBeInTheDocument();
   });
 
@@ -104,22 +108,33 @@ describe("legend titles", () => {
       viz: { type: "czml", url: ["fdb/fc/czml/2d2f4b6f-6e1c-4a9f-8b3b-7e7b8f2d3c4e-Nwt_mm.czml"], legend: ["fdb/fc/czml/x_point_legend.png"] },
     };
     renderPanel({ dataset, uniqueId: "Nwt_mm" });
-    expect(screen.getByText("Nwt (mm) Legend")).toBeInTheDocument();
+    expect(screen.getByTestId("legend-owner")).toHaveTextContent("Mesh");
+    expect(screen.getByTestId("legend-variable")).toHaveTextContent("Nwt");
+    expect(screen.getByTestId("legend-units")).toHaveTextContent("mm");
   });
 
-  it("names a glTF legend after the dataset and the variable, and titles the drawn legend", () => {
+  it("orders a glTF legend as dataset, variable, color scale, units, time step", () => {
     const dataset = { ...makeTimeSeriesMesh(), attributes: { color_ramp: "viridis" } };
     const variable = { ...dataset.viz.variables[0], label: "Soil moisture", units: "% saturation" };
-    renderPanel({ dataset, uniqueId: "Mu", legendUrls: [variable.timesteps[0].legend], variable });
-    expect(screen.getByText("Time-Integrated Variable Output Soil moisture (% saturation) Legend")).toBeInTheDocument();
-    expect(screen.getByTestId("gltf-legend-title")).toHaveTextContent("Soil moisture (% saturation)");
+    renderPanel({ dataset, uniqueId: "Mu", legendUrls: [variable.timesteps[0].legend], subtitle: variable.timesteps[0].time, variable });
+    const ids = ["legend-owner", "legend-variable", "gltf-legend", "legend-units", "legend-subtitle"];
+    const els = ids.map((id) => screen.getByTestId(id));
+    const inOrder = els.slice(1).map((el, i) => Boolean(els[i].compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING));
+    expect(inOrder).toEqual([true, true, true, true]);
+    expect(screen.getByTestId("legend-owner")).toHaveTextContent("Time-Integrated Variable Output");
+    expect(screen.getByTestId("legend-variable")).toHaveTextContent("Soil moisture");
+    expect(screen.queryByTestId("gltf-legend-title")).not.toBeInTheDocument();
+    expect(screen.getByTestId("legend-units")).toHaveTextContent("% saturation");
+    expect(screen.getByTestId("legend-subtitle")).toHaveTextContent("UTC");
   });
 
-  it("uses the dataset name when the id is not a layer (bare TIN, station data)", () => {
+  it("writes only the dataset name when the id is not a layer (bare TIN, station data)", () => {
     const mesh = makeStaticMesh();
     renderPanel({ dataset: mesh, uniqueId: mesh.id, variable: mesh.viz.variables[0] });
-    expect(screen.getByText("Mesh Elevation Legend")).toBeInTheDocument();
+    expect(screen.getByTestId("legend-owner")).toHaveTextContent("Mesh");
+    expect(screen.getByTestId("legend-variable")).toHaveTextContent("Elevation");
     renderPanel({ dataset: { ...mesh, viz: { ...mesh.viz, type: "czml", variables: undefined } }, uniqueId: mesh.id });
-    expect(screen.getByText("Mesh Legend")).toBeInTheDocument();
+    expect(screen.getAllByTestId("legend-owner")[1]).toHaveTextContent("Mesh");
+    expect(screen.queryAllByTestId("legend-variable")).toHaveLength(1);
   });
 });
