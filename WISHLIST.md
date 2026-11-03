@@ -77,6 +77,9 @@ variables under "More variables". Deferred:
 - **Plot conveniences from the sheet.** Inverted y-axis for `MDGW` (depth to groundwater), log colour scale for
   `CAr` (contributing area) and `Ks`, and promoting `SCA`/`cMelt` to priority for snow-dominated basins (maybe a
   per-project setting).
+- **Constant fields get a 0..1 legend.** When a glTF variable's `min` equals its `max` (every Salas soil moisture
+  and runoff variable in the dry test run), the drawn legend falls back to ticks from 0.00 to 1.00, which reads as a
+  real range. Show a single value (or "constant") instead, and consider greying the variable out in the picker.
 - **Older mrf column names.** Older tRIBS builds wrote `MGW`, `Max`, `Min`, `%Sat`, `%Rain` (the salas fixtures);
   they are aliased in the table. If other historical spellings show up (`Aspct`-style), add aliases rather than
   fuzzy matching.
