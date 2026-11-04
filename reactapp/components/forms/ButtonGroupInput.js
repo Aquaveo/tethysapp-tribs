@@ -1,11 +1,11 @@
 import Form from "react-bootstrap/Form";
 import ToggleButtonGroup from "react-bootstrap/ToggleButtonGroup";
-import { useField } from "formik";
+import { useController } from "react-hook-form";
 
 import { inputPropTypes } from "components/forms/propTypes";
 
 const ButtonGroupInput = ({ label, size = "sm", type = "radio", ...props }) => {
-  const [field, meta, helpers] = useField(props);
+  const { field, fieldState } = useController({ name: props.name });
   return (
     <Form.Group controlId={props.id || props.name} className="mb-2">
       <Form.Label className="d-block">{label}</Form.Label>
@@ -14,12 +14,12 @@ const ButtonGroupInput = ({ label, size = "sm", type = "radio", ...props }) => {
         type={type}
         size={size}
         value={field.value}
-        onChange={(val) => helpers.setValue(val)}
+        onChange={(val) => field.onChange(val)}
         {...props}
       ></ToggleButtonGroup>
-      {meta.error ? (
+      {fieldState.error ? (
         <Form.Control.Feedback type="invalid">
-          {meta.error}
+          {fieldState.error.message}
         </Form.Control.Feedback>
       ) : null}
     </Form.Group>
