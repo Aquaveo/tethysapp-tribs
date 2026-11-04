@@ -1,32 +1,24 @@
 import userEvent from "@testing-library/user-event";
-import { render, screen } from "@testing-library/react";
-import { Formik } from "formik";
+import { screen } from "@testing-library/react";
+import { renderWithForm } from "config/tests/renderWithForm";
 
 import FileInput from "./FileInput";
 
 it("Renders a file input with given label and name", () => {
-  render(
-    <Formik>
-      <FileInput name="foo" label="Foo" />
-    </Formik>
-  );
+  renderWithForm(<FileInput name="foo" label="Foo" />);
 
   const input = screen.getByLabelText(/Foo/);
   expect(input).toBeInTheDocument();
   expect(input.type).toBe("file");
 });
 
-it("Gets initial value from Formik context", () => {
+it("Gets initial value from form context", () => {
   const file = new File(["bits"], "bar.txt", { type: "text/plain" });
   const initialValues = {
     foo: file,
   };
 
-  render(
-    <Formik initialValues={initialValues}>
-      <FileInput name="foo" label="Foo" />
-    </Formik>
-  );
+  renderWithForm(<FileInput name="foo" label="Foo" />, { initialValues });
 
   const input = screen.getByLabelText(/Foo/);
   expect(input.value).toBe("bar.txt");
@@ -39,11 +31,7 @@ it("Displays remove button and read-only input when file uploaded instead of fil
     foo: null,
   };
 
-  render(
-    <Formik initialValues={initialValues}>
-      <FileInput name="foo" label="Foo" />
-    </Formik>
-  );
+  renderWithForm(<FileInput name="foo" label="Foo" />, { initialValues });
 
   const input = screen.getByLabelText(/Foo/);
   await user.upload(input, file);
@@ -65,11 +53,7 @@ it("Pressing the remove button restores the file input and clears value", async 
     foo: file,
   };
 
-  render(
-    <Formik initialValues={initialValues}>
-      <FileInput name="foo" label="Foo" />
-    </Formik>
-  );
+  renderWithForm(<FileInput name="foo" label="Foo" />, { initialValues });
 
   const textInput = await screen.findByRole("textbox");
   const removeButton = await screen.findByRole("button", {
@@ -94,11 +78,10 @@ it("Pressing the remove button restores the file input and clears value", async 
 //     foo: Yup.object().required(),
 //   });
 
-//   render(
-//     <Formik initialValues={initialValues} validationSchema={schema}>
-//       <FileInput name="foo" label="Foo" accept=".csv" />
-//     </Formik>
-//   );
+//   renderWithForm(<FileInput name="foo" label="Foo" accept=".csv" />, {
+//     initialValues,
+//     validationSchema: schema,
+//   });
 
 //   const input = screen.getByLabelText(/Foo/);
 //   await user.upload(input, file); // .txt rejected
@@ -111,11 +94,9 @@ it("Pressing the remove button restores the file input and clears value", async 
 it("Raises an error if id or name props not given", () => {
   const mockError = jest.spyOn(console, "error").mockImplementation(() => {});
   jest.spyOn(console, "warn").mockImplementation(() => {});
-  render(
-    <Formik>
-      <FileInput label="Foo" />
-    </Formik>
-  );
+  expect(() => {
+    renderWithForm(<FileInput label="Foo" />);
+  }).toThrow();
   expect(mockError.mock.calls[0][2]).toBe(
     'One of the props "id" or "name" was not specified in "FileInput"'
   );
