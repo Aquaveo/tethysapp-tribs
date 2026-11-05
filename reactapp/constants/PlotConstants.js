@@ -29,3 +29,8 @@ export const PLOT_SHEET_HEIGHT_FRACTION = 0.5;
 const PLOT_PANEL_ID_PREFIX = "plotly-panel-";
 export const plotPanelId = (datasetId) => `${PLOT_PANEL_ID_PREFIX}${datasetId}`;
 export const isPlotPanelId = (panelId) => typeof panelId === "string" && panelId.startsWith(PLOT_PANEL_ID_PREFIX);
+
+// A feature selected on the globe is identified as "<kind>_<n> [<dataset id>]" (the CZML entity id).
+export const selectionDatasetId = (selection) =>
+  (typeof selection === "string" ? selection.match(/\[(.*?)\]/)?.[1] : undefined) ?? null;
+export const isSelectionOf = (selection, datasetId) => selectionDatasetId(selection) === datasetId;

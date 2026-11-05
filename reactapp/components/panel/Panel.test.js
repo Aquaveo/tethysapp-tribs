@@ -143,8 +143,36 @@ it("Opens the workflows Modal", async () => {
   );
 
   const workflowsButton = screen.getByRole("button", { name: "Open Workflows"});
+  await user.hover(workflowsButton);
+  expect(await screen.findByRole("tooltip")).toHaveTextContent("Open Workflows");
   await user.click(workflowsButton);
   expect(setWorkflowsModal).toHaveBeenCalledWith(true);
+});
+
+it("Gives every project header button a tooltip", async () => {
+  const user = userEvent.setup();
+  render(
+    <Panel isProject>
+      <p>Panel content.</p>
+    </Panel>
+  );
+  for (const name of ["Go to Projects List", "Set Home Extent", "Zoom to Home", "Legends", "Open Workflows", "Shrink"]) {
+    const button = screen.getByRole("button", { name });
+    expect(button).not.toHaveAttribute("title"); // no second, native tooltip
+    await user.hover(button);
+    expect(await screen.findByRole("tooltip")).toBeInTheDocument();
+    await user.unhover(button);
+  }
+});
+
+it("Puts the legends button just left of the workflows button", () => {
+  render(
+    <Panel isProject>
+      <p>Panel content.</p>
+    </Panel>
+  );
+  const names = screen.getAllByRole("button").map((button) => button.getAttribute("aria-label") ?? button.getAttribute("title"));
+  expect(names.indexOf("Legends")).toBe(names.indexOf("Open Workflows") - 1);
 });
 
 it("Switches the global legends on from the header", async () => {
@@ -162,7 +190,8 @@ it("Switches the global legends on from the header", async () => {
 
   const legendsButton = screen.getByRole("button", { name: "Legends" });
   expect(legendsButton).toHaveAttribute("aria-pressed", "false");
-  expect(legendsButton).toHaveAttribute("title", "Show Legends");
+  await user.hover(legendsButton);
+  expect(await screen.findByRole("tooltip")).toHaveTextContent("Show Legends");
   await user.click(legendsButton);
   expect(setShowLegends).toHaveBeenCalledWith(true);
 });
@@ -182,7 +211,8 @@ it("Shows the legends button pressed while the legends are on, and switches them
 
   const legendsButton = screen.getByRole("button", { name: "Legends" });
   expect(legendsButton).toHaveAttribute("aria-pressed", "true");
-  expect(legendsButton).toHaveAttribute("title", "Hide Legends");
+  await user.hover(legendsButton);
+  expect(await screen.findByRole("tooltip")).toHaveTextContent("Hide Legends");
   await user.click(legendsButton);
   expect(setShowLegends).toHaveBeenCalledWith(false);
 });

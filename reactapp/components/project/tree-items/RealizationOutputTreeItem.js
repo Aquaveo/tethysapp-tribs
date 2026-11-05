@@ -1,4 +1,4 @@
-import { useContext, useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import PropTypes from "prop-types";
 
 import Icon from 'assets/Icon';
@@ -15,7 +15,7 @@ import VisibilityAction from "components/project/actions/VisibilityAction";
 import DetailsAction from "../actions/DetailsAction";
 import DownloadAction from "../actions/DownloadAction";
 import { DATASET_VIZ_TYPES, DO_NOT_SET_LAYER, FRAME_OBJECT } from "constants/GraphicsWindowConstants";
-import { plotPanelId } from "constants/PlotConstants";
+import { isSelectionOf, plotPanelId } from "constants/PlotConstants";
 import Polygons from 'assets/Polygons.svg';
 import extractLayerName from "lib/extractLayerName";
 import { findVariable, getVariables, isTimeDynamic, makeActiveTimeSeries, timestepForTime } from "lib/meshTimeSeries";
@@ -37,7 +37,6 @@ const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationInd
     setZoomToExtent,
     setCZMLLayer,
     selectedCZMLPoint,
-    setSelectedCZMLPoint,
     activeTimeSeries,
     setActiveTimeSeries,
     meshClockTime,
@@ -64,7 +63,6 @@ const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationInd
     }
   }, [visibleObjects, isFirstProjectRender, dataset.id, hideObject, projectId]);
 
-  const selectedPointRef = useRef(null);
   const variables = getVariables(dataset);
   // The selected layer; glTF output is drawn with its first variable until one is picked (see GltfLayers).
   const selectedLayer = visibleCZMLObject?.[dataset.id] ?? variables?.[0]?.name;
@@ -94,8 +92,6 @@ const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationInd
     if (variables && isTimeDynamic(variables[0])) {
       setActiveTimeSeries?.(makeActiveTimeSeries(dataset, variables[0]));
     }
-    setSelectedCZMLPoint(selectedPointRef.current);
-    selectedPointRef.current = null;
   };
 
   const handleFrame = () => {
@@ -144,8 +140,7 @@ const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationInd
       if (activeTimeSeries?.datasetId === dataset.id) {
         setActiveTimeSeries?.(null);
       }
-      selectedPointRef.current = selectedCZMLPoint;
-      setSelectedCZMLPoint(null);
+      // The selected point stays selected (Cesium hides its marker with the layer); only the plot sheet closes.
       hideSidePanel(plotPanelId(dataset.id));
     } else {
       reveal();
@@ -195,14 +190,16 @@ const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationInd
     ])
   }
 
-  // Currently only czml datasets need this Plot Panel Action
+  // Currently only czml datasets need this Plot Panel Action: enabled once one of this dataset's features is
+  // selected on the globe (the selection id ends in "[<dataset id>]") and while the layer is shown.
   if (dataset?.viz?.type === DATASET_VIZ_TYPES.CZML) {
+    const pointSelected = isSelectionOf(selectedCZMLPoint, dataset.id);
     realizationActions.push(
       <RunAction
         key={"plot panel"}
         onClick={handleShowPlotPanel}
-        title={selectedCZMLPoint ? "Show Plot Panel" : "Select a Point"}
-        disabled={!selectedCZMLPoint}
+        title={pointSelected ? "Show Plot Panel" : "Select a Point"}
+        disabled={!pointSelected || !visible}
       />,
     )
   }

@@ -1,5 +1,5 @@
 import PropTypes from "prop-types";
-import { useContext, useState, useEffect, useRef } from "react";
+import { useContext, useState, useEffect } from "react";
 import Icon from "assets/Icon";
 import Polygons from "assets/Polygons.svg";
 import TreeItem from "components/tree/TreeItem";
@@ -47,8 +47,6 @@ const GISTreeItem = ({
     setZoomToExtent,
     visibleCZMLObject,
     setCZMLLayer,
-    selectedCZMLPoint,
-    setSelectedCZMLPoint,
   } = useContext(GraphicsWindowVisualsContext);
   const { showPanel, hideSidePanel } = useContext(SidePanelContext);
 
@@ -59,7 +57,6 @@ const GISTreeItem = ({
       : false
   );
   const [disabled, setDisabled] = useState(false);
-  const selectedPointRef = useRef(null);
 
   useEffect(() => {
     // visibleObjects context gets updated in the initial render.
@@ -147,8 +144,7 @@ const GISTreeItem = ({
       hideObject(gis.id);
       if (gis?.viz?.type === DATASET_VIZ_TYPES.CZML) {
         setCZMLLayer(gis.id, DO_NOT_SET_LAYER);
-        selectedPointRef.current = selectedCZMLPoint;
-        setSelectedCZMLPoint(null);
+        // The selected point stays selected (Cesium hides its marker with the layer); only the plot sheet closes.
         hideSidePanel(plotPanelId(gis.id));
       }
     } else {
@@ -156,8 +152,6 @@ const GISTreeItem = ({
       if (gis?.viz?.type === DATASET_VIZ_TYPES.CZML) {
         const layerName = extractLayerName(gis.viz.url[0], gis.id);
         setCZMLLayer(gis.id, layerName);
-        setSelectedCZMLPoint(selectedPointRef.current);
-        selectedPointRef.current = null;
       }
     }
   };
