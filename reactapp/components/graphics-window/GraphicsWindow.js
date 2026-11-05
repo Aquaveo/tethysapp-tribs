@@ -16,11 +16,13 @@ import {
   SidePanelContext,
 } from "react-tethys/context";
 import CustomCamera from "./CustomCamera";
+import SelectionFocus from "./SelectionFocus";
 import {
   DATASET_VIZ_TYPES,
   FRAME_OBJECT,
   HOME,
 } from "constants/GraphicsWindowConstants";
+import { plotPanelId } from "constants/PlotConstants";
 import CompoundWmsLayer from "./CompoundWmsLayers";
 import GltfLayer from "./GltfLayers";
 import MeshClock from "./MeshClock";
@@ -54,13 +56,14 @@ const GraphicsWindow = ({ datasets }) => {
     if (entity !== undefined && !["None", "Loading..."].includes(entity?.id)) {
       setSelectedCZMLPoint(entity.id);
       const datasetId = entity.id.match(/\[(.*?)\]/)[1]; // This grabs any string inbetween brackets "[" or "]"
-      showPanel(`plotly-panel-${datasetId}`);
-    } else if (["None", "Loading..."].includes(entity.id)) {
+      showPanel(plotPanelId(datasetId));
+    } else if (entity !== undefined && ["None", "Loading..."].includes(entity.id)) {
+      // (entity is undefined when the selection is cleared, by a click on empty globe or by SelectionFocus)
       const match = entity.id.match(/\[(.*?)\]/);
 
       if (match && match[1]) {
         const datasetId = match[1];
-        showPanel(`plotly-panel-${datasetId}`);
+        showPanel(plotPanelId(datasetId));
       } else {
         console.error("This dataset is not set up to show a plot panel");
       }
@@ -86,6 +89,7 @@ const GraphicsWindow = ({ datasets }) => {
     >
       <CustomCamera />
       <MeshClock />
+      <SelectionFocus />
       {zoomToExtent !== null &&
         zoomToExtent === HOME &&
         framedObject?.[zoomToExtent] !== undefined && (

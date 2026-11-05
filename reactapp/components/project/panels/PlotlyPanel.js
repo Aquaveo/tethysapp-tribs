@@ -5,35 +5,52 @@ import styled from "styled-components";
 
 import { datasetPropTypes } from "components/tree/propTypes";
 import SlideSheet from "components/dialogs/SlideSheet"
+import PlotSettingsMenu from "components/project/panels/PlotSettingsMenu";
 import { AppContext, GraphicsWindowVisualsContext, SidePanelContext } from "react-tethys/context";
-import Select from "react-select";
-import { VARIABLE_SEPARATOR } from "constants/PlotConstants";
-import { Button } from "react-bootstrap";
+import { PLOT_SHEET_HEIGHT_FRACTION, VARIABLE_SEPARATOR } from "constants/PlotConstants";
 import { DO_NOT_SET_LAYER } from "constants/GraphicsWindowConstants";
 import { describeLayer, variableTitle, variableLabel, variableUnits } from "lib/outputVariables";
 
+// The plot fills the bottom half of the window (see PLOT_SHEET_STYLE), so the margins are kept tight: the bottom
+// one still fits the two-line date ticks and the axis title. There is no plot title: the sheet header names the
+// variable and the y axis carries its units. The legend (shown only for several series, see showLegend) runs
+// along the bottom edge of the plot area, under the x axis.
 const DEFAULT_PLOT_LAYOUT = {
-  title: 'Time series',
-  showlegend: true,
+  autosize: true,
+  legend: { orientation: "h", yref: "container", yanchor: "bottom", y: 0, x: 0.5, xanchor: "center" },
+  margin: { t: 40, r: 20, b: 70, l: 70 },
   yaxis: {
     type: "linear",
     autorange: true,
+    automargin: true,
     title: {
       text: "Value",
-      font: { size: 18 }
+      font: { size: 16 }
     }
   },
   xaxis: {
-    title: { text: "Time", font: { size: 18 }},
+    title: { text: "Time", font: { size: 16 }},
     type: "date",
-    tickformat: ' %H:%M\n%b %d, %Y'
+    tickformat: ' %H:%M\n%b %d, %Y',
+    automargin: true,
   },
 };
 
+// Docked to the bottom of the page: the sheet's top edge sits at the vertical midpoint of the window so the map
+// stays visible above it. The bottom margin keeps it clear of the Cesium timeline (the SlideSheet default).
+const PLOT_SHEET_MARGIN_BOTTOM = "60px";
+const PLOT_SHEET_STYLE = {
+  height: `calc(${PLOT_SHEET_HEIGHT_FRACTION * 100}vh - ${PLOT_SHEET_MARGIN_BOTTOM})`,
+  marginBottom: PLOT_SHEET_MARGIN_BOTTOM,
+};
+
+/** A legend only helps tell several series apart; a single series is already named by the sheet header. */
+export const showLegend = (data) => data.length > 1;
+
 /**
- * Plot title and y-axis text for a series: the friendly label with its display units ("Depth to Groundwater (m)"),
- * from what the backend sends with the timeseries, falling back to the layer name (and its header unit token) for
- * older or uncovered variables. The y axis repeats the title so the units are never shown alone.
+ * Titles for a series: the friendly label (the sheet header), its display units, and the two together
+ * ("Depth to Groundwater (m)") for the y axis, from what the backend sends with the timeseries, falling back to the
+ * layer name (and its header unit token) for older or uncovered variables.
  */
 export function seriesTitles(dataset, layerName, plotData = {}) {
   const fallback = describeLayer(dataset, layerName);
@@ -55,16 +72,27 @@ const StyledPlot = styled(Plot)`
   .active {
     display: unset;
   };
-`;
-
-const CustomHeader = styled.div`
-  width: calc(100% + 40px);
-  display: grid;
-  grid-template-columns: 1fr;
-  align-items: center;
-`;
-
-const OptionsWindow = styled.div`
+  /* Plotly anchors its toolbar to the top-right corner; it sits at the top-left here, with its tooltips
+     opening to the right so the first ones are not cut off by the sheet's edge. The selectors repeat Plotly's
+     own (".js-plotly-plot .plotly ...") so they outrank the rules it injects. */
+  &.js-plotly-plot .plotly .modebar {
+    left: 2px;
+    right: auto;
+    width: max-content; /* keep one row: anchored left, it would otherwise shrink-wrap and stack its groups */
+  }
+  &.js-plotly-plot .plotly .modebar [data-title]:before,
+  &.js-plotly-plot .plotly .modebar [data-title]:after {
+    right: auto;
+    left: 50%;
+  }
+  &.js-plotly-plot .plotly .modebar [data-title]:before {
+    margin-right: 0;
+    margin-left: -6px;
+  }
+  &.js-plotly-plot .plotly .modebar [data-title]:after {
+    margin-right: 0;
+    margin-left: -18px;
+  }
 `;
 
 // I'm going to keep this here for now in case we ever get the dynamic date/hour switching working
@@ -104,16 +132,19 @@ const PlotlyPanel = ({
   panelId,
   dataset,
   realizationIndex,
+  style,
   ...props
 }) => {
   const { backend } = useContext(AppContext);
   const { hideSidePanel, visibleSidePanel, showPanel } = useContext(SidePanelContext);
-  const { visibleCZMLObject, selectedCZMLPoint, startDates } = useContext(GraphicsWindowVisualsContext);
+  const { visibleCZMLObject, selectedCZMLPoint, setSelectedCZMLPoint, startDates } = useContext(GraphicsWindowVisualsContext);
   const handleClose = () => {
     hideSidePanel(panelId);
+    setSelectedCZMLPoint?.(null); // the globe's selection follows (see graphics-window/SelectionFocus)
   }
   const [currentData, setCurrentData] = useState(null);
   const [plotLayout, setPlotLayout] = useState(layout);
+  const yAxisScale = plotLayout.yaxis?.type ?? "linear"; // what the settings menu shows as current
   // eslint-disable-next-line no-unused-vars
   const [plotConfig, setPlotConfig] = useState(config);
 
@@ -127,7 +158,6 @@ const PlotlyPanel = ({
         const titles = seriesTitles(dataset, variableName, plotData);
         setPlotLayout((prevData) => ({
           ...prevData,
-          title: titles.title,
           yaxis: {
             ...prevData.yaxis,
             title: {
@@ -174,7 +204,6 @@ const PlotlyPanel = ({
     if (plotData.label !== undefined || plotData.units !== undefined) {
       setPlotLayout((prevData) => ({
         ...prevData,
-        title: titles.title,
         yaxis: { ...prevData.yaxis, title: { ...prevData.yaxis.title, text: titles.yAxis } },
       }));
     }
@@ -183,100 +212,52 @@ const PlotlyPanel = ({
   backend.on(backend.actions.DATASET_GET_PIXEL_TIMESERIES, handleTimeseries);
   backend.on(backend.actions.DATASET_GET_MRF_OR_RFT_TIMESERIES, handleTimeseries);
 
-  const yAxisScaleOptions = [
-    { value: "linear", label: "Linear" },
-    { value: "log", label: "Log" },
-    { value: "-", label: "Auto" },
-  ];
-
-  const handleYAxisScaleChange = (selectedOption) => {
+  const handleYAxisScaleChange = (scale) => {
     setPlotLayout((prevData) => ({
       ...prevData,
-      yaxis: { ...prevData.yaxis, type: selectedOption.value },
+      yaxis: { ...prevData.yaxis, type: scale },
     }));
   };
 
-  const handleShowProperties = () => {
-    const visPanelId = `slide-panel-${dataset.id}`;
-    if (visibleSidePanel.includes(visPanelId)) {
-      hideSidePanel(visPanelId);
+  const variablesPanelId = `slide-panel-${dataset.id}`;
+  const variablesPanelOpen = visibleSidePanel.includes(variablesPanelId);
+  const handleToggleVariablesPanel = () => {
+    if (variablesPanelOpen) {
+      hideSidePanel(variablesPanelId);
     } else {
-      showPanel(visPanelId);
+      showPanel(variablesPanelId);
     }
   };
 
-  const SlideSheetTitle = (
-    <CustomHeader>
-      <div>
-        {`${visibleCZMLObject?.[dataset.id] ? seriesTitles(dataset, visibleCZMLObject[dataset.id]).title : "Empty"} Plot`}
-      </div>
-    </CustomHeader>
-  );
+  const plotData = currentData ? [currentData] : [];
+  const title = `${visibleCZMLObject?.[dataset.id] ? seriesTitles(dataset, visibleCZMLObject[dataset.id]).label : "Empty"} Plot`;
 
   return (
     <SlideSheet
-      title={SlideSheetTitle}
+      title={title}
+      actions={
+        <PlotSettingsMenu
+          yAxisScale={yAxisScale}
+          onYAxisScaleChange={handleYAxisScaleChange}
+          variablesPanelOpen={variablesPanelOpen}
+          onToggleVariablesPanel={handleToggleVariablesPanel}
+        />
+      }
       show={visibleSidePanel.includes(panelId)}
       placement={placement}
       onClose={handleClose}
+      style={{ ...PLOT_SHEET_STYLE, ...style }}
       {...props}
     >
-      <div style={{ display: "grid", gridTemplateColumns: "7fr 1fr", height: "100%" }}>
-        <StyledPlot
-          data={currentData ? [currentData] : []}
-          layout={plotLayout}
-          config={plotConfig}
-        />
-        <OptionsWindow>
-          <div className="mt-2">Y Axis Scale</div>
-          <Select
-            id="y-axis-scale-selector"
-            defaultValue={yAxisScaleOptions[0]}
-            options={yAxisScaleOptions}
-            size={2}
-            isSearchable
-            onChange={handleYAxisScaleChange}
-            isDisabled={false} // TODO detect if there are negative numbers to disable log?
-            styles={{
-              control: (styles, { isDisabled }) => ({
-                ...styles,
-                borderColor: isDisabled ? "rgb(206, 212, 218)" : "hsl(0, 0%, 80%)",
-              }),
-              valueContainer: (styles, { isDisabled }) => ({
-                ...styles,
-                backgroundColor: isDisabled ? "#e9ecef" : "default",
-                lineHeight: .875
-              }),
-              singleValue: (styles, { isDisabled }) => ({
-                ...styles,
-                color: isDisabled ? "#212529" : "default",
-              }),
-              multiValue: (styles, { isDisabled }) => ({
-                ...styles,
-                color: isDisabled ? "#212529" : "default",
-              }),
-              indicatorsContainer: (styles, { isDisabled }) => ({
-                ...styles,
-                backgroundColor: isDisabled ? "#e9ecef" : "default",
-              }),
-              dropdownIndicator: (styles, { isDisabled }) => ({
-                ...styles,
-                color: isDisabled ? "#212529" : "default",
-              }),
-              menu: (styles) => ({
-                ...styles,
-                lineHeight: .875
-              })
-            }}
-          />
-          <Button
-            className="mt-2"
-            onClick={handleShowProperties}
-          >
-            {visibleSidePanel.includes(`slide-panel-${dataset.id}`) ? "Close" : "Open"} Visibility Panel
-          </Button>
-        </OptionsWindow>
-      </div>
+      <StyledPlot
+        data={plotData}
+        layout={{ ...plotLayout, showlegend: showLegend(plotData) }}
+        config={plotConfig}
+        // react-plotly's default style is an inline-block div with no width, which Plotly sizes to its 700px
+        // default; an explicit full-size block (plus the resize handler) makes the plot track the sheet.
+        style={{ position: "relative", width: "100%", height: "100%" }}
+        useResizeHandler
+      />
     </SlideSheet>
   );
 };
@@ -289,7 +270,8 @@ PlotlyPanel.propTypes = {
 
   // Trust me these are as precise as it can be without taking days off your life
   layout: PropTypes.object,
-  config: PropTypes.object
+  config: PropTypes.object,
+  style: PropTypes.object, // merged over the bottom-half docking style
 };
 
 PlotlyPanel.defaultProps = {

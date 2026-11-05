@@ -23,6 +23,7 @@ import VariablesPanel from "../panels/VariablesPanel";
 import extractLayerName from "lib/extractLayerName";
 import { LEGEND_GROUPS, hasLegend } from "lib/legends";
 import useLegendEntry from "hooks/useLegendEntry";
+import { plotPanelId } from "constants/PlotConstants";
 
 const GISTreeItem = ({
   gis,
@@ -148,7 +149,7 @@ const GISTreeItem = ({
         setCZMLLayer(gis.id, DO_NOT_SET_LAYER);
         selectedPointRef.current = selectedCZMLPoint;
         setSelectedCZMLPoint(null);
-        hideSidePanel(`plotly-panel-${gis.id}`);
+        hideSidePanel(plotPanelId(gis.id));
       }
     } else {
       revealObject(gis.id);

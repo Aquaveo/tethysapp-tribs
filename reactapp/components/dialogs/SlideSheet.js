@@ -50,7 +50,7 @@ const StyledOffcanvas = styled(Offcanvas)`
       };
       margin-top: ${props.style?.marginTop ?? "56px"};
       margin-left: ${props.style?.marginLeft ?? "370px"};
-      margin-right ${props.style?.marginRight ?? "10px"};
+      margin-right: ${props.style?.marginRight ?? "10px"};
     `
   };
 
@@ -69,11 +69,11 @@ const StyledOffcanvas = styled(Offcanvas)`
       };
       margin-bottom: ${props.style?.marginBottom ?? "60px"};
       margin-left: ${props.style?.marginLeft ?? "370px"};
-      margin-right ${props.style?.marginRight ?? "10px"};
+      margin-right: ${props.style?.marginRight ?? "10px"};
     `
   };
   width: min-content;
-  height: ${(props) => props.style?.height ?? props.style?.height}
+  // the caller's style prop (e.g. height) is forwarded inline by Offcanvas, so it is not repeated here
   z-index: 1025;
   border: 1px solid #dedede;
   border-radius: var(--ts-border-radius);
@@ -141,6 +141,13 @@ const StyledOffCanvasTitle = styled(Offcanvas.Title)`
   word-wrap: anywhere;
 `;
 
+const HeaderActions = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: auto;
+`;
+
 const SlideSheet = ({
   children,
   onClose,
@@ -148,6 +155,7 @@ const SlideSheet = ({
   show = false,
   placement = "start",
   resizable = false,
+  actions,
   ...props
 }) => {
   const handleClose = () => onClose();
@@ -164,6 +172,7 @@ const SlideSheet = ({
     >
       <StyledOffCanvasHeader closeButton>
         <StyledOffCanvasTitle>{title}</StyledOffCanvasTitle>
+        {actions && <HeaderActions data-testid="slide-sheet-actions">{actions}</HeaderActions>}
       </StyledOffCanvasHeader>
       <StyledOffCanvasBody
         placement={placement}
@@ -189,6 +198,7 @@ SlideSheet.propTypes = {
   ]),
   placement: PropTypes.oneOf(["start", "end", "top", "bottom"]),
   resizable: PropTypes.bool,
+  actions: PropTypes.node, // header buttons, placed between the title and the close button
 };
 
 export default SlideSheet;
