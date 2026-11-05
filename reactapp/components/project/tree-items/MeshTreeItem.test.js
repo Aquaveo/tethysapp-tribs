@@ -3,12 +3,10 @@ import { render, screen } from "@testing-library/react";
 
 import MeshTreeItem from "./MeshTreeItem";
 import { makeMesh } from "config/tests/mocks/meshMock";
-import { GraphicsWindowVisualsContext, ProjectContext } from "react-tethys/context";
+import { GraphicsWindowVisualsContext, LegendsRegistryContext, ProjectContext } from "react-tethys/context";
 import { FRAME_OBJECT } from "constants/GraphicsWindowConstants";
 import newUUID from "lib/uuid";
-import { select } from "react-select-event";
 import { makeStaticMesh } from "config/tests/mocks/meshMock";
-import { SidePanelContext } from "react-tethys/context";
 
 function initAndRender({ visibleObjects: visibleObjectsOverride } = {}) {
   const user = userEvent.setup();
@@ -194,34 +192,46 @@ it("Creates a tree item with details and download actions in options menu", asyn
   expect(downloadButton).toBeVisible();
 });
 
-it("Saves a color ramp chosen in the legend panel of a bare TIN mesh as a dataset attribute", async () => {
+function renderWithLegendRegistry({ visible, updateCallback = jest.fn() }) {
   const mesh = { ...makeStaticMesh(), datasets: [] }; // the mesh tree item lists the TIN datasets under it
   const projectId = newUUID();
-  const updateCallback = jest.fn();
-  const setColorRamp = jest.fn();
+  const registerLegend = jest.fn();
+  const unregisterLegend = jest.fn();
   render(
     <ProjectContext.Provider value={{ projectId, setProjectId: jest.fn(), openFolders: { [projectId]: [] }, closeFolder: jest.fn(), openFolder: jest.fn() }}>
       <GraphicsWindowVisualsContext.Provider
         value={{
-          visibleObjects: { [projectId]: [mesh.id] },
+          visibleObjects: { [projectId]: visible ? [mesh.id] : [] },
           hideObject: jest.fn(),
           revealObject: jest.fn(),
           setFramedObject: jest.fn(),
           setZoomToExtent: jest.fn(),
-          colorRamps: {},
-          setColorRamp,
         }}
       >
-        <SidePanelContext.Provider
-          value={{ showPanel: jest.fn(), hideSidePanel: jest.fn(), visibleSidePanel: [`legend-panel-${mesh.id}`] }}
-        >
-          <MeshTreeItem mesh={mesh} datasetIndex={0} onDelete={jest.fn()} onDuplicate={jest.fn()} onUpdate={updateCallback} />
-        </SidePanelContext.Provider>
+        <LegendsRegistryContext.Provider value={{ registerLegend, unregisterLegend, setShowLegends: jest.fn() }}>
+          <MeshTreeItem mesh={mesh} datasetIndex={2} onDelete={jest.fn()} onDuplicate={jest.fn()} onUpdate={updateCallback} />
+        </LegendsRegistryContext.Provider>
       </GraphicsWindowVisualsContext.Provider>
     </ProjectContext.Provider>
   );
-  await select(screen.getByLabelText("Color ramp"), "Turbo", { container: document.body });
-  expect(setColorRamp).toHaveBeenCalledWith(mesh.id, "turbo");
+  return { mesh, registerLegend, unregisterLegend };
+}
+
+it("Registers the legend of a shown TIN mesh with the global Legends panel, and saves a ramp chosen there", () => {
+  const updateCallback = jest.fn();
+  const { mesh, registerLegend } = renderWithLegendRegistry({ visible: true, updateCallback });
+  expect(registerLegend).toHaveBeenCalledWith(
+    mesh.id,
+    expect.objectContaining({ id: mesh.id, uniqueId: mesh.id, order: [0, 2, 0], variable: mesh.viz.variables[0] })
+  );
+  registerLegend.mock.calls.at(-1)[1].onColorRampChange("turbo");
+  // Only the id and the ramp are sent; the backend merges attributes one key at a time
   expect(updateCallback).toHaveBeenCalledWith({ id: mesh.id, attributes: { color_ramp: "turbo" } });
-  // (The recolored legend itself is covered by LegendPanel.test.js; here the context setter is a mock.)
+  // (The legend card itself is covered by LegendCard.test.js.)
+});
+
+it("Does not register the legend of a hidden mesh", () => {
+  const { mesh, registerLegend, unregisterLegend } = renderWithLegendRegistry({ visible: false });
+  expect(registerLegend).not.toHaveBeenCalled();
+  expect(unregisterLegend).toHaveBeenCalledWith(mesh.id);
 });

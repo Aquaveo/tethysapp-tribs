@@ -32,7 +32,7 @@ Follow-ups that were noted but deliberately deferred. Newest at the bottom.
   - *Preload a window of time steps.* `GltfLayers.js` double-buffers (current + next), so playback waits for each
     ~7 MB file when the network is slow; a small cache of adjacent steps would smooth it.
   - *Time-step axis in the UI.* The Cesium timeline shows the range, but nothing labels the current time step in
-    the Variables panel (the Legend panel does show it).
+    the Variables panel (the Legends panel does show it).
 - **Detect inconsistent tRIBS mesh files before building Voronoi cells.** tRIBS's own output writer dumps
   `OUTFILENAME.nodes/.z` in internal list order while `.edges/.tri` keep the original ids (verified in tOutput.cpp,
   2026-10-08). Read as mesh input, every cell becomes a mesh-wide sliver (Cedar_Flats_Treated: 237 MB glb, 139 s).
@@ -44,7 +44,7 @@ Follow-ups that were noted but deliberately deferred. Newest at the bottom.
   Delaunay/edge-graph isomorphism but was judged not worth it. Neither TIN workflow produces a `_voi`; only tRIBS runs do.
 
 - **Selectable colour ramps follow-ups** (the client-side ramps landed 2026-10-15: `lib/colorRamps.js`,
-  `getRampShader` in `GltfLayers.js`, selector + browser-drawn `GltfLegend` in `LegendPanel.js`, ramp saved as the
+  `getRampShader` in `GltfLayers.js`, selector + browser-drawn `GltfLegend` in `LegendCard.js`, ramp saved as the
   dataset attribute `color_ramp`, `min`/`max` per variable in `viz.variables`):
   - *Other users only see a saved ramp after reloading.* The consumer answers the requesting socket only
     (`BackendConsumer.send_action` never calls `group_send`), so a ramp change is not pushed to other open sessions.

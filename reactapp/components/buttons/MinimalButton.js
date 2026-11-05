@@ -14,7 +14,8 @@ export const MinimallyStyledButton = styled.button`
     background-color: #efefef;
   }
 
-  &:active {
+  &:active,
+  &[aria-pressed="true"] {
     background-color: #dfdfdf;
   }
 `;

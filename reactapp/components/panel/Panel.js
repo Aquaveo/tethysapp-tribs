@@ -1,6 +1,8 @@
 import { useContext } from "react";
 import {
   GraphicsWindowVisualsContext,
+  LegendsContext,
+  LegendsRegistryContext,
   ModalContext,
 } from "react-tethys/context";
 import { toast } from "react-toastify";
@@ -16,6 +18,7 @@ import {
   BsFillHouseFill,
   BsHouseAdd,
   BsArrowLeft,
+  BsMenuButtonWide,
 } from "react-icons/bs";
 
 import MinimalButton from "components/buttons/MinimalButton";
@@ -79,6 +82,8 @@ const Panel = ({
   children,
 }) => {
   const { setWorkflowsModal } = useContext(ModalContext);
+  const { showLegends } = useContext(LegendsContext);
+  const { setShowLegends } = useContext(LegendsRegistryContext);
   const { setUpdateFrame, setZoomToExtent, framedObject } = useContext(
     GraphicsWindowVisualsContext
   );
@@ -155,6 +160,15 @@ const Panel = ({
                   height={"24px"}
                   width="24px"
                 />
+              </MinimalButton>
+              <MinimalButton
+                size="sm"
+                title={showLegends ? "Hide Legends" : "Show Legends"}
+                aria-label="Legends"
+                aria-pressed={showLegends}
+                onClick={() => setShowLegends(!showLegends)}
+              >
+                <BsMenuButtonWide fontSize={"1.5em"} />
               </MinimalButton>
             </>
           )}

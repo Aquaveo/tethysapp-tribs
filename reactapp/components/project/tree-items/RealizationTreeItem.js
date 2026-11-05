@@ -132,6 +132,7 @@ const RealizationTreeItem = ({
                 onUpdate={onUpdateDataset}
                 realizationIndex={realizationIndex}
                 realizationName={realization.name}
+                outputIndex={i}
               />
             );
           })}

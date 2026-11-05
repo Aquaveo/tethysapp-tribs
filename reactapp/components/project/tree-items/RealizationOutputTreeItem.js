@@ -16,14 +16,14 @@ import DetailsAction from "../actions/DetailsAction";
 import DownloadAction from "../actions/DownloadAction";
 import { DATASET_VIZ_TYPES, DO_NOT_SET_LAYER, FRAME_OBJECT } from "constants/GraphicsWindowConstants";
 import Polygons from 'assets/Polygons.svg';
-import LegendPanel from "../panels/LegendPanel";
-import LegendsAction from "../actions/LegendsAction";
 import extractLayerName from "lib/extractLayerName";
 import { findVariable, getVariables, isTimeDynamic, makeActiveTimeSeries, timestepForTime } from "lib/meshTimeSeries";
 import { describeLayer, variableTitle } from "lib/outputVariables";
 import { getLayerItems } from "components/project/panels/VariablesPanel";
+import { LEGEND_GROUPS, hasLegend } from "lib/legends";
+import useLegendEntry from "hooks/useLegendEntry";
 
-const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationIndex, realizationName }) => {
+const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationIndex, realizationName, outputIndex }) => {
   const TETHYS_ROOT_URL = process.env.TETHYS_APP_ROOT_URL;
   const dataset_url = `datasets/${dataset.id}/details/summary/`;
 
@@ -41,7 +41,7 @@ const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationInd
     setActiveTimeSeries,
     meshClockTime,
   } = useContext(GraphicsWindowVisualsContext);
-  const { showPanel, hideSidePanel, visibleSidePanel } = useContext(SidePanelContext);
+  const { showPanel, hideSidePanel } = useContext(SidePanelContext);
   const { isFirstProjectRender, projectId } = useContext(ProjectContext);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const [visible, setVisible] = useState(visibleObjects?.[projectId] ? !visibleObjects?.[projectId].includes(dataset.id) : false);
@@ -64,18 +64,11 @@ const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationInd
   }, [visibleObjects, isFirstProjectRender, dataset.id, hideObject, projectId]);
 
   const selectedPointRef = useRef(null);
-  let legendExists = false;
-  if (dataset?.viz?.legend) {
-    if (dataset?.viz?.legend.length > 0) {
-      legendExists = true;
-    }
-  }
   const variables = getVariables(dataset);
-  if (variables?.some((variable) => variable.timesteps.some((timestep) => timestep.legend))) {
-    legendExists = true;
-  }
+  // The selected layer; glTF output is drawn with its first variable until one is picked (see GltfLayers).
+  const selectedLayer = visibleCZMLObject?.[dataset.id] ?? variables?.[0]?.name;
   // glTF mesh output: the legend follows the time step of the selected variable at the current clock time
-  const activeVariable = findVariable(dataset, visibleCZMLObject?.[dataset.id]);
+  const activeVariable = findVariable(dataset, selectedLayer);
   const currentTimestep = activeVariable ? timestepForTime(activeVariable, meshClockTime) : null;
 
   const handleDelete = () => {
@@ -127,6 +120,22 @@ const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationInd
     handleUpdate({ id: dataset.id, attributes: { color_ramp: rampName } });
   };
 
+  // The legend of the selected layer is listed in the global Legends panel while the dataset is shown; for glTF
+  // output it follows the time step of the selected variable at the current clock time.
+  const shown = Boolean(visibleObjects?.[projectId]?.includes(dataset.id));
+  useLegendEntry({
+    id: dataset.id,
+    active: hasLegend(dataset) && shown && Boolean(selectedLayer) && selectedLayer !== DO_NOT_SET_LAYER,
+    order: [LEGEND_GROUPS.REALIZATION, realizationIndex, outputIndex ?? 0],
+    dataset,
+    uniqueId: selectedLayer,
+    legendUrls: currentTimestep?.legend ? [currentTimestep.legend] : undefined,
+    subtitle: currentTimestep?.time ?? undefined,
+    variable: activeVariable ?? undefined,
+    realizationName,
+    onColorRampChange: handleColorRampChange,
+  });
+
   const toggleVisibility = (event, visibility) => {
     if (!visibility) {
       hideObject(dataset.id);
@@ -137,7 +146,6 @@ const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationInd
       selectedPointRef.current = selectedCZMLPoint;
       setSelectedCZMLPoint(null);
       hideSidePanel(`plotly-panel-${dataset.id}`);
-      hideSidePanel(`legend-panel-${dataset.id}`);
     } else {
       reveal();
     }
@@ -149,15 +157,6 @@ const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationInd
 
   const handleShowPlotPanel = () => {
     showPanel(`plotly-panel-${dataset.id}`);
-  }
-
-  const handleShowLegend = () => {
-    if (visibleSidePanel.includes(`legend-panel-${dataset.id}`)) {
-      hideSidePanel(`legend-panel-${dataset.id}`)
-    } else {
-      showPanel(`legend-panel-${dataset.id}`);
-      showPanel(`slide-panel-${dataset.id}`);
-    }
   }
 
   const handleOpenDatasetDetails = () => {
@@ -193,19 +192,6 @@ const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationInd
         disabled={visibleCZMLObject[dataset.id] === DO_NOT_SET_LAYER || !visible}
       />,
     ])
-  }
-
-  if (legendExists) {
-    realizationActions.push(...[
-      <LegendsAction
-        key="legends"
-        onClick={handleShowLegend}
-        title={
-          `${visibleSidePanel.includes(`legend-panel-${dataset.id}`) ? "Close" : "Open"} Legend for ${variableTitle(describeLayer(dataset, visibleCZMLObject[dataset.id]))}`
-        }
-        disabled={visibleCZMLObject[dataset.id] === DO_NOT_SET_LAYER || !visible}
-      />,
-    ]);
   }
 
   // Currently only czml datasets need this Plot Panel Action
@@ -254,20 +240,6 @@ const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationInd
           />
         </>
       )}
-      {legendExists && (
-        <>
-          <LegendPanel
-            dataset={dataset}
-            panelId={`legend-panel-${dataset.id}`}
-            uniqueId={visibleCZMLObject[dataset.id]}
-            legendUrls={currentTimestep?.legend ? [currentTimestep.legend] : undefined}
-            subtitle={currentTimestep?.time ?? undefined}
-            variable={activeVariable ?? undefined}
-            realizationName={realizationName}
-            onColorRampChange={handleColorRampChange}
-          />
-        </>
-      )}
     </>
   );
 };
@@ -278,6 +250,7 @@ RealizationOutputTreeItem.propTypes = {
   onUpdate: PropTypes.func.isRequired,
   realizationIndex: PropTypes.number.isRequired,
   realizationName: PropTypes.string,
+  outputIndex: PropTypes.number, // position among the realization's output datasets, for legend ordering
 };
 
 export default RealizationOutputTreeItem;
