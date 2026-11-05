@@ -5,13 +5,13 @@ import Materials_Display_Options from 'assets/Materials_Display_Options.svg';
 import TreeItem from "components/tree/TreeItem";
 import VisibilityAction from "components/project/actions/VisibilityAction";
 import { datasetPropTypes } from "components/tree/propTypes";
-import { GraphicsWindowVisualsContext, ProjectContext, SidePanelContext } from "react-tethys/context";
+import { GraphicsWindowVisualsContext, ProjectContext } from "react-tethys/context";
 import { FRAME_OBJECT } from "constants/GraphicsWindowConstants";
+import { LEGEND_GROUPS, hasLegend } from "lib/legends";
+import useLegendEntry from "hooks/useLegendEntry";
 import { ConfirmDeleteModal } from "components/dialogs/ConfirmDeleteModal";
 import DetailsAction from "../actions/DetailsAction";
 import DownloadAction from "../actions/DownloadAction";
-import LegendsAction from "../actions/LegendsAction";
-import LegendPanel from "../panels/LegendPanel";
 
 const RasterTreeItem = ({
   raster,
@@ -34,7 +34,6 @@ const RasterTreeItem = ({
     revealObject,
     setZoomToExtent,
   } = useContext(GraphicsWindowVisualsContext);
-  const { showPanel, hideSidePanel, visibleSidePanel } = useContext(SidePanelContext);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
 
   const [visible, setVisible] = useState(visibleObjects?.[projectId] ? !visibleObjects?.[projectId].includes(raster.id) : false);
@@ -70,12 +69,14 @@ const RasterTreeItem = ({
     }
   }, [disabled]);
 
-  let legendExists = false;
-  if (raster?.viz?.legend) {
-    if (raster?.viz?.legend.length > 0) {
-      legendExists = true;
-    }
-  }
+  // The raster's legend is listed in the global Legends panel while the raster is shown.
+  useLegendEntry({
+    id: raster.id,
+    active: hasLegend(raster) && Boolean(visibleObjects?.[projectId]?.includes(raster.id)),
+    order: [LEGEND_GROUPS.RASTER, datasetIndex ?? 0, 0],
+    dataset: raster,
+    uniqueId: raster.id,
+  });
 
   const handleDelete = () => {
     setShowConfirmDelete(true);
@@ -115,7 +116,6 @@ const RasterTreeItem = ({
   const toggleVisibility = (event, visibility) => {
     if (!visibility) {
       hideObject(raster.id)
-      hideSidePanel(`legend-panel-${raster.id}`)
     } else {
       revealObject(raster.id)
     }
@@ -127,13 +127,6 @@ const RasterTreeItem = ({
     window.open(details_url, "_blank", "noopener noreferrer");
   };
 
-  const handleShowLegend = () => {
-    if (visibleSidePanel.includes(`legend-panel-${raster.id}`)) {
-      hideSidePanel(`legend-panel-${raster.id}`)
-    } else {
-      showPanel(`legend-panel-${raster.id}`);
-    }
-  };
   const rasterActions = [
     <DetailsAction
       key="details"
@@ -155,17 +148,6 @@ const RasterTreeItem = ({
         disabled={disabled}
       />,
     ])
-  }
-
-  if (legendExists) {
-    rasterActions.push(...[
-      <LegendsAction
-        key="legends"
-        onClick={handleShowLegend}
-        title={`${visibleSidePanel.includes(`legend-panel-${raster.id}`) ? "Close" : "Open"} Legend`}
-        disabled={!visible}
-      />,
-    ]);
   }
 
   return (
@@ -191,13 +173,6 @@ const RasterTreeItem = ({
         handleDeleteConfirm={handleDeleteConfirm}
         message={`Are you sure you want to delete ${raster.name}?`}
       />
-      {legendExists && (
-        <LegendPanel
-          dataset={raster}
-          panelId={`legend-panel-${raster.id}`}
-          uniqueId={raster.id}
-        />
-      )}      
     </>
   );
 };

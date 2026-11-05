@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 
 import LayerRasterTreeItem from "./LayerRasterTreeItem";
 import { makeRaster } from "config/tests/mocks/rasterMock";
-import { GraphicsWindowVisualsContext, ProjectContext, SidePanelContext } from "react-tethys/context";
+import { GraphicsWindowVisualsContext, LegendsRegistryContext, ProjectContext, SidePanelContext } from "react-tethys/context";
 import { FRAME_OBJECT } from "constants/GraphicsWindowConstants";
 import newUUID from "lib/uuid";
 
@@ -119,4 +119,46 @@ it("Navigates to the download_layer endpoint when download button pressed", asyn
   );
 
   window.location = originalLocation;
+});
+
+function renderWithLegendRegistry({ visible }) {
+  const raster = makeRaster("Some Compound Raster");
+  const layer = `${raster.id}_0-5cm`;
+  raster.viz.layer = [layer];
+  raster.viz.legend = ["fdb/raster_legend.png"];
+  const projectId = newUUID();
+  const registerLegend = jest.fn();
+  const unregisterLegend = jest.fn();
+  render(
+    <ProjectContext.Provider value={{ projectId, setProjectId: jest.fn(), openFolders: { [projectId]: [] }, closeFolder: jest.fn(), openFolder: jest.fn() }}>
+      <GraphicsWindowVisualsContext.Provider
+        value={{
+          visibleObjects: { [projectId]: visible ? [layer] : [] },
+          hideObject: jest.fn(),
+          revealObject: jest.fn(),
+          setFramedObject: jest.fn(),
+          setZoomToExtent: jest.fn(),
+          visibleCZMLObject: {},
+          setCZMLLayer: jest.fn(),
+          setSelectedCZMLPoint: jest.fn(),
+        }}
+      >
+        <LegendsRegistryContext.Provider value={{ registerLegend, unregisterLegend, setShowLegends: jest.fn() }}>
+          <LayerRasterTreeItem layer={layer} datasetIndex={4} layerIndex={1} extent={raster.viz.extent} raster={raster} />
+        </LegendsRegistryContext.Provider>
+      </GraphicsWindowVisualsContext.Provider>
+    </ProjectContext.Provider>
+  );
+  return { raster, registerLegend, unregisterLegend };
+}
+
+it("Registers its legend with the global Legends panel while shown", () => {
+  const { raster, registerLegend } = renderWithLegendRegistry({ visible: true });
+  expect(registerLegend).toHaveBeenCalledWith(`${raster.id}-${raster.viz.layer[0]}`, expect.objectContaining({ id: `${raster.id}-${raster.viz.layer[0]}`, uniqueId: raster.viz.layer[0], order: [2, 4, 1] }));
+});
+
+it("Does not register its legend while hidden", () => {
+  const { raster, registerLegend, unregisterLegend } = renderWithLegendRegistry({ visible: false });
+  expect(registerLegend).not.toHaveBeenCalled();
+  expect(unregisterLegend).toHaveBeenCalledWith(`${raster.id}-${raster.viz.layer[0]}`);
 });

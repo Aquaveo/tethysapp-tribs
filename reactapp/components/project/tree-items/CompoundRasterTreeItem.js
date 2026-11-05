@@ -186,6 +186,7 @@ const CompoundRasterTreeItem = ({
         <LayerRasterTreeItem
           layer={layer}
           datasetIndex={datasetIndex}
+          layerIndex={j}
           extent={raster?.viz?.extent}
           raster={raster}
           key={"raster-compound-tree-item-" + j}

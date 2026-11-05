@@ -13,6 +13,7 @@ import {
 // Main Project Imports
 import GraphicsWindow from "components/graphics-window/GraphicsWindow";
 import Panel from "components/panel/Panel";
+import LegendsPanel from "components/project/panels/LegendsPanel";
 import FileUploadToastMessage from "components/project/dialogs/FileUploadToastMessage";
 
 // Tree Item Imports
@@ -1105,6 +1106,7 @@ const Project = ({ project, setProject }) => {
           </TreeItem>
         </TreeItem>
       </Panel>
+      <LegendsPanel />
       <AddMeshModal
         show={showAddMesh}
         onClose={closeAddMesh}

@@ -2,7 +2,7 @@ import userEvent from "@testing-library/user-event";
 import { render, screen } from "@testing-library/react";
 
 import Panel from "./Panel";
-import { ModalContext } from "react-tethys/context";
+import { LegendsContext, LegendsRegistryContext, ModalContext } from "react-tethys/context";
 
 it("Has a default title of Panel", async () => {
   render(<Panel />);
@@ -145,4 +145,53 @@ it("Opens the workflows Modal", async () => {
   const workflowsButton = screen.getByRole("button", { name: "Open Workflows"});
   await user.click(workflowsButton);
   expect(setWorkflowsModal).toHaveBeenCalledWith(true);
+});
+
+it("Switches the global legends on from the header", async () => {
+  const user = userEvent.setup();
+  const setShowLegends = jest.fn();
+  render(
+    <LegendsRegistryContext.Provider value={{ setShowLegends, registerLegend: jest.fn(), unregisterLegend: jest.fn() }}>
+      <LegendsContext.Provider value={{ showLegends: false, legends: {} }}>
+        <Panel isProject>
+          <p>Panel content.</p>
+        </Panel>
+      </LegendsContext.Provider>
+    </LegendsRegistryContext.Provider>
+  );
+
+  const legendsButton = screen.getByRole("button", { name: "Legends" });
+  expect(legendsButton).toHaveAttribute("aria-pressed", "false");
+  expect(legendsButton).toHaveAttribute("title", "Show Legends");
+  await user.click(legendsButton);
+  expect(setShowLegends).toHaveBeenCalledWith(true);
+});
+
+it("Shows the legends button pressed while the legends are on, and switches them off", async () => {
+  const user = userEvent.setup();
+  const setShowLegends = jest.fn();
+  render(
+    <LegendsRegistryContext.Provider value={{ setShowLegends, registerLegend: jest.fn(), unregisterLegend: jest.fn() }}>
+      <LegendsContext.Provider value={{ showLegends: true, legends: {} }}>
+        <Panel isProject>
+          <p>Panel content.</p>
+        </Panel>
+      </LegendsContext.Provider>
+    </LegendsRegistryContext.Provider>
+  );
+
+  const legendsButton = screen.getByRole("button", { name: "Legends" });
+  expect(legendsButton).toHaveAttribute("aria-pressed", "true");
+  expect(legendsButton).toHaveAttribute("title", "Hide Legends");
+  await user.click(legendsButton);
+  expect(setShowLegends).toHaveBeenCalledWith(false);
+});
+
+it("Offers no legends button outside a project", () => {
+  render(
+    <Panel>
+      <p>Panel content.</p>
+    </Panel>
+  );
+  expect(screen.queryByRole("button", { name: /Legends/ })).not.toBeInTheDocument();
 });

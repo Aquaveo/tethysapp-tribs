@@ -18,11 +18,11 @@ import {
 import { ConfirmDeleteModal } from "components/dialogs/ConfirmDeleteModal";
 import DetailsAction from "../actions/DetailsAction";
 import DownloadAction from "../actions/DownloadAction";
-import LegendsAction from "../actions/LegendsAction";
-import LegendPanel from "../panels/LegendPanel";
 import PropertiesAction from "../actions/PropertiesAction";
 import VariablesPanel from "../panels/VariablesPanel";
 import extractLayerName from "lib/extractLayerName";
+import { LEGEND_GROUPS, hasLegend } from "lib/legends";
+import useLegendEntry from "hooks/useLegendEntry";
 
 const GISTreeItem = ({
   gis,
@@ -49,7 +49,7 @@ const GISTreeItem = ({
     selectedCZMLPoint,
     setSelectedCZMLPoint,
   } = useContext(GraphicsWindowVisualsContext);
-  const { showPanel, hideSidePanel, visibleSidePanel } = useContext(SidePanelContext);
+  const { showPanel, hideSidePanel } = useContext(SidePanelContext);
 
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const [visible, setVisible] = useState(
@@ -97,12 +97,14 @@ const GISTreeItem = ({
     }
   }, [disabled]);
 
-  let legendExists = false;
-  if (gis?.viz?.legend) {
-    if (gis?.viz?.legend.length > 0) {
-      legendExists = true;
-    }
-  }
+  // The dataset's legend is listed in the global Legends panel while the dataset is shown.
+  useLegendEntry({
+    id: gis.id,
+    active: hasLegend(gis) && Boolean(visibleObjects?.[projectId]?.includes(gis.id)),
+    order: [LEGEND_GROUPS.GIS, datasetIndex ?? 0, 0],
+    dataset: gis,
+    uniqueId: gis.id,
+  });
 
   const handleDelete = () => {
     setShowConfirmDelete(true);
@@ -168,13 +170,6 @@ const GISTreeItem = ({
     window.open(details_url, "_blank", "noopener noreferrer");
   };
 
-  const handleShowLegend = () => {
-    if (visibleSidePanel.includes(`legend-panel-${gis.id}`)) {
-      hideSidePanel(`legend-panel-${gis.id}`)
-    } else {
-      showPanel(`legend-panel-${gis.id}`);
-    }
-  };
   const gisActions = [
     <DetailsAction key="details" onClick={handleOpenDatasetDetails} />,
     <DownloadAction key="download" datasetId={gis.id} />,
@@ -203,17 +198,6 @@ const GISTreeItem = ({
     ])
   }
 
-  if (legendExists) {
-    gisActions.push(...[
-      <LegendsAction
-        key="legends"
-        onClick={handleShowLegend}
-        title={`${visibleSidePanel.includes(`legend-panel-${gis.id}`) ? "Close" : "Open"} Legend`}
-        disabled={!visible}
-      />,
-    ]);
-  }
-
   return (
     <>
       <TreeItem
@@ -239,13 +223,6 @@ const GISTreeItem = ({
         handleDeleteConfirm={handleDeleteConfirm}
         message={`Are you sure you want to delete ${gis.name}?`}
       />
-      {legendExists && (
-        <LegendPanel
-          dataset={gis}
-          panelId={`legend-panel-${gis.id}`}
-          uniqueId={gis.id}
-        />
-      )}
       {gis?.viz?.type === DATASET_VIZ_TYPES.CZML && (
         <VariablesPanel
           dataset={gis}

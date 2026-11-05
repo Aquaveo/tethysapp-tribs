@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 
 import GISTreeItem from "./GISTreeItem";
 import { makeGIS } from "config/tests/mocks/gisMock";
-import { GraphicsWindowVisualsContext, ProjectContext } from "react-tethys/context";
+import { GraphicsWindowVisualsContext, LegendsRegistryContext, ProjectContext } from "react-tethys/context";
 import { FRAME_OBJECT } from "constants/GraphicsWindowConstants";
 import newUUID from "lib/uuid";
 
@@ -183,4 +183,44 @@ it("Creates a tree item with details and download actions in options menu", asyn
   const downloadButton = await screen.findByRole("button", { name: /Download/ });
   expect(detailsButton).toBeVisible();
   expect(downloadButton).toBeVisible();
+});
+
+function renderWithLegendRegistry({ visible }) {
+  const gis = makeGIS("Some GIS");
+  gis.viz.legend = ["fdb/gis_legend.png"];
+  const projectId = newUUID();
+  const registerLegend = jest.fn();
+  const unregisterLegend = jest.fn();
+  render(
+    <ProjectContext.Provider value={{ projectId, setProjectId: jest.fn(), openFolders: { [projectId]: [] }, closeFolder: jest.fn(), openFolder: jest.fn() }}>
+      <GraphicsWindowVisualsContext.Provider
+        value={{
+          visibleObjects: { [projectId]: visible ? [gis.id] : [] },
+          hideObject: jest.fn(),
+          revealObject: jest.fn(),
+          setFramedObject: jest.fn(),
+          setZoomToExtent: jest.fn(),
+          visibleCZMLObject: {},
+          setCZMLLayer: jest.fn(),
+          setSelectedCZMLPoint: jest.fn(),
+        }}
+      >
+        <LegendsRegistryContext.Provider value={{ registerLegend, unregisterLegend, setShowLegends: jest.fn() }}>
+          <GISTreeItem gis={gis} datasetIndex={4} onDelete={jest.fn()} onDuplicate={jest.fn()} onUpdate={jest.fn()} />
+        </LegendsRegistryContext.Provider>
+      </GraphicsWindowVisualsContext.Provider>
+    </ProjectContext.Provider>
+  );
+  return { gis, registerLegend, unregisterLegend };
+}
+
+it("Registers its legend with the global Legends panel while shown", () => {
+  const { gis, registerLegend } = renderWithLegendRegistry({ visible: true });
+  expect(registerLegend).toHaveBeenCalledWith(gis.id, expect.objectContaining({ id: gis.id, uniqueId: gis.id, order: [1, 4, 0] }));
+});
+
+it("Does not register its legend while hidden", () => {
+  const { gis, registerLegend, unregisterLegend } = renderWithLegendRegistry({ visible: false });
+  expect(registerLegend).not.toHaveBeenCalled();
+  expect(unregisterLegend).toHaveBeenCalledWith(gis.id);
 });
