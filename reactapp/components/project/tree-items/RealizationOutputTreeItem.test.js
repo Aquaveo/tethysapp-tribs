@@ -234,7 +234,7 @@ it("Creates a tree item with frame, delete, properties, and rename actions in op
   const frameButton = await screen.findByRole("button", { name: /Frame/ });
   const deleteButton = await screen.findByRole("button", { name: /Delete/ });
   const renameButton = await screen.findByRole("button", { name: /Rename/ });
-  const propertiesButton = await screen.findByRole("button", { name: /Visible: Mi \(mm\)/ });
+  const propertiesButton = await screen.findByRole("button", { name: /Variable: Mi \(mm\)/ });
   expect(frameButton).toBeVisible();
   expect(deleteButton).toBeVisible();
   expect(renameButton).toBeVisible();
@@ -343,7 +343,7 @@ it("Calls the open side panel callback when Properties button is pressed", async
 
   const optionsButton = screen.getByRole("button", { name: /Options/ });
   await user.click(optionsButton);
-  const propertiesButton = await screen.findByRole("button", { name: /Visible: Mi \(mm\)/ });
+  const propertiesButton = await screen.findByRole("button", { name: /Variable: Mi \(mm\)/ });
   await user.click(propertiesButton);
 
   expect(showPanel).toHaveBeenCalledWith(`slide-panel-${vizDataset.id}`);
@@ -354,7 +354,7 @@ it("Will not call the open side panel callback when the dataset is disabled", as
   const optionsButton = screen.getByRole("button", { name: /Options/ });
   await user.click(optionsButton);
 
-  const propertiesButton = await screen.findByRole("button", { name: `Visible: ${DO_NOT_SET_LAYER}` });
+  const propertiesButton = await screen.findByRole("button", { name: `Variable: ${DO_NOT_SET_LAYER}` });
   await user.click(propertiesButton);
 
   expect(showPanel).not.toHaveBeenCalled();
