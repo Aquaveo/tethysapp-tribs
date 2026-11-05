@@ -77,6 +77,7 @@ const GraphicsWindow = ({ datasets }) => {
   return (
     <Viewer
       full
+      homeButton={false} // Cesium's "View Home" flies to the whole globe; the Project panel's Zoom to Home replaces it
       style={{ top: "50px" }}
       defaultAccessToken={Ion}
       terrainProvider={terrain_provider}
