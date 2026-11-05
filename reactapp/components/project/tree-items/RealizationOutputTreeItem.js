@@ -15,6 +15,7 @@ import VisibilityAction from "components/project/actions/VisibilityAction";
 import DetailsAction from "../actions/DetailsAction";
 import DownloadAction from "../actions/DownloadAction";
 import { DATASET_VIZ_TYPES, DO_NOT_SET_LAYER, FRAME_OBJECT } from "constants/GraphicsWindowConstants";
+import { plotPanelId } from "constants/PlotConstants";
 import Polygons from 'assets/Polygons.svg';
 import extractLayerName from "lib/extractLayerName";
 import { findVariable, getVariables, isTimeDynamic, makeActiveTimeSeries, timestepForTime } from "lib/meshTimeSeries";
@@ -145,7 +146,7 @@ const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationInd
       }
       selectedPointRef.current = selectedCZMLPoint;
       setSelectedCZMLPoint(null);
-      hideSidePanel(`plotly-panel-${dataset.id}`);
+      hideSidePanel(plotPanelId(dataset.id));
     } else {
       reveal();
     }
@@ -156,7 +157,7 @@ const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationInd
   };
 
   const handleShowPlotPanel = () => {
-    showPanel(`plotly-panel-${dataset.id}`);
+    showPanel(plotPanelId(dataset.id));
   }
 
   const handleOpenDatasetDetails = () => {
@@ -234,8 +235,7 @@ const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationInd
           />
           <PlotlyPanel
             dataset={dataset}
-            panelId={`plotly-panel-${dataset.id}`}
-            style={{ height: "800px" }}
+            panelId={plotPanelId(dataset.id)}
             realizationIndex={realizationIndex}
           />
         </>

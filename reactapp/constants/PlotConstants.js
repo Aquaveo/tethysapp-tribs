@@ -20,3 +20,12 @@ export const UNIT_NAMES = {
   "Pa": "Pa", // Pascals
   // Add any more that might pop up
 };
+
+// The plot sheet docks to the bottom of the window and covers this fraction of its height; the map stays visible
+// above it (see PlotlyPanel and the viewer's SelectionFocus, which keeps the selected feature in that strip).
+export const PLOT_SHEET_HEIGHT_FRACTION = 0.5;
+
+// Side-panel ids of the plot sheets, one per CZML dataset.
+const PLOT_PANEL_ID_PREFIX = "plotly-panel-";
+export const plotPanelId = (datasetId) => `${PLOT_PANEL_ID_PREFIX}${datasetId}`;
+export const isPlotPanelId = (panelId) => typeof panelId === "string" && panelId.startsWith(PLOT_PANEL_ID_PREFIX);
