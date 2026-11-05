@@ -7,7 +7,7 @@ import { datasetPropTypes } from "components/tree/propTypes";
 import SlideSheet from "components/dialogs/SlideSheet"
 import PlotSettingsMenu from "components/project/panels/PlotSettingsMenu";
 import { AppContext, GraphicsWindowVisualsContext, SidePanelContext } from "react-tethys/context";
-import { PLOT_SHEET_HEIGHT_FRACTION, VARIABLE_SEPARATOR } from "constants/PlotConstants";
+import { PLOT_SHEET_HEIGHT_FRACTION, VARIABLE_SEPARATOR, isSelectionOf, selectionDatasetId } from "constants/PlotConstants";
 import { DO_NOT_SET_LAYER } from "constants/GraphicsWindowConstants";
 import { describeLayer, variableTitle, variableLabel, variableUnits } from "lib/outputVariables";
 
@@ -140,7 +140,9 @@ const PlotlyPanel = ({
   const { visibleCZMLObject, selectedCZMLPoint, setSelectedCZMLPoint, startDates } = useContext(GraphicsWindowVisualsContext);
   const handleClose = () => {
     hideSidePanel(panelId);
-    setSelectedCZMLPoint?.(null); // the globe's selection follows (see graphics-window/SelectionFocus)
+    if (isSelectionOf(selectedCZMLPoint, dataset.id)) {
+      setSelectedCZMLPoint?.(null); // the globe's selection follows (see graphics-window/SelectionFocus)
+    }
   }
   const [currentData, setCurrentData] = useState(null);
   const [plotLayout, setPlotLayout] = useState(layout);
@@ -149,10 +151,8 @@ const PlotlyPanel = ({
   const [plotConfig, setPlotConfig] = useState(config);
 
   useEffect(() => {
-    const datasetIdMatch = selectedCZMLPoint?.match(/\[(.*?)\]/);
-    const datasetId = datasetIdMatch ? datasetIdMatch[1] : null;
+    const datasetId = selectionDatasetId(selectedCZMLPoint);
     if (datasetId === dataset.id) {
-      const datasetId = selectedCZMLPoint.match(/\[(.*?)\]/)[1]; // This grabs any string inbetween brackets "[" or "]"
       const variableName = visibleCZMLObject?.[datasetId];
       const applyTitles = (plotData = {}) => {
         const titles = seriesTitles(dataset, variableName, plotData);
@@ -247,6 +247,7 @@ const PlotlyPanel = ({
       placement={placement}
       onClose={handleClose}
       style={{ ...PLOT_SHEET_STYLE, ...style }}
+      data-plot-sheet="" // lets graphics-window/SelectionFocus measure what the sheet covers
       {...props}
     >
       <StyledPlot

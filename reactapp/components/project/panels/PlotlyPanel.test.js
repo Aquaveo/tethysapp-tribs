@@ -151,6 +151,15 @@ describe("PlotlyPanel", () => {
     await user.click(screen.getByRole("button", { name: "Close" }));
     expect(sidePanels.hideSidePanel).toHaveBeenCalledWith(`plotly-panel-${mrf.id}`);
     expect(setSelectedCZMLPoint).toHaveBeenCalledWith(null);
+    expect(screen.getByRole("dialog")).toHaveAttribute("data-plot-sheet");
+  });
+
+  it("leaves another dataset's selected feature alone when closed", async () => {
+    const user = userEvent.setup();
+    const mrf = makeMrfDataset();
+    const { setSelectedCZMLPoint } = await renderPanel(mrf, "MDGW", "point_3 [some-other-dataset]");
+    await user.click(screen.getByRole("button", { name: "Close" }));
+    expect(setSelectedCZMLPoint).not.toHaveBeenCalled();
   });
 
   it("shows a legend only when there are several series", () => {
