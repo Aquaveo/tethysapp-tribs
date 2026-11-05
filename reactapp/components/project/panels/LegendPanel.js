@@ -80,14 +80,13 @@ const LegendPanel = ({
   // The variable the legend is for: the one given, else the dataset layer named by uniqueId (a layer name for
   // CZML output and glTF mesh output, but the dataset id for station data and bare TIN meshes).
   const legendVariable = variable ?? (isLayerOf(dataset, uniqueId) ? describeLayer(dataset, uniqueId) : null);
-  // The panel itself is just "Legend". What it describes is written around the color scale: the realization and
-  // dataset on one line, the variable on the next, the units under the scale and the time step last.
+  // The panel itself is just "Legend". What it describes is written around the color scale: the realization,
+  // the dataset and the variable on three lines, the units centered under the scale and the time step last.
   let variableName = legendVariable ? variableLabel(legendVariable) : null;
   if (dataset?.viz?.type === DATASET_VIZ_TYPES.WMS_COMPOUND && uniqueId) {
     variableName = uniqueId.split('_').slice(1).join("");
   }
   const unitsText = legendVariable ? variableUnits(legendVariable) : null;
-  const ownerText = realizationName ? `${realizationName} · ${dataset.name}` : dataset.name;
   const subtitleText = subtitle ? formatTimestepTime(subtitle) ?? subtitle : null;
 
   const handleClose = () => {
@@ -119,8 +118,13 @@ const LegendPanel = ({
             />
           </div>
         )}
+        {realizationName && (
+          <div data-testid="legend-realization" style={{ fontSize: "0.85em", color: "#555" }}>
+            {realizationName}
+          </div>
+        )}
         <div data-testid="legend-owner" style={{ fontSize: "0.85em", color: "#555" }}>
-          {ownerText}
+          {dataset.name}
         </div>
         {variableName && (
           <div data-testid="legend-variable" style={{ fontSize: "0.95em", fontWeight: 600, marginBottom: "0.25rem" }}>
@@ -159,7 +163,7 @@ const LegendPanel = ({
           );
         })}
         {unitsText && (
-          <div data-testid="legend-units" style={{ fontSize: "0.85em", color: "#555" }}>
+          <div data-testid="legend-units" style={{ fontSize: "0.85em", color: "#555", textAlign: "center" }}>
             {unitsText}
           </div>
         )}
@@ -181,7 +185,7 @@ LegendPanel.propTypes = {
   dataset: datasetPropTypes.isRequired,
   legendUrls: PropTypes.arrayOf(PropTypes.string),
   subtitle: PropTypes.string,
-  realizationName: PropTypes.string, // written with the dataset name above the variable, for realization output
+  realizationName: PropTypes.string, // written on its own line above the dataset name, for realization output
   // glTF meshes: the variable shown (for its label, units and min/max) and the callback that saves a chosen ramp
   variable: PropTypes.shape({
     name: PropTypes.string,

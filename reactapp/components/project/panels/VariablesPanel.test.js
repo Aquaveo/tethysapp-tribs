@@ -2,7 +2,7 @@ import userEvent from "@testing-library/user-event";
 import { render, screen } from '@testing-library/react';
 
 import { SidePanelContext, GraphicsWindowVisualsContext } from 'react-tethys/context';
-import VisibilityPropertyPanel from './VisibilityPropertyPanel';
+import VariablesPanel from './VariablesPanel';
 import { DO_NOT_SET_LAYER } from "constants/GraphicsWindowConstants";
 import { makeMrfDataset, makeStaticMesh, makeTimeSeriesMesh } from "config/tests/mocks/meshMock";
 
@@ -118,7 +118,7 @@ const setupPanel = (show = false, disabled = false, panelDataset = dataset) => {
   const panelRender = (
     <SidePanelContext.Provider value={mockSidePanelContextValue}>
       <GraphicsWindowVisualsContext.Provider value={mockGraphicsWindowVisualsContextValue}>
-        <VisibilityPropertyPanel dataset={panelDataset} panelId="testPanelId" />
+        <VariablesPanel dataset={panelDataset} panelId="testPanelId" />
       </GraphicsWindowVisualsContext.Provider>
     </SidePanelContext.Provider>
   );
@@ -133,14 +133,14 @@ const setupPanel = (show = false, disabled = false, panelDataset = dataset) => {
   };
 }
 
-describe('VisibilityPropertyPanel', () => {
+describe('VariablesPanel', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   it('should render the SlideSheet component with the correct title', () => {
     setupPanel(true);
-    expect(screen.getByText(`${dataset.name} Visibility Properties`)).toBeInTheDocument();
+    expect(screen.getByText(`${dataset.name} Variables`)).toBeInTheDocument();
   });
 
   it('should select the first layer as a default', () => {
@@ -184,7 +184,7 @@ describe('VisibilityPropertyPanel', () => {
   });
 });
 
-describe('VisibilityPropertyPanel with glTF mesh variables', () => {
+describe('VariablesPanel with glTF mesh variables', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -230,7 +230,7 @@ describe('VisibilityPropertyPanel with glTF mesh variables', () => {
   });
 });
 
-describe('VisibilityPropertyPanel with tiered output variables', () => {
+describe('VariablesPanel with tiered output variables', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });

@@ -32,7 +32,7 @@ Follow-ups that were noted but deliberately deferred. Newest at the bottom.
   - *Preload a window of time steps.* `GltfLayers.js` double-buffers (current + next), so playback waits for each
     ~7 MB file when the network is slow; a small cache of adjacent steps would smooth it.
   - *Time-step axis in the UI.* The Cesium timeline shows the range, but nothing labels the current time step in
-    the Visibility Properties panel (the Legend panel does show it).
+    the Variables panel (the Legend panel does show it).
 - **Detect inconsistent tRIBS mesh files before building Voronoi cells.** tRIBS's own output writer dumps
   `OUTFILENAME.nodes/.z` in internal list order while `.edges/.tri` keep the original ids (verified in tOutput.cpp,
   2026-10-08). Read as mesh input, every cell becomes a mesh-wide sliver (Cedar_Flats_Treated: 237 MB glb, 139 s).

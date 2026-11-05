@@ -25,7 +25,7 @@ export function getLayerItems(dataset) {
   }));
 }
 
-const VisibilityPropertySlideSheet = ({ dataset, panelId }) => {
+const VariablesPanel = ({ dataset, panelId }) => {
   const { hideSidePanel, visibleSidePanel } = useContext(SidePanelContext);
   const { visibleCZMLObject, setCZMLLayer, setActiveTimeSeries } = useContext(GraphicsWindowVisualsContext);
   const handleClose = () => {
@@ -70,7 +70,7 @@ const VisibilityPropertySlideSheet = ({ dataset, panelId }) => {
 
   return (
     <SlideSheet
-      title={`${dataset.name} Visibility Properties`}
+      title={`${dataset.name} Variables`}
       show={visibleSidePanel.includes(panelId)}
       onClose={handleClose}
       resizable
@@ -90,9 +90,9 @@ const VisibilityPropertySlideSheet = ({ dataset, panelId }) => {
   );
 };
 
-VisibilityPropertySlideSheet.propTypes = {
+VariablesPanel.propTypes = {
   dataset: datasetPropTypes.isRequired,
   panelId: PropTypes.string.isRequired,
 };
 
-export default VisibilityPropertySlideSheet;
+export default VariablesPanel;

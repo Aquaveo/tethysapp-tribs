@@ -96,7 +96,10 @@ describe("legend layout", () => {
     renderPanel({ dataset: mrf, uniqueId: "MDGW", legendUrls: [mrf.viz.legend[1]], realizationName: "Run 1" });
     expect(screen.getByText("Legend")).toBeInTheDocument();
     expect(screen.queryByText(/Depth to Groundwater.*Legend/)).not.toBeInTheDocument();
-    expect(screen.getByTestId("legend-owner")).toHaveTextContent("Run 1 · Basin Averages");
+    expect(screen.getByTestId("legend-realization")).toHaveTextContent("Run 1");
+    expect(screen.getByTestId("legend-owner")).toHaveTextContent("Basin Averages");
+    expect(screen.getByTestId("legend-owner")).not.toHaveTextContent("Run 1");
+    expect(screen.getByTestId("legend-units")).toHaveStyle({ textAlign: "center" });
     expect(screen.getByTestId("legend-variable")).toHaveTextContent("Depth to Groundwater");
     expect(screen.getByTestId("legend-units")).toHaveTextContent("m");
     expect(screen.queryByLabelText("Color ramp")).not.toBeInTheDocument();
@@ -121,6 +124,7 @@ describe("legend layout", () => {
     const els = ids.map((id) => screen.getByTestId(id));
     const inOrder = els.slice(1).map((el, i) => Boolean(els[i].compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING));
     expect(inOrder).toEqual([true, true, true, true]);
+    expect(screen.queryByTestId("legend-realization")).not.toBeInTheDocument();
     expect(screen.getByTestId("legend-owner")).toHaveTextContent("Time-Integrated Variable Output");
     expect(screen.getByTestId("legend-variable")).toHaveTextContent("Soil moisture");
     expect(screen.queryByTestId("gltf-legend-title")).not.toBeInTheDocument();

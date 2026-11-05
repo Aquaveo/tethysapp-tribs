@@ -21,7 +21,7 @@ import DownloadAction from "../actions/DownloadAction";
 import LegendsAction from "../actions/LegendsAction";
 import LegendPanel from "../panels/LegendPanel";
 import PropertiesAction from "../actions/PropertiesAction";
-import VisibilityPropertySlideSheet from "../panels/VisibilityPropertyPanel";
+import VariablesPanel from "../panels/VariablesPanel";
 import extractLayerName from "lib/extractLayerName";
 
 const GISTreeItem = ({
@@ -195,9 +195,9 @@ const GISTreeItem = ({
   if (gis?.viz?.type === DATASET_VIZ_TYPES.CZML) {
     gisActions.push(...[
       <PropertiesAction
-        key="visibility properties"
+        key="variables"
         onClick={handleShowProperties}
-        title={`Visible: ${visibleCZMLObject[gis.id]}`}
+        title={`Variable: ${visibleCZMLObject[gis.id]}`}
         disabled={visibleCZMLObject[gis.id] === DO_NOT_SET_LAYER}
       />,
     ])
@@ -247,7 +247,7 @@ const GISTreeItem = ({
         />
       )}
       {gis?.viz?.type === DATASET_VIZ_TYPES.CZML && (
-        <VisibilityPropertySlideSheet
+        <VariablesPanel
           dataset={gis}
           panelId={`slide-panel-${gis.id}`}
         />

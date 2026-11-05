@@ -6,7 +6,7 @@ import TreeItem from "components/tree/TreeItem";
 import { GraphicsWindowVisualsContext, ProjectContext, SidePanelContext } from "react-tethys/context";
 import { datasetPropTypes } from "components/tree/propTypes";
 import { ConfirmDeleteModal } from "components/dialogs/ConfirmDeleteModal";
-import VisibilityPropertySlideSheet from "../panels/VisibilityPropertyPanel";
+import VariablesPanel from "../panels/VariablesPanel";
 import PlotlyPanel from "../panels/PlotlyPanel";
 
 import RunAction from "../actions/RunAction";
@@ -21,7 +21,7 @@ import LegendsAction from "../actions/LegendsAction";
 import extractLayerName from "lib/extractLayerName";
 import { findVariable, getVariables, isTimeDynamic, makeActiveTimeSeries, timestepForTime } from "lib/meshTimeSeries";
 import { describeLayer, variableTitle } from "lib/outputVariables";
-import { getLayerItems } from "components/project/panels/VisibilityPropertyPanel";
+import { getLayerItems } from "components/project/panels/VariablesPanel";
 
 const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationIndex, realizationName }) => {
   const TETHYS_ROOT_URL = process.env.TETHYS_APP_ROOT_URL;
@@ -176,7 +176,7 @@ const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationInd
     />,
   ]
 
-  // Currently All dataset viz types require a Visibility Side Panel,
+  // Every dataset viz type offers the Variables panel (the layer/variable picker),
   // so the PropertiesAction is added to all datasets with a viz
   if (dataset?.viz) {
     realizationActions.push(...[
@@ -187,9 +187,9 @@ const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationInd
         off={!visible}
       />,
       <PropertiesAction
-        key="visibility properties"
+        key="variables"
         onClick={handleShowProperties}
-        title={`Visible: ${variableTitle(describeLayer(dataset, visibleCZMLObject[dataset.id]))}`}
+        title={`Variable: ${variableTitle(describeLayer(dataset, visibleCZMLObject[dataset.id]))}`}
         disabled={visibleCZMLObject[dataset.id] === DO_NOT_SET_LAYER || !visible}
       />,
     ])
@@ -242,7 +242,7 @@ const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationInd
       />
       {dataset.viz !== undefined && (
         <>
-          <VisibilityPropertySlideSheet
+          <VariablesPanel
             dataset={dataset}
             panelId={`slide-panel-${dataset.id}`}
           />
