@@ -51,3 +51,24 @@ it("Calls the close callback when close button is pressed", async () => {
   await user.click(closeButton);
   expect(mockCallback).toHaveBeenCalled();
 });
+
+it("sits above the page content and inside the right-hand gutter", () => {
+  render(<SlideSheet show placement="end" title="My Slide Sheet" />);
+  const dialog = screen.getByRole("dialog");
+  expect(dialog).toHaveStyle({ zIndex: 1025, marginRight: "10px" });
+  expect(dialog.style.height).toBe(""); // no height unless the caller gives one
+});
+
+it("applies a caller's height inline", () => {
+  render(<SlideSheet show placement="bottom" title="My Slide Sheet" style={{ height: "200px" }} />);
+  expect(screen.getByRole("dialog").style.height).toBe("200px");
+});
+
+it("places header actions between the title and the close button", () => {
+  render(<SlideSheet show title="My Slide Sheet" actions={<button type="button">Gear</button>} />);
+  const title = screen.getByText("My Slide Sheet");
+  const gear = screen.getByRole("button", { name: "Gear" });
+  const close = screen.getByRole("button", { name: /Close/ });
+  expect(title.compareDocumentPosition(gear) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(gear.compareDocumentPosition(close) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});

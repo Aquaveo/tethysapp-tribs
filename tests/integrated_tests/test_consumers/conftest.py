@@ -439,6 +439,47 @@ async def a_pixel_dataset_with_files(a_session, a_empty_project, test_files):
             raise e
 
 
+async def _output_dataset_with_files(a_session, project, test_files, dataset_type, pattern):
+    def _sync(session, project, test_files):
+        return Dataset.new(
+            session=session,
+            name=f'Test {dataset_type} Dataset',
+            description=f'Initialized {dataset_type} Dataset with Files.',
+            created_by='_staff',
+            project=project,
+            dataset_type=dataset_type,
+            srid=32612,
+            items=(test_files / 'backend' / 'datasets' / 'hyd').glob(pattern),
+        )
+
+    dataset = await a_session.run_sync(_sync, project, test_files)
+    yield dataset
+    try:
+        await a_session.refresh(dataset)
+        await a_session.delete(dataset)
+        await a_session.commit()
+    except InvalidRequestError as e:
+        if 'Could not refresh instance' not in str(e):
+            raise e
+
+
+@pytest_asyncio.fixture
+async def a_mrf_dataset_with_files(a_session, a_empty_project, test_files):
+    """A basin-averages (.mrf) dataset from an older tRIBS build (columns MGW, Max, %Sat ... instead of MDGW ...)."""
+    async for dataset in _output_dataset_with_files(
+        a_session, a_empty_project, test_files, Dataset.DatasetTypes.TRIBS_OUT_MRF, '*.mrf'
+    ):
+        yield dataset
+
+
+@pytest_asyncio.fixture
+async def a_rft_dataset_with_files(a_session, a_empty_project, test_files):
+    async for dataset in _output_dataset_with_files(
+        a_session, a_empty_project, test_files, Dataset.DatasetTypes.TRIBS_OUT_RFT, '*.rft'
+    ):
+        yield dataset
+
+
 @pytest_asyncio.fixture
 async def rbh(a_complete_project, a_session_maker, a_staff_app_user):
     """Create a ResourceBackendHandler with a complete project."""

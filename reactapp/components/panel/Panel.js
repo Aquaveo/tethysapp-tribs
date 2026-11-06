@@ -1,12 +1,15 @@
 import { useContext } from "react";
 import {
   GraphicsWindowVisualsContext,
+  LegendsContext,
+  LegendsRegistryContext,
   ModalContext,
 } from "react-tethys/context";
 import { toast } from "react-toastify";
 
 import styled from "styled-components";
 import Collapse from "react-bootstrap/Collapse";
+import OverlayTrigger from "react-bootstrap/OverlayTrigger";
 import { NavLink } from "react-bootstrap";
 import PropTypes from "prop-types";
 import { useState } from "react";
@@ -16,9 +19,11 @@ import {
   BsFillHouseFill,
   BsHouseAdd,
   BsArrowLeft,
+  BsMenuButtonWide,
 } from "react-icons/bs";
 
 import MinimalButton from "components/buttons/MinimalButton";
+import { StyledTooltip } from "components/buttons/ToolTips";
 import Toolbox_Icon from "assets/toolbox-macro.svg";
 import Icon from "assets/Icon";
 import { HOME } from "constants/GraphicsWindowConstants";
@@ -79,6 +84,8 @@ const Panel = ({
   children,
 }) => {
   const { setWorkflowsModal } = useContext(ModalContext);
+  const { showLegends } = useContext(LegendsContext);
+  const { setShowLegends } = useContext(LegendsRegistryContext);
   const { setUpdateFrame, setZoomToExtent, framedObject } = useContext(
     GraphicsWindowVisualsContext
   );
@@ -118,11 +125,14 @@ const Panel = ({
               style={{padding: "0rem"}}
               href={homeURL}
             >
-              <MinimalButton
-                title="Go to Projects List"
+              <OverlayTrigger
+                placement="bottom"
+                overlay={<StyledTooltip id="panel-projects-tooltip">Go to Projects List</StyledTooltip>}
               >
-                <BsArrowLeft color="#21251F" />
-              </MinimalButton>
+                <MinimalButton aria-label="Go to Projects List">
+                  <BsArrowLeft color="#21251F" />
+                </MinimalButton>
+              </OverlayTrigger>
             </NavLink>
           </PanelBackButton>
         )}
@@ -130,47 +140,80 @@ const Panel = ({
         <PanelHeaderIcons className="panel-icons">
           {isProject && (
             <>
-              <MinimalButton
-                size="sm"
-                title="Set Home Extent"
-                onClick={() => setUpdateFrame(true)}
+              <OverlayTrigger
+                placement="bottom"
+                overlay={<StyledTooltip id="panel-set-home-tooltip">Set Home Extent</StyledTooltip>}
               >
-                <BsHouseAdd fontSize={"1.5em"} />
-              </MinimalButton>
-              <MinimalButton
-                size="sm"
-                title="Zoom to Home"
-                onClick={handleZoomToHome}
+                <MinimalButton
+                  size="sm"
+                  aria-label="Set Home Extent"
+                  onClick={() => setUpdateFrame(true)}
+                >
+                  <BsHouseAdd fontSize={"1.5em"} />
+                </MinimalButton>
+              </OverlayTrigger>
+              <OverlayTrigger
+                placement="bottom"
+                overlay={<StyledTooltip id="panel-zoom-home-tooltip">Zoom to Home</StyledTooltip>}
               >
-                <BsFillHouseFill fontSize={"1.5em"} />
-              </MinimalButton>
-              <MinimalButton
-                size="sm"
-                title="Open Workflows"
-                onClick={() => setWorkflowsModal(true)}
+                <MinimalButton
+                  size="sm"
+                  aria-label="Zoom to Home"
+                  onClick={handleZoomToHome}
+                >
+                  <BsFillHouseFill fontSize={"1.5em"} />
+                </MinimalButton>
+              </OverlayTrigger>
+              <OverlayTrigger
+                placement="bottom"
+                overlay={<StyledTooltip id="panel-legends-tooltip">{showLegends ? "Hide Legends" : "Show Legends"}</StyledTooltip>}
               >
-                <Icon
-                  src={Toolbox_Icon}
-                  altText="Open Workflows"
-                  height={"24px"}
-                  width="24px"
-                />
-              </MinimalButton>
+                <MinimalButton
+                  size="sm"
+                  aria-label="Legends"
+                  aria-pressed={showLegends}
+                  onClick={() => setShowLegends(!showLegends)}
+                >
+                  <BsMenuButtonWide fontSize={"1.5em"} />
+                </MinimalButton>
+              </OverlayTrigger>
+              <OverlayTrigger
+                placement="bottom"
+                overlay={<StyledTooltip id="panel-workflows-tooltip">Open Workflows</StyledTooltip>}
+              >
+                <MinimalButton
+                  size="sm"
+                  aria-label="Open Workflows"
+                  onClick={() => setWorkflowsModal(true)}
+                >
+                  <Icon
+                    src={Toolbox_Icon}
+                    altText=""
+                    height={"24px"}
+                    width="24px"
+                  />
+                </MinimalButton>
+              </OverlayTrigger>
             </>
           )}
-          <MinimalButton
-            size="sm"
-            title={open ? "Shrink" : "Expand"}
-            onClick={() => setOpen(!open)}
-            aria-controls={`${id}-panel-content`}
-            aria-expanded={open}
+          <OverlayTrigger
+            placement="bottom"
+            overlay={<StyledTooltip id={`${id}-collapse-tooltip`}>{open ? "Shrink" : "Expand"}</StyledTooltip>}
           >
-            {open ? (
-              <BsArrowsAngleContract fontSize={"1.5em"} />
-            ) : (
-              <BsArrowsAngleExpand fontSize={"1.5em"} />
-            )}
-          </MinimalButton>
+            <MinimalButton
+              size="sm"
+              aria-label={open ? "Shrink" : "Expand"}
+              onClick={() => setOpen(!open)}
+              aria-controls={`${id}-panel-content`}
+              aria-expanded={open}
+            >
+              {open ? (
+                <BsArrowsAngleContract fontSize={"1.5em"} />
+              ) : (
+                <BsArrowsAngleExpand fontSize={"1.5em"} />
+              )}
+            </MinimalButton>
+          </OverlayTrigger>
         </PanelHeaderIcons>
       </PanelHeader>
       <Collapse in={open}>

@@ -1,3 +1,4 @@
+import React from "react";
 import styled from "styled-components";
 import PropTypes from "prop-types";
 
@@ -14,15 +15,18 @@ export const MinimallyStyledButton = styled.button`
     background-color: #efefef;
   }
 
-  &:active {
+  &:active,
+  &[aria-pressed="true"] {
     background-color: #dfdfdf;
   }
 `;
 
-const MinimalButton = ({ children, className = "", size = "", ...props }) => {
+// forwardRef so overlays (tooltips) can anchor to the button
+const MinimalButton = React.forwardRef(({ children, className = "", size = "", ...props }, ref) => {
   const bootstrapClasses = size !== "sm" ? "btn" : "btn btn-sm";
   return (
     <MinimallyStyledButton
+      ref={ref}
       className={
         !className ? bootstrapClasses : `${bootstrapClasses} ${className}`
       }
@@ -31,7 +35,8 @@ const MinimalButton = ({ children, className = "", size = "", ...props }) => {
       {children}
     </MinimallyStyledButton>
   );
-};
+});
+MinimalButton.displayName = "MinimalButton";
 
 MinimalButton.propTypes = {
   children: PropTypes.oneOfType([

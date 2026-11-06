@@ -3,9 +3,10 @@ import { render, screen } from "@testing-library/react";
 
 import { mockBackend, mockBackendAfterEach } from "config/tests/mocks/backend";
 import RealizationOutputTreeItem from "./RealizationOutputTreeItem";
-import { AppContext, GraphicsWindowVisualsContext, ProjectContext, SidePanelContext } from "react-tethys/context";
+import { AppContext, GraphicsWindowVisualsContext, LegendsRegistryContext, ProjectContext, SidePanelContext } from "react-tethys/context";
 import { DO_NOT_SET_LAYER, FRAME_OBJECT } from "constants/GraphicsWindowConstants";
 import newUUID from "lib/uuid";
+import { makeTimeSeriesMesh } from "config/tests/mocks/meshMock";
 
 const vizDataset = {
   "id": "ef458c1c-e390-4196-a152-405683d9b0c9",
@@ -154,7 +155,7 @@ const initAndRender = async (viz = false, disabled = false) => {
     if (viz && disabled) {
       visibleCZMLObject[vizDataset.id] = DO_NOT_SET_LAYER;
       if (visibleObjects[projectId].includes(vizDataset.id)) {
-        visibleObjects[projectId] = {...visibleObjects[projectId].filter(id => id !== vizDataset.id)};
+        visibleObjects[projectId] = visibleObjects[projectId].filter(id => id !== vizDataset.id);
       }
     }
     return (
@@ -178,6 +179,9 @@ const initAndRender = async (viz = false, disabled = false) => {
               visibleCZMLObject,
               setCZMLLayer,
               setSelectedCZMLPoint,
+              activeTimeSeries: null,
+              setActiveTimeSeries: jest.fn(),
+              meshClockTime: null,
             }}
           >
             <SidePanelContext.Provider value={{ showPanel, hideSidePanel, visibleSidePanel }}>
@@ -229,7 +233,7 @@ it("Creates a tree item with frame, delete, properties, and rename actions in op
   const frameButton = await screen.findByRole("button", { name: /Frame/ });
   const deleteButton = await screen.findByRole("button", { name: /Delete/ });
   const renameButton = await screen.findByRole("button", { name: /Rename/ });
-  const propertiesButton = await screen.findByRole("button", { name: /Visible: Mi_mm/ });
+  const propertiesButton = await screen.findByRole("button", { name: /Variable: Mi \(mm\)/ });
   expect(frameButton).toBeVisible();
   expect(deleteButton).toBeVisible();
   expect(renameButton).toBeVisible();
@@ -338,7 +342,7 @@ it("Calls the open side panel callback when Properties button is pressed", async
 
   const optionsButton = screen.getByRole("button", { name: /Options/ });
   await user.click(optionsButton);
-  const propertiesButton = await screen.findByRole("button", { name: /Visible: Mi_mm/ });
+  const propertiesButton = await screen.findByRole("button", { name: /Variable: Mi \(mm\)/ });
   await user.click(propertiesButton);
 
   expect(showPanel).toHaveBeenCalledWith(`slide-panel-${vizDataset.id}`);
@@ -349,7 +353,7 @@ it("Will not call the open side panel callback when the dataset is disabled", as
   const optionsButton = screen.getByRole("button", { name: /Options/ });
   await user.click(optionsButton);
 
-  const propertiesButton = await screen.findByRole("button", { name: `Visible: ${DO_NOT_SET_LAYER}` });
+  const propertiesButton = await screen.findByRole("button", { name: `Variable: ${DO_NOT_SET_LAYER}` });
   await user.click(propertiesButton);
 
   expect(showPanel).not.toHaveBeenCalled();
@@ -363,4 +367,99 @@ it("Creates a tree item with details and download actions in options menu", asyn
   const downloadButton = await screen.findByRole("button", { name: /Download/ });
   expect(detailsButton).toBeVisible();
   expect(downloadButton).toBeVisible();
+});
+
+async function renderGltfWithLegendRegistry({ visible, selectedLayer = "Nwt", meshClockTime = null, updateCallback = jest.fn() }) {
+  const { backend } = await mockBackend();
+  const dataset = makeTimeSeriesMesh();
+  const projectId = newUUID();
+  const registerLegend = jest.fn();
+  const unregisterLegend = jest.fn();
+  render(
+    <AppContext.Provider value={{ backend, csrf: "12345" }}>
+      <ProjectContext.Provider value={{ projectId, setProjectId: jest.fn(), openFolders: {}, closeFolder: jest.fn(), openFolder: jest.fn() }}>
+        <GraphicsWindowVisualsContext.Provider
+          value={{
+            visibleObjects: { [projectId]: visible ? [dataset.id] : [] },
+            hideObject: jest.fn(),
+            revealObject: jest.fn(),
+            setFramedObject: jest.fn(),
+            setZoomToExtent: jest.fn(),
+            visibleCZMLObject: { [dataset.id]: selectedLayer },
+            setCZMLLayer: jest.fn(),
+            setSelectedCZMLPoint: jest.fn(),
+            activeTimeSeries: null,
+            setActiveTimeSeries: jest.fn(),
+            meshClockTime,
+          }}
+        >
+          <SidePanelContext.Provider value={{ showPanel: jest.fn(), hideSidePanel: jest.fn(), visibleSidePanel: [] }}>
+            <LegendsRegistryContext.Provider value={{ registerLegend, unregisterLegend, setShowLegends: jest.fn() }}>
+              <RealizationOutputTreeItem
+                dataset={dataset}
+                onDelete={jest.fn()}
+                onUpdate={updateCallback}
+                realizationIndex={1}
+                realizationName="Run 1"
+                outputIndex={3}
+              />
+            </LegendsRegistryContext.Provider>
+          </SidePanelContext.Provider>
+        </GraphicsWindowVisualsContext.Provider>
+      </ProjectContext.Provider>
+    </AppContext.Provider>
+  );
+  return { dataset, registerLegend, unregisterLegend };
+}
+
+it("Registers the legend of the selected glTF variable at the current time step, and saves a ramp chosen there", async () => {
+  const updateCallback = jest.fn();
+  const { dataset, registerLegend } = await renderGltfWithLegendRegistry({ visible: true, updateCallback });
+  const variable = dataset.viz.variables.find((v) => v.name === "Nwt");
+  expect(registerLegend).toHaveBeenCalledWith(
+    dataset.id,
+    expect.objectContaining({
+      id: dataset.id,
+      uniqueId: "Nwt",
+      order: [3, 1, 3],
+      realizationName: "Run 1",
+      variable,
+      legendUrls: [variable.timesteps[0].legend],
+      subtitle: variable.timesteps[0].time,
+    })
+  );
+  registerLegend.mock.calls.at(-1)[1].onColorRampChange("viridis");
+  // Only the id and the ramp are sent; the backend merges attributes one key at a time
+  expect(updateCallback).toHaveBeenCalledWith({ id: dataset.id, attributes: { color_ramp: "viridis" } });
+  // (The legend card itself is covered by LegendCard.test.js.)
+});
+
+it("Registers the legend of the time step at the mesh clock time", async () => {
+  const { dataset, registerLegend } = await renderGltfWithLegendRegistry({
+    visible: true,
+    meshClockTime: Date.UTC(2004, 5, 1, 20), // the Nwt mock has steps at hours 0 and 20
+  });
+  const variable = dataset.viz.variables.find((v) => v.name === "Nwt");
+  const step = variable.timesteps[1];
+  expect(registerLegend).toHaveBeenLastCalledWith(dataset.id, expect.objectContaining({ legendUrls: [step.legend], subtitle: step.time }));
+});
+
+it("Does not register a legend while the output is hidden", async () => {
+  const { dataset, registerLegend, unregisterLegend } = await renderGltfWithLegendRegistry({ visible: false });
+  expect(registerLegend).not.toHaveBeenCalled();
+  expect(unregisterLegend).toHaveBeenCalledWith(dataset.id);
+});
+
+it("Registers the first glTF variable while no layer has been picked yet (after a reload)", async () => {
+  const { dataset, registerLegend } = await renderGltfWithLegendRegistry({ visible: true, selectedLayer: null }); // nothing picked yet
+  const first = dataset.viz.variables[0];
+  expect(registerLegend).toHaveBeenCalledWith(
+    dataset.id,
+    expect.objectContaining({ uniqueId: first.name, variable: first, legendUrls: [first.timesteps[0].legend] })
+  );
+});
+
+it("Does not register a legend while the output has no layer selected", async () => {
+  const { registerLegend } = await renderGltfWithLegendRegistry({ visible: true, selectedLayer: DO_NOT_SET_LAYER });
+  expect(registerLegend).not.toHaveBeenCalled();
 });

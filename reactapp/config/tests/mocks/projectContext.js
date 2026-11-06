@@ -379,23 +379,6 @@ export const serialized_project = {
             "dataset_type": "TRIBS_OUT_QOUT"
         },
         {
-            "id": "2627de66-2508-4391-850e-59333c7fa5d6",
-            "attributes": {},
-            "created_by": "_staff_user",
-            "date_created": new Date("2023-12-12T16:56:10.370081"),
-            "description": "Time-Dynamic Variable Output for SALAS A 1.",
-            "display_type_plural": "Datasets",
-            "display_type_singular": "Dataset",
-            "locked": false,
-            "name": "Time-Dynamic Variable Output",
-            "organizations": [],
-            "public": false,
-            "slug": "datasets",
-            "status": null,
-            "type": "dataset_resource",
-            "dataset_type": "TRIBS_OUT_TIME_DYNAMIC"
-        },
-        {
             "id": "44d36f74-1e70-40f8-a66d-25e3c5645936",
             "attributes": {},
             "created_by": "_staff_user",
@@ -1096,16 +1079,6 @@ export const serialized_project = {
                                 "OUTFILENAME": {
                                     "file_database_paths": [
                                         {
-                                            "resource_id": "2627de66-2508-4391-850e-59333c7fa5d6",
-                                            "file_collection_id": "90321e03-4598-46ac-af82-c511081e623e",
-                                            "file_collection_paths": [
-                                                "salas.0130_00d",
-                                                "salas.0220_00d",
-                                                "salas.0570_00d"
-                                            ],
-                                            "path": ""
-                                        },
-                                        {
                                             "resource_id": "2753b50b-5d69-494d-a99f-75ef23eac55a",
                                             "file_collection_id": "557b3069-f2ae-42ba-a700-fd1e28b6ceba",
                                             "file_collection_paths": [
@@ -1296,10 +1269,6 @@ export const serialized_project = {
                         {
                             "id": "618189e8-400d-4910-9dc7-a45d925d0810",
                             "name": "Qout File"
-                        },
-                        {
-                            "id": "2627de66-2508-4391-850e-59333c7fa5d6",
-                            "name": "Time-Dynamic Variable Output"
                         },
                         {
                             "id": "44d36f74-1e70-40f8-a66d-25e3c5645936",

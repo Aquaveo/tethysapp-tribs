@@ -6,6 +6,8 @@ import aioshutil
 from pathlib import Path
 
 from tribs_adapter.resources import Dataset
+from tribs_adapter.common.output_variables import describe as describe_variable, kind_for_dataset_type, \
+    split_unit_suffix
 from tribs_adapter.resources.dataset import DatasetTypes
 from ..backend_actions import BackendActions
 from ..exc import LinkedDatasetError
@@ -148,6 +150,22 @@ class DatasetBackendHandler(RBH):
         await self._generate_visualization(session, action, dup_dataset)
         await self.send_data(session, dup_dataset, action.get('id'))
 
+    @staticmethod
+    def _describe_timeseries_variable(dataset, variable, file_units=None):
+        """How to present a time series variable: ``{'label', 'units', 'tier', 'description', 'factor'}`` from the
+        output variable table, or the raw name with the units of the file header for variables it does not cover.
+
+        Args:
+            dataset (Dataset): Dataset the variable belongs to (its type selects the variable table).
+            variable (str): Layer name as the frontend knows it (``'Nwt_mm'``, ``'Qstrm_m3-s'`` or ``'MAP'``).
+            file_units (str): Units of the variable from the mrf/rft units row, if any.
+        """
+        kind = kind_for_dataset_type(dataset.dataset_type)
+        if dataset.dataset_type in (Dataset.DatasetTypes.TRIBS_OUT_PIXEL, Dataset.DatasetTypes.TRIBS_OUT_QOUT):
+            base, unit_token = split_unit_suffix(variable)
+            return describe_variable(kind, base, unit_token=unit_token)
+        return describe_variable(kind, variable, file_units=file_units)
+
     @RBH.action_handler
     async def receive_czml_point_timeseries(self, event, action, data, session):
         """Handle received get timeseries messages."""
@@ -190,12 +208,16 @@ class DatasetBackendHandler(RBH):
             return time, variable_data
 
         time, variable_data = await session.run_sync(_get_czml_point_file_dataset, dataset, point_id, variable)
+        info = self._describe_timeseries_variable(dataset, variable)
 
-        # Create a plotly line plot
+        # The series for a plot, with values in display units and how to label it
         await self.send_action(
             BackendActions.DATASET_GET_PIXEL_TIMESERIES, {
                 'x': time.to_list(),
-                'y': variable_data.to_list(),
+                'y': (variable_data * info['factor']).to_list(),
+                'name': variable,
+                'label': info['label'],
+                'units': info['units'],
             }
         )
 
@@ -228,25 +250,31 @@ class DatasetBackendHandler(RBH):
             if not selected_out_file:
                 raise ValueError(f'Output file not found in dataset with ID: "{dataset_id}".')
 
-            # Read pixel file
+            # Read the output file: a header line, a units line, then the data
             df = {}
             with open(selected_out_file, 'r') as f:
                 _data = f.readlines()
-                header, _data = _data[0], _data[2:]
+                header, units_row, _data = _data[0], _data[1], _data[2:]
                 headers = [x.strip().replace(',', '_').replace('/', '-') for x in re.split(r'\t', header) if x != '']
+                units = [x.strip() for x in units_row.split('\t') if x.strip()]
                 _data = [tuple(map(float, d.strip().split())) for d in _data]
                 df = pd.DataFrame(_data, columns=headers)
             time = df['Time']
             variable_data = df[variable]
-            return time, variable_data
+            file_units = dict(zip(headers, units)).get(variable)
+            return time, variable_data, file_units
 
-        time, variable_data = await session.run_sync(_get_mrf_or_rft_dataset, dataset, variable)
+        time, variable_data, file_units = await session.run_sync(_get_mrf_or_rft_dataset, dataset, variable)
+        info = self._describe_timeseries_variable(dataset, variable, file_units=file_units)
 
-        # Create a plotly line plot
+        # The series for a plot, with values in display units and how to label it
         await self.send_action(
             BackendActions.DATASET_GET_MRF_OR_RFT_TIMESERIES, {
                 'x': time.to_list(),
-                'y': variable_data.to_list(),
+                'y': (variable_data * info['factor']).to_list(),
+                'name': variable,
+                'label': info['label'],
+                'units': info['units'],
             }
         )
 

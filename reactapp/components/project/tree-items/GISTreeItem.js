@@ -1,5 +1,5 @@
 import PropTypes from "prop-types";
-import { useContext, useState, useEffect, useRef } from "react";
+import { useContext, useState, useEffect } from "react";
 import Icon from "assets/Icon";
 import Polygons from "assets/Polygons.svg";
 import TreeItem from "components/tree/TreeItem";
@@ -18,11 +18,12 @@ import {
 import { ConfirmDeleteModal } from "components/dialogs/ConfirmDeleteModal";
 import DetailsAction from "../actions/DetailsAction";
 import DownloadAction from "../actions/DownloadAction";
-import LegendsAction from "../actions/LegendsAction";
-import LegendPanel from "../panels/LegendPanel";
 import PropertiesAction from "../actions/PropertiesAction";
-import VisibilityPropertySlideSheet from "../panels/VisibilityPropertyPanel";
+import VariablesPanel from "../panels/VariablesPanel";
 import extractLayerName from "lib/extractLayerName";
+import { LEGEND_GROUPS, hasLegend } from "lib/legends";
+import useLegendEntry from "hooks/useLegendEntry";
+import { plotPanelId } from "constants/PlotConstants";
 
 const GISTreeItem = ({
   gis,
@@ -46,10 +47,8 @@ const GISTreeItem = ({
     setZoomToExtent,
     visibleCZMLObject,
     setCZMLLayer,
-    selectedCZMLPoint,
-    setSelectedCZMLPoint,
   } = useContext(GraphicsWindowVisualsContext);
-  const { showPanel, hideSidePanel, visibleSidePanel } = useContext(SidePanelContext);
+  const { showPanel, hideSidePanel } = useContext(SidePanelContext);
 
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const [visible, setVisible] = useState(
@@ -58,7 +57,6 @@ const GISTreeItem = ({
       : false
   );
   const [disabled, setDisabled] = useState(false);
-  const selectedPointRef = useRef(null);
 
   useEffect(() => {
     // visibleObjects context gets updated in the initial render.
@@ -68,7 +66,7 @@ const GISTreeItem = ({
     if (isFirstProjectRender) {
       // Do Nothing
     } else if (visibleObjects[projectId] !== undefined) {
-      if (!visibleObjects[projectId].includes(gis.id)) {
+      if (!visibleObjects[projectId]?.includes(gis.id)) {
         // TODO Add test in Project for changing visibility of a collection.
         setVisible(false);
       } else {
@@ -97,12 +95,14 @@ const GISTreeItem = ({
     }
   }, [disabled]);
 
-  let legendExists = false;
-  if (gis?.viz?.legend) {
-    if (gis?.viz?.legend.length > 0) {
-      legendExists = true;
-    }
-  }
+  // The dataset's legend is listed in the global Legends panel while the dataset is shown.
+  useLegendEntry({
+    id: gis.id,
+    active: hasLegend(gis) && Boolean(visibleObjects?.[projectId]?.includes(gis.id)),
+    order: [LEGEND_GROUPS.GIS, datasetIndex ?? 0, 0],
+    dataset: gis,
+    uniqueId: gis.id,
+  });
 
   const handleDelete = () => {
     setShowConfirmDelete(true);
@@ -123,7 +123,7 @@ const GISTreeItem = ({
   };
 
   const handleFrame = () => {
-    if (!visibleObjects[projectId].includes(gis.id)) {
+    if (!visibleObjects[projectId]?.includes(gis.id)) {
       revealObject(gis.id);
     }
     setFramedObject(gis.viz.extent, FRAME_OBJECT);
@@ -144,17 +144,14 @@ const GISTreeItem = ({
       hideObject(gis.id);
       if (gis?.viz?.type === DATASET_VIZ_TYPES.CZML) {
         setCZMLLayer(gis.id, DO_NOT_SET_LAYER);
-        selectedPointRef.current = selectedCZMLPoint;
-        setSelectedCZMLPoint(null);
-        hideSidePanel(`plotly-panel-${gis.id}`);
+        // The selected point stays selected (Cesium hides its marker with the layer); only the plot sheet closes.
+        hideSidePanel(plotPanelId(gis.id));
       }
     } else {
       revealObject(gis.id);
       if (gis?.viz?.type === DATASET_VIZ_TYPES.CZML) {
         const layerName = extractLayerName(gis.viz.url[0], gis.id);
         setCZMLLayer(gis.id, layerName);
-        setSelectedCZMLPoint(selectedPointRef.current);
-        selectedPointRef.current = null;
       }
     }
   };
@@ -168,13 +165,6 @@ const GISTreeItem = ({
     window.open(details_url, "_blank", "noopener noreferrer");
   };
 
-  const handleShowLegend = () => {
-    if (visibleSidePanel.includes(`legend-panel-${gis.id}`)) {
-      hideSidePanel(`legend-panel-${gis.id}`)
-    } else {
-      showPanel(`legend-panel-${gis.id}`);
-    }
-  };
   const gisActions = [
     <DetailsAction key="details" onClick={handleOpenDatasetDetails} />,
     <DownloadAction key="download" datasetId={gis.id} />,
@@ -195,23 +185,12 @@ const GISTreeItem = ({
   if (gis?.viz?.type === DATASET_VIZ_TYPES.CZML) {
     gisActions.push(...[
       <PropertiesAction
-        key="visibility properties"
+        key="variables"
         onClick={handleShowProperties}
-        title={`Visible: ${visibleCZMLObject[gis.id]}`}
+        title={`Variable: ${visibleCZMLObject[gis.id]}`}
         disabled={visibleCZMLObject[gis.id] === DO_NOT_SET_LAYER}
       />,
     ])
-  }
-
-  if (legendExists) {
-    gisActions.push(...[
-      <LegendsAction
-        key="legends"
-        onClick={handleShowLegend}
-        title={`${visibleSidePanel.includes(`legend-panel-${gis.id}`) ? "Close" : "Open"} Legend`}
-        disabled={!visible}
-      />,
-    ]);
   }
 
   return (
@@ -239,15 +218,8 @@ const GISTreeItem = ({
         handleDeleteConfirm={handleDeleteConfirm}
         message={`Are you sure you want to delete ${gis.name}?`}
       />
-      {legendExists && (
-        <LegendPanel
-          dataset={gis}
-          panelId={`legend-panel-${gis.id}`}
-          uniqueId={gis.id}
-        />
-      )}
       {gis?.viz?.type === DATASET_VIZ_TYPES.CZML && (
-        <VisibilityPropertySlideSheet
+        <VariablesPanel
           dataset={gis}
           panelId={`slide-panel-${gis.id}`}
         />
