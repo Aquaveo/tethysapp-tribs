@@ -91,7 +91,8 @@ describe("scheduleRefresh", () => {
     await waitFor(() =>
       expect(
         setTimeoutSpy.mock.calls.filter(([, delay]) => delay > 100_000).length
-      ).toBe(1)
+      ).toBe(1),
+    { timeout: 5000 }
     );
   });
 

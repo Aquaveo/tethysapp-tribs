@@ -1,5 +1,5 @@
 import userEvent from "@testing-library/user-event";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitForElementToBeRemoved } from "@testing-library/react";
 import { ConfirmDeleteModal } from "./ConfirmDeleteModal";
 
 const initAndRender = async () => {
@@ -64,12 +64,8 @@ it("Calls the confirmDeleteCallback and closes Modal", async () => {
 
   expect(deleteCallback).toHaveBeenCalled();
   await rerender(ModalRender(false));
-  const pauseFor = (milliseconds) =>
-    new Promise((resolve) => setTimeout(resolve, milliseconds));
-  await pauseFor(500);
-
+  await waitForElementToBeRemoved(() => screen.queryByRole("button", { name: "No" }));
   const newDeleteButton = screen.queryByRole("button", { name: "No" })
-
   expect(newDeleteButton).not.toBeInTheDocument();
 });
 
@@ -80,11 +76,7 @@ it("Calls the deleteCancelCallback and closes Modal", async () => {
 
   expect(deleteCancelCallback).toHaveBeenCalled();
   await rerender(ModalRender(false));
-  const pauseFor = (milliseconds) =>
-    new Promise((resolve) => setTimeout(resolve, milliseconds));
-  await pauseFor(500);
-
+  await waitForElementToBeRemoved(() => screen.queryByRole("button", { name: "No" }));
   const newDeleteButton = screen.queryByRole("button", { name: "No" })
-
   expect(newDeleteButton).not.toBeInTheDocument();
 });
