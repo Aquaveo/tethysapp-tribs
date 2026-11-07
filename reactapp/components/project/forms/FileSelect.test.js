@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { Formik } from "formik";
+import { screen } from "@testing-library/react";
+import { renderWithForm } from "config/tests/renderWithForm";
 import FileSelect from "./FileSelect";
 import userEvent from "@testing-library/user-event";
 import { ModalContext } from "react-tethys/context";
@@ -29,15 +29,13 @@ function initAndRender(label = "Foo") {
     setShowAddTabular,
   }
 
-  render(
+  renderWithForm(
     <ModalContext.Provider value={modalContext}>
-      <Formik>
-        <FileSelect
-          label={label}
-          name={label}
-          selectOptions={mockedSelectOptions}
-        />
-      </Formik>
+      <FileSelect
+        label={label}
+        name={label}
+        selectOptions={mockedSelectOptions}
+      />
     </ModalContext.Provider>
   );
 
