@@ -5,7 +5,7 @@ import { Col, Row } from "react-bootstrap";
 import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
 
-import FormikSheet from "components/dialogs/FormikSheet";
+import FormSheet from "components/dialogs/FormSheet";
 import modelControlSchema from '../../../constants/ModelControlValidation';
 import { ModelControlInitialValues } from '../../../constants/ModelControlInitial';
 import { ModelControlPropTypes } from '../../../constants/ModelControlPropTypes';
@@ -61,7 +61,7 @@ const ModelControl = ({
   }, [datasets]);
 
   return (
-    <FormikSheet
+    <FormSheet
       title="Model Control"
       show={show}
       initialValues={initialValues}
@@ -125,7 +125,7 @@ const ModelControl = ({
           })}
         </StyledTabs>
       )}
-    </FormikSheet>
+    </FormSheet>
   );
 };
 

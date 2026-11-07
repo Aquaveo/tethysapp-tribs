@@ -3,7 +3,6 @@ import { FormProvider, useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 
 // Renders form inputs inside a form, so tests don't depend on the form library.
-// Validates on change and on blur, like Formik did by default.
 const TestForm = ({ children, initialValues, validationSchema }) => {
   const methods = useForm({
     defaultValues: initialValues,
