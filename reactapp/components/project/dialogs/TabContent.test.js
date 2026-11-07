@@ -1,7 +1,7 @@
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import { TabContent, getKeyNames, getCapitalizedKey, groupByIdAndType, getDatasetTypeForId } from "./TabContent";
-import { Formik } from "formik";
 import { serialized_project } from "config/tests/mocks/projectContext";
+import { renderWithForm } from "config/tests/renderWithForm";
 
 describe("getKeyNames Function", () => {
   it("Returns keys with nested objects", () => {
@@ -238,14 +238,11 @@ describe("TabContent Function", () => {
       }
     };
 
-    render(
-      <Formik initialValues={initialValues} onSubmit={() => {}}>
-        {({ values }) => (
-          <div>
-            {TabContent( values, values, "input_file", datasets, groupByIdAndType(datasets) )}
-          </div>
-        )}
-      </Formik>
+    renderWithForm(
+      <div>
+        {TabContent( initialValues, initialValues, "input_file", datasets, groupByIdAndType(datasets) )}
+      </div>,
+      { initialValues }
     );
 
     // Check for NumberInput components
@@ -276,14 +273,11 @@ describe("TabContent Function", () => {
       empty_object: null
     };
 
-    render(
-      <Formik initialValues={keysWithObjects} onSubmit={() => {}}>
-        {({ values }) => (
-          <div>
-            {TabContent( keysWithObjects, values, "input_file", datasets )}
-          </div>
-        )}
-      </Formik>
+    renderWithForm(
+      <div>
+        {TabContent( keysWithObjects, keysWithObjects, "input_file", datasets )}
+      </div>,
+      { initialValues: keysWithObjects }
     );
 
     expect(screen.getByText("Debug Empty Object")).toBeInTheDocument();

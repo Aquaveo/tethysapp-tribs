@@ -148,11 +148,11 @@ const modelControlSchema = Yup.object().shape({
     modes: Yup.object().shape({
       rainfall_forecasting: Yup.object().shape({ // It looks like most of this isn't defined.
         FORECASTMODE: Yup.number().oneOf(Object.values(ProjectConstants.FORECASTMODE)),
-        FORECASTTIME: Yup.string(),
-        FORECASTLEADTIME: Yup.string(),
-        FORECASTLENGTH: Yup.string(),
+        FORECASTTIME: Yup.string().nullable(),
+        FORECASTLEADTIME: Yup.string().nullable(),
+        FORECASTLENGTH: Yup.string().nullable(),
         FORECASTFILE: Yup.object().shape(INPUT_FILE_VALIDATION),
-        CLIMATOLOGY: Yup.string(),
+        CLIMATOLOGY: Yup.string().nullable(),
         RAINDISTRIBUTION: Yup.number().oneOf(Object.values(ProjectConstants.RAINDISTRIBUTION))
       }),
       stochastic_climate_forcing: Yup.object().shape({

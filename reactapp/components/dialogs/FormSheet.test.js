@@ -1,8 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import * as Yup from 'yup';
-import FormikSheet from "./FormikSheet";
+import FormSheet from "./FormSheet";
 import userEvent from "@testing-library/user-event";
-import { Field } from "formik";
 
 const initAndRender = (useChildCallback = false, show = true) => {
   const user = userEvent.setup();
@@ -16,7 +15,7 @@ const initAndRender = (useChildCallback = false, show = true) => {
       .required('Email is required'),
   });
   render(
-    <FormikSheet
+    <FormSheet
       title="Foo"
       initialValues={initialValues}
       validationSchema={validationSchema}
@@ -26,13 +25,13 @@ const initAndRender = (useChildCallback = false, show = true) => {
     >
       {useChildCallback
         ? childCallback
-        : () => (
+        : ({ register }) => (
           <>
             <label htmlFor="email">Email</label>
-            <Field type="email" id="email" name="email" placeholder="Email" />
+            <input type="email" id="email" placeholder="Email" {...register("email")} />
           </>
       )}
-    </FormikSheet>
+    </FormSheet>
   );
   return {
     user,
