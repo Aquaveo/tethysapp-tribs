@@ -28,7 +28,7 @@ const FormSheet = ({
     resolver: validationSchema && yupResolver(validationSchema),
     mode: "all",
   });
-  const { handleSubmit, watch, formState: { isDirty } } = methods;
+  const { handleSubmit, formState: { isDirty } } = methods;
   const handleSave = handleSubmit(onSubmit);
   const handleClose = () => {
     onClose?.();
