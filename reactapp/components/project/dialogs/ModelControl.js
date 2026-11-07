@@ -70,13 +70,13 @@ const ModelControl = ({
       onSubmit={handleSubmit}
       {...props}
     >
-      {({ values }) => (
+      {() => (
         <StyledTabs
           defaultActiveKey="run_parameters"
           id="file-tabs"
           className="mb-3"
         >
-          {Object.entries(values.input_file)
+          {Object.entries(initialValues.input_file)
             .filter(([key, value]) => typeof value === 'object')
             .map(([keyName, keysWithObjects], i) => {
               const allValuesAreObjects = Object.values(keysWithObjects).every(value => typeof value === 'object');
@@ -89,10 +89,10 @@ const ModelControl = ({
               return(
                 <Tab key={i} eventKey={keyName} title={getCapitalizedKey(keyName)}>
                   {allValuesAreObjects ? (
-                    <VerticalTabs tabNames={getKeyNames(values.input_file[keyName])}>
+                    <VerticalTabs tabNames={getKeyNames(initialValues.input_file[keyName])}>
                       {TabContent(
                         keysWithObjects,
-                        values.input_file[keyName],
+                        initialValues.input_file[keyName],
                         keyName,
                         datasets,
                         dataset_types_map,
@@ -111,7 +111,7 @@ const ModelControl = ({
                         </Row>
                         {TabContent(
                           keysWithObjects,
-                          values.input_file[keyName],
+                          initialValues.input_file[keyName],
                           keyName,
                           datasets,
                           dataset_types_map,

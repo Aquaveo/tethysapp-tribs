@@ -41,12 +41,12 @@ const FormikSheet = ({
   return (
     <SettingsModal title={title} show={show} onClose={handleClose} {...props}>
       <FormProvider {...methods}>
-        <form onSubmit={handleSave}>
-          {children({ ...methods, values: watch() })}
+        <form onSubmit={e => { e.preventDefault(); }}>
+          {children({ ...methods })}
           {isDirty && (
             <StickyStack direction="horizontal" gap={2}>
-              <SubmitButton title="Save" />
-              <SubmitButton type="button" title="Save & Close" onClick={handleSaveClose} />
+              <SubmitButton title="Save" onClick={handleSave} />
+              <SubmitButton title="Save & Close" onClick={handleSaveClose} />
             </StickyStack>
           )}
         </form>
