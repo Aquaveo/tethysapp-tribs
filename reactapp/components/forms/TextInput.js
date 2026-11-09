@@ -30,7 +30,7 @@ const TextInput = ({ label, size = "m", type = "text", tooltip = "", ...props })
           value={field.value ?? ""}
           size={size}
           type={type}
-          isInvalid={fieldState.isTouched && !!fieldState.error}
+          isInvalid={!!fieldState.error}
         />
         <Form.Control.Feedback type="invalid">{fieldState.error?.message}</Form.Control.Feedback>
       </Col>
