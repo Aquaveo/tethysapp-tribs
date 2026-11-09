@@ -44,9 +44,10 @@ const FormSheet = ({
     resolver: validationSchema && formikStyleResolver(validationSchema),
     mode: "all",
   });
-  const { handleSubmit, formState: { isDirty } } = methods;
+  const { handleSubmit, reset, formState: { isDirty } } = methods;
   const handleSave = handleSubmit(onSubmit);
   const handleClose = () => {
+    reset(initialValues);
     onClose?.();
   };
   const handleSaveClose = handleSubmit(async (values) => {
