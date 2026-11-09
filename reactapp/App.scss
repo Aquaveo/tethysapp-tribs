@@ -11,6 +11,13 @@ body,
   height: 100%;
 }
 
+/* The app is a single full-viewport view: the document itself never scrolls. This also stops the one-frame
+   scrollbar flash when an overlay portaled to body (tooltip, popover) paints at its static position below #root
+   before Popper has positioned it. */
+body {
+  overflow: hidden;
+}
+
 .Toastify__toast-container--top-right {
   z-index: 999;
   top: 56px;

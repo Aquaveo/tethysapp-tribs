@@ -145,8 +145,6 @@ Panel.propTypes = {
   height: PropTypes.string,
   placement: PropTypes.oneOf(VALID_PLACEMENTS),
   closed: PropTypes.bool,
-  workflowClosed: PropTypes.bool,
-  setWorkflowClosed: PropTypes.func,
   isProject: PropTypes.bool,
   children: PropTypes.oneOfType([
     PropTypes.node,

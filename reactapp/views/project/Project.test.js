@@ -80,6 +80,7 @@ const setupProject = async () => {
   }
 
   const visualsContextValue = {
+    setUpdateFrame: jest.fn(), // the map toolbar's Set Home Extent
     setFramedObject,
     hideObject,
     revealObject,

@@ -19,7 +19,7 @@ import {
 // Floats over the map, centered under the navbar, styled like the project panel so the two read as siblings.
 const ToolbarWrapper = styled.div`
   position: absolute;
-  top: 56px;
+  top: var(--ts-header-height);
   left: 50%;
   transform: translateX(-50%);
   display: flex;

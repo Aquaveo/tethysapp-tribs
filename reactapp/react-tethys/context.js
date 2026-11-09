@@ -80,7 +80,7 @@ const SidePanelContext = createContext({
 
 // The global Legends panel (components/project/panels/LegendsPanel.js). Tree items register the legend of each
 // visible layer with the stable actions in LegendsRegistryContext (see hooks/useLegendEntry.js); the panel and
-// the Project panel header read the state in LegendsContext. Two contexts so that registering an entry does not
+// the map toolbar (components/project/MapToolbar.js) read the state in LegendsContext. Two contexts so that registering an entry does not
 // re-render every tree item.
 const LegendsRegistryContext = createContext({
   registerLegend: () => {},

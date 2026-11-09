@@ -6,7 +6,8 @@ import { LegendsContext, LegendsRegistryContext } from "react-tethys/context";
 import { compareLegends } from "lib/legends";
 
 /**
- * The global Legends side panel, toggled from the Project panel header: one LegendCard per visible layer that has
+ * The global Legends side panel, toggled from the map toolbar (components/project/MapToolbar.js): one LegendCard per
+ * visible layer that has
  * a legend, in project-tree order. Layers register their legend entries with useLegendEntry while they are visible.
  */
 const LegendsPanel = () => {

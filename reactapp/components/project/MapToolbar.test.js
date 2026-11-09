@@ -61,7 +61,7 @@ it("sets the home extent from the current view", async () => {
   expect(setUpdateFrame).toHaveBeenCalledWith(true);
 });
 
-it("zooms to the home extent when one is set, and explains when none is", async () => {
+it("zooms to the home extent when one is set", async () => {
   const user = userEvent.setup();
   const { setZoomToExtent } = renderToolbar({ framedObject: { [HOME]: [-1, -1, 1, 1] } });
   await user.click(screen.getByRole("button", { name: "Zoom to Home" }));
