@@ -13,6 +13,22 @@ const StickyStack = styled(Stack)`
   background-color: #fff;
 `;
 
+const emptyToUndefined = (value) => {
+  if (value === "") return undefined;
+  if (Array.isArray(value)) return value.map(emptyToUndefined);
+  if (value && typeof value === "object" && !(value instanceof Date)) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, v]) => [key, emptyToUndefined(v)])
+    );
+  }
+  return value;
+}
+
+const formikStyleResolver = (schema) => async (values, context, options) => {
+  const result = await yupResolver(schema)(emptyToUndefined(values), context, options);
+  return Object.keys(result.errors).length ? result : { values, errors: {} };
+};
+
 const FormSheet = ({
   children,
   title,
@@ -25,7 +41,7 @@ const FormSheet = ({
 }) => {
   const methods = useForm({
     values: initialValues,
-    resolver: validationSchema && yupResolver(validationSchema),
+    resolver: validationSchema && formikStyleResolver(validationSchema),
     mode: "all",
   });
   const { handleSubmit, formState: { isDirty } } = methods;
