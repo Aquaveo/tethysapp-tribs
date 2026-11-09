@@ -13,6 +13,7 @@ import {
 // Main Project Imports
 import GraphicsWindow from "components/graphics-window/GraphicsWindow";
 import Panel from "components/panel/Panel";
+import MapToolbar from "components/project/MapToolbar";
 import LegendsPanel from "components/project/panels/LegendsPanel";
 import FileUploadToastMessage from "components/project/dialogs/FileUploadToastMessage";
 
@@ -1106,6 +1107,7 @@ const Project = ({ project, setProject }) => {
           </TreeItem>
         </TreeItem>
       </Panel>
+      <MapToolbar />
       <LegendsPanel />
       <AddMeshModal
         show={showAddMesh}

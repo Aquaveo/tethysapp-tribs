@@ -6,12 +6,21 @@ import { mockBackend, mockBackendAfterEach } from "config/tests/mocks/backend";
 import { makeMrfDataset } from "config/tests/mocks/meshMock";
 import { AppContext, GraphicsWindowVisualsContext, SidePanelContext } from "react-tethys/context";
 import newUUID from "lib/uuid";
-import PlotlyPanel, { seriesTitles, showLegend } from "./PlotlyPanel";
+import PlotlyPanel, { plotAreaLeft, seriesTitles, showLegend } from "./PlotlyPanel";
+
+// A plotted graph div as Plotly leaves it: the plot area starts 85px in (a long y-axis title, say)
+const FAKE_GRAPH_DIV = { _fullLayout: { _size: { l: 85 } } };
 
 jest.mock("react-plotly.js", () => function PlotMock(props) {
+  const React = require("react");
+  React.useEffect(() => {
+    props.onInitialized?.({}, FAKE_GRAPH_DIV);
+    props.onAfterPlot?.();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- once, like Plotly's first draw
   return (
   <div
     data-testid="plot"
+    data-plot-left={props.style?.["--plot-left"] ?? ""}
     data-title={String(props.layout?.title)}
     data-showlegend={String(props.layout?.showlegend)}
     data-legend-orientation={props.layout?.legend?.orientation}
@@ -160,6 +169,19 @@ describe("PlotlyPanel", () => {
     const { setSelectedCZMLPoint } = await renderPanel(mrf, "MDGW", "point_3 [some-other-dataset]");
     await user.click(screen.getByRole("button", { name: "Close" }));
     expect(setSelectedCZMLPoint).not.toHaveBeenCalled();
+  });
+
+  it("aligns the toolbar with the y axis by publishing the plot area's left edge after each draw", async () => {
+    const mrf = makeMrfDataset();
+    await renderPanel(mrf, "MDGW", `polygon_1 [${mrf.id}]`);
+    expect(screen.getByTestId("plot")).toHaveAttribute("data-plot-left", "85px");
+  });
+
+  it("reads the plot area's left edge from a plotted graph div, and nothing from an unplotted one", () => {
+    expect(plotAreaLeft(FAKE_GRAPH_DIV)).toBe(85);
+    expect(plotAreaLeft({})).toBeNull();
+    expect(plotAreaLeft(null)).toBeNull();
+    expect(plotAreaLeft({ _fullLayout: { _size: { l: NaN } } })).toBeNull();
   });
 
   it("shows a legend only when there are several series", () => {

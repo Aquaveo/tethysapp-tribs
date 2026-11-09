@@ -2,7 +2,6 @@ import userEvent from "@testing-library/user-event";
 import { render, screen } from "@testing-library/react";
 
 import Panel from "./Panel";
-import { LegendsContext, LegendsRegistryContext, ModalContext } from "react-tethys/context";
 
 it("Has a default title of Panel", async () => {
   render(<Panel />);
@@ -131,32 +130,14 @@ it("Displays absolutely from left with any other value of placement", () => {
   console.error = originalError;
 });
 
-it("Opens the workflows Modal", async () => {
-  const user = userEvent.setup();
-  const setWorkflowsModal = jest.fn();
-  render(
-    <ModalContext.Provider value={{setWorkflowsModal}}>
-      <Panel isProject>
-        <p>Panel content.</p>
-      </Panel>
-    </ModalContext.Provider>
-  );
-
-  const workflowsButton = screen.getByRole("button", { name: "Open Workflows"});
-  await user.hover(workflowsButton);
-  expect(await screen.findByRole("tooltip")).toHaveTextContent("Open Workflows");
-  await user.click(workflowsButton);
-  expect(setWorkflowsModal).toHaveBeenCalledWith(true);
-});
-
-it("Gives every project header button a tooltip", async () => {
+it("Gives both project header buttons a tooltip", async () => {
   const user = userEvent.setup();
   render(
     <Panel isProject>
       <p>Panel content.</p>
     </Panel>
   );
-  for (const name of ["Go to Projects List", "Set Home Extent", "Zoom to Home", "Legends", "Open Workflows", "Shrink"]) {
+  for (const name of ["Go to Projects List", "Shrink"]) {
     const button = screen.getByRole("button", { name });
     expect(button).not.toHaveAttribute("title"); // no second, native tooltip
     await user.hover(button);
@@ -165,63 +146,12 @@ it("Gives every project header button a tooltip", async () => {
   }
 });
 
-it("Puts the legends button just left of the workflows button", () => {
+it("Has no map tool buttons: those live in the map toolbar", () => {
   render(
     <Panel isProject>
       <p>Panel content.</p>
     </Panel>
   );
-  const names = screen.getAllByRole("button").map((button) => button.getAttribute("aria-label") ?? button.getAttribute("title"));
-  expect(names.indexOf("Legends")).toBe(names.indexOf("Open Workflows") - 1);
-});
-
-it("Switches the global legends on from the header", async () => {
-  const user = userEvent.setup();
-  const setShowLegends = jest.fn();
-  render(
-    <LegendsRegistryContext.Provider value={{ setShowLegends, registerLegend: jest.fn(), unregisterLegend: jest.fn() }}>
-      <LegendsContext.Provider value={{ showLegends: false, legends: {} }}>
-        <Panel isProject>
-          <p>Panel content.</p>
-        </Panel>
-      </LegendsContext.Provider>
-    </LegendsRegistryContext.Provider>
-  );
-
-  const legendsButton = screen.getByRole("button", { name: "Legends" });
-  expect(legendsButton).toHaveAttribute("aria-pressed", "false");
-  await user.hover(legendsButton);
-  expect(await screen.findByRole("tooltip")).toHaveTextContent("Show Legends");
-  await user.click(legendsButton);
-  expect(setShowLegends).toHaveBeenCalledWith(true);
-});
-
-it("Shows the legends button pressed while the legends are on, and switches them off", async () => {
-  const user = userEvent.setup();
-  const setShowLegends = jest.fn();
-  render(
-    <LegendsRegistryContext.Provider value={{ setShowLegends, registerLegend: jest.fn(), unregisterLegend: jest.fn() }}>
-      <LegendsContext.Provider value={{ showLegends: true, legends: {} }}>
-        <Panel isProject>
-          <p>Panel content.</p>
-        </Panel>
-      </LegendsContext.Provider>
-    </LegendsRegistryContext.Provider>
-  );
-
-  const legendsButton = screen.getByRole("button", { name: "Legends" });
-  expect(legendsButton).toHaveAttribute("aria-pressed", "true");
-  await user.hover(legendsButton);
-  expect(await screen.findByRole("tooltip")).toHaveTextContent("Hide Legends");
-  await user.click(legendsButton);
-  expect(setShowLegends).toHaveBeenCalledWith(false);
-});
-
-it("Offers no legends button outside a project", () => {
-  render(
-    <Panel>
-      <p>Panel content.</p>
-    </Panel>
-  );
-  expect(screen.queryByRole("button", { name: /Legends/ })).not.toBeInTheDocument();
+  const names = screen.getAllByRole("button").map((button) => button.getAttribute("aria-label"));
+  expect(names).toEqual(["Go to Projects List", "Shrink"]);
 });

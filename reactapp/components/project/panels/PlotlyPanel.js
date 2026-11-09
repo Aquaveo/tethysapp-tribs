@@ -1,5 +1,5 @@
 import PropTypes from "prop-types"
-import { useContext, useEffect, useState } from "react";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import Plot from "react-plotly.js";
 import styled from "styled-components";
 
@@ -67,16 +67,31 @@ export function seriesTitles(dataset, layerName, plotData = {}) {
 
 const DEFAULT_PLOT_CONFIG = { responsive: true, displayModeBar: true };
 
+// Plotly pads the first toolbar group by 8px and each button by 4px before its icon.
+const MODEBAR_ICON_INSET_PX = 12;
+
+/**
+ * The left edge of the plot area (where the y axis is drawn) inside a plotted graph div, in px, or null before
+ * the first draw. Read from `_fullLayout._size`, the computed size Plotly itself lays the axes out with: it
+ * already includes automargin growth for long tick labels and titles.
+ */
+export function plotAreaLeft(graphDiv) {
+  const left = graphDiv?._fullLayout?._size?.l;
+  return typeof left === "number" && Number.isFinite(left) ? left : null;
+}
+
 const StyledPlot = styled(Plot)`
   height: 100%;
   .active {
     display: unset;
   };
-  /* Plotly anchors its toolbar to the top-right corner; it sits at the top-left here, with its tooltips
-     opening to the right so the first ones are not cut off by the sheet's edge. The selectors repeat Plotly's
-     own (".js-plotly-plot .plotly ...") so they outrank the rules it injects. */
+  /* Plotly anchors its toolbar to the top-right corner; it sits at the top-left here, its first icon aligned
+     with the y-axis line (--plot-left, set after each draw from Plotly's computed left margin, so long axis
+     labels never run into it) and its tooltips opening to the right so the first ones are not cut off by the
+     sheet's edge. The selectors repeat Plotly's own (".js-plotly-plot .plotly ...") so they outrank the rules it
+     injects. */
   &.js-plotly-plot .plotly .modebar {
-    left: 2px;
+    left: calc(var(--plot-left, ${MODEBAR_ICON_INSET_PX}px) - ${MODEBAR_ICON_INSET_PX}px);
     right: auto;
     width: max-content; /* keep one row: anchored left, it would otherwise shrink-wrap and stack its groups */
   }
@@ -147,6 +162,17 @@ const PlotlyPanel = ({
   const [currentData, setCurrentData] = useState(null);
   const [plotLayout, setPlotLayout] = useState(layout);
   const yAxisScale = plotLayout.yaxis?.type ?? "linear"; // what the settings menu shows as current
+
+  // Keep the toolbar aligned with the y axis: after each draw, publish the plot area's left edge as a CSS
+  // variable on the graph div (see StyledPlot). Same value -> no re-render, so the draw/measure cycle settles.
+  const graphDivRef = useRef(null);
+  const [plotLeft, setPlotLeft] = useState(null);
+  const handleInitialized = useCallback((figure, graphDiv) => {
+    graphDivRef.current = graphDiv;
+  }, []);
+  const handleAfterPlot = useCallback(() => {
+    setPlotLeft(plotAreaLeft(graphDivRef.current));
+  }, []);
   // eslint-disable-next-line no-unused-vars
   const [plotConfig, setPlotConfig] = useState(config);
 
@@ -256,8 +282,10 @@ const PlotlyPanel = ({
         config={plotConfig}
         // react-plotly's default style is an inline-block div with no width, which Plotly sizes to its 700px
         // default; an explicit full-size block (plus the resize handler) makes the plot track the sheet.
-        style={{ position: "relative", width: "100%", height: "100%" }}
+        style={{ position: "relative", width: "100%", height: "100%", "--plot-left": plotLeft === null ? undefined : `${plotLeft}px` }}
         useResizeHandler
+        onInitialized={handleInitialized}
+        onAfterPlot={handleAfterPlot}
       />
     </SlideSheet>
   );
