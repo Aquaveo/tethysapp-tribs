@@ -1,5 +1,5 @@
-import { render, screen, act } from "@testing-library/react";
-import { Formik } from "formik";
+import { screen, act } from "@testing-library/react";
+import { renderWithForm } from "config/tests/renderWithForm";
 
 import SelectInput from "./SelectInput";
 import { select } from "react-select-event";
@@ -15,8 +15,7 @@ const mockedOptions = [
 // Even though all of the changes to the dropdown are wrapped in act
 // These errors are unavoidable because of the React Select dropdown.
 // This will still allow other errors to shine through.
-const BOGUS_ERROR =
-  "Warning: An update to Formik inside a test was not wrapped in act";
+const BOGUS_ERROR = "inside a test was not wrapped in act";
 const originalWarn = console.error.bind(console.error);
 beforeAll(() => {
   console.error = (msg) =>
@@ -27,33 +26,30 @@ afterAll(() => {
 });
 
 it("Renders a select input with given label and name and options", () => {
-  render(
-    <Formik>
-      <SelectInput
-        name="foo"
-        label="Foo"
-        options={mockedOptions}
-      />
-    </Formik>
+  renderWithForm(
+    <SelectInput
+      name="foo"
+      label="Foo"
+      options={mockedOptions}
+    />
   );
 
   const input = screen.queryByTestId("Foo");
   expect(input).toBeVisible();
 });
 
-it("Gets initial value from Formik context", () => {
+it("Gets initial value from form context", () => {
   const initialValues = {
     foo: "1",
   };
 
-  render(
-    <Formik initialValues={initialValues}>
-      <SelectInput
-        name="foo"
-        label="Foo"
-        options={mockedOptions}
-      />
-    </Formik>
+  renderWithForm(
+    <SelectInput
+      name="foo"
+      label="Foo"
+      options={mockedOptions}
+    />,
+    { initialValues }
   );
 
   expect(screen.queryByText('Select an option')).not.toBeInTheDocument()
@@ -64,14 +60,9 @@ it("calls onChange prop with selected option value", async () => {
   const initialValues = {
     foo: "1",
   };
-  render(
-    <Formik
-      initialValues={initialValues}
-      validationSchema={object()}
-      onSubmit={() => {}}
-    >
-      <SelectInput name="foo" label="Foo" options={mockedOptions} />
-    </Formik>
+  renderWithForm(
+    <SelectInput name="foo" label="Foo" options={mockedOptions} />,
+    { initialValues, validationSchema: object() }
   );
 
   const dropdownElement = screen.getByLabelText("Foo");
@@ -89,14 +80,9 @@ it("Does not change when readOnly", async () => {
   const initialValues = {
     foo: "1",
   };
-  render(
-    <Formik
-      initialValues={initialValues}
-      validationSchema={object()}
-      onSubmit={() => {}}
-    >
-      <SelectInput name="foo" label="Foo" options={mockedOptions} readOnly />
-    </Formik>
+  renderWithForm(
+    <SelectInput name="foo" label="Foo" options={mockedOptions} readOnly />,
+    { initialValues, validationSchema: object() }
   );
 
   const dropdownElement = screen.getByLabelText("Foo");
@@ -118,10 +104,9 @@ it("Displays error message when invalid", async () => {
     foo: string().required(),
   });
 
-  render(
-    <Formik initialValues={initialValues} validationSchema={schema}>
-      <SelectInput name="foo" label="Foo" options={mockedOptions} />
-    </Formik>
+  renderWithForm(
+    <SelectInput name="foo" label="Foo" options={mockedOptions} />,
+    { initialValues, validationSchema: schema }
   );
   const dropdownElement = screen.getByRole("combobox");
   const selectOption = "Select an Option";
@@ -138,13 +123,11 @@ it("Raises an error if id or name props not given", () => {
   const mockError = jest.spyOn(console, "error").mockImplementation(() => {});
   jest.spyOn(console, "warn").mockImplementation(() => {});
   expect(() => {
-    render(
-      <Formik>
-        <SelectInput
-          label="Foo"
-          options={mockedOptions}
-        />
-      </Formik>
+    renderWithForm(
+      <SelectInput
+        label="Foo"
+        options={mockedOptions}
+      />
     );
   }).toThrow();
   expect(mockError.mock.calls[0][2]).toBe(

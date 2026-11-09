@@ -4,8 +4,8 @@ import * as ProjectConstants from 'constants/projectConstants.js';
 const ID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[0-9a-f][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 const INPUT_FILE_VALIDATION = {
-  resource_id: Yup.string().nullable().nullable().matches(ID_REGEX),
-  file_collection_id: Yup.string().nullable().nullable().matches(ID_REGEX),
+  resource_id: Yup.string().nullable().matches(ID_REGEX),
+  file_collection_id: Yup.string().nullable().matches(ID_REGEX),
   file_collection_paths: Yup.array(),
   path: Yup.string(),
 }
@@ -13,7 +13,7 @@ const INPUT_FILE_VALIDATION = {
 const modelControlSchema = Yup.object().shape({
   id: Yup.string().nullable().matches(ID_REGEX),
   attributes: Yup.object().shape({
-    srid: Yup.string(),
+    srid: Yup.string().nullable(),
     files: Yup.array(),
   }), // This isn't defined anywhere yet.
   created_by: Yup.string(),
@@ -26,7 +26,7 @@ const modelControlSchema = Yup.object().shape({
   organizations: Yup.array()
     .of(
       Yup.object().shape({
-        id: Yup.string().nullable().nullable().matches(ID_REGEX),
+        id: Yup.string().nullable().matches(ID_REGEX),
         name: Yup.string(),
       })
     ),
@@ -148,11 +148,11 @@ const modelControlSchema = Yup.object().shape({
     modes: Yup.object().shape({
       rainfall_forecasting: Yup.object().shape({ // It looks like most of this isn't defined.
         FORECASTMODE: Yup.number().oneOf(Object.values(ProjectConstants.FORECASTMODE)),
-        FORECASTTIME: Yup.string(),
-        FORECASTLEADTIME: Yup.string(),
-        FORECASTLENGTH: Yup.string(),
+        FORECASTTIME: Yup.string().nullable(),
+        FORECASTLEADTIME: Yup.string().nullable(),
+        FORECASTLENGTH: Yup.string().nullable(),
         FORECASTFILE: Yup.object().shape(INPUT_FILE_VALIDATION),
-        CLIMATOLOGY: Yup.string(),
+        CLIMATOLOGY: Yup.string().nullable(),
         RAINDISTRIBUTION: Yup.number().oneOf(Object.values(ProjectConstants.RAINDISTRIBUTION))
       }),
       stochastic_climate_forcing: Yup.object().shape({
@@ -161,10 +161,10 @@ const modelControlSchema = Yup.object().shape({
         STDUR: Yup.number(),
         ISTDUR: Yup.number(),
         SEED: Yup.number(),
-        PERIOD: Yup.number(),
-        MAXPMEAN: Yup.number(),
-        MAXSTDURMN: Yup.number(),
-        MAXISTDURMN: Yup.number(),
+        PERIOD: Yup.number().nullable(),
+        MAXPMEAN: Yup.number().nullable(),
+        MAXSTDURMN: Yup.number().nullable(),
+        MAXISTDURMN: Yup.number().nullable(),
         WEATHERTABLENAME: Yup.object().shape(INPUT_FILE_VALIDATION),
       }),
       restart: Yup.object().shape({
@@ -319,11 +319,11 @@ const modelControlSchema = Yup.object().shape({
         modes: Yup.object().shape({
           rainfall_forecasting: Yup.object().shape({ // It looks like most of this isn't defined.
             FORECASTMODE: Yup.number().oneOf(Object.values(ProjectConstants.FORECASTMODE)),
-            FORECASTTIME: Yup.string(),
-            FORECASTLEADTIME: Yup.string(),
-            FORECASTLENGTH: Yup.string(),
+            FORECASTTIME: Yup.string().nullable(),
+            FORECASTLEADTIME: Yup.string().nullable(),
+            FORECASTLENGTH: Yup.string().nullable(),
             FORECASTFILE: Yup.object().shape(INPUT_FILE_VALIDATION),
-            CLIMATOLOGY: Yup.string(),
+            CLIMATOLOGY: Yup.string().nullable(),
             RAINDISTRIBUTION: Yup.number().oneOf(Object.values(ProjectConstants.RAINDISTRIBUTION))
           }),
           stochastic_climate_forcing: Yup.object().shape({
@@ -332,10 +332,10 @@ const modelControlSchema = Yup.object().shape({
             STDUR: Yup.number(),
             ISTDUR: Yup.number(),
             SEED: Yup.number(),
-            PERIOD: Yup.number(),
-            MAXPMEAN: Yup.number(),
-            MAXSTDURMN: Yup.number(),
-            MAXISTDURMN: Yup.number(),
+            PERIOD: Yup.number().nullable(),
+            MAXPMEAN: Yup.number().nullable(),
+            MAXSTDURMN: Yup.number().nullable(),
+            MAXISTDURMN: Yup.number().nullable(),
             WEATHERTABLENAME: Yup.object().shape(INPUT_FILE_VALIDATION),
           }),
           restart: Yup.object().shape({

@@ -1,37 +1,27 @@
-// import userEvent from "@testing-library/user-event";
 import { date, object } from "yup";
-import { render, screen } from "@testing-library/react";
-import { Formik } from "formik";
+import { screen } from "@testing-library/react";
+import { renderWithForm } from "config/tests/renderWithForm";
 import DateInput from "./DateInput";
 import userEvent from "@testing-library/user-event";
 
 it("Renders a date input with given label and name", () => {
-  render(
-    <Formik>
-      <DateInput name="date" label="Date" />
-    </Formik>
-  );
+  renderWithForm(<DateInput name="date" label="Date" />);
 
   const input = screen.getByRole("textbox");
   expect(input).toBeInTheDocument();
 });
 
-it("Gets initial value from Formik context", () => {
+it("Gets initial value from form context", () => {
   const initialValues = {
     date: new Date("12/25/2023"),
   };
 
-  render(
-    <Formik initialValues={initialValues}>
-      <DateInput name="date" label="Date" />
-    </Formik>
-  );
+  renderWithForm(<DateInput name="date" label="Date" />, { initialValues });
 
   const input = screen.getByRole("textbox");
   expect(input.value).toBe("12/25/2023");
 });
 
-// Not sure why this one isn't working right now :/
 it("Displays error message when date is not selected", async () => {
   const user = userEvent.setup();
   const initialValues = {
@@ -41,11 +31,10 @@ it("Displays error message when date is not selected", async () => {
     date: date().nullable().required("Date is required"), // Add validation for the date field
   });
 
-  render(
-    <Formik initialValues={initialValues} validationSchema={schema}>
-      <DateInput name="date" label="Date" />
-    </Formik>
-  );
+  renderWithForm(<DateInput name="date" label="Date" />, {
+    initialValues,
+    validationSchema: schema,
+  });
 
   const input = screen.getByRole("textbox", { name: "Date" });
 
@@ -62,11 +51,7 @@ it("Raises an error if id or name props are not given", () => {
   jest.spyOn(console, "warn").mockImplementation(() => {});
 
   expect(() => {
-    render(
-      <Formik>
-        <DateInput label="Date" />
-      </Formik>
-    );
+    renderWithForm(<DateInput label="Date" />);
   }).toThrow();
 
   expect(mockError.mock.calls[0][2]).toBe(
@@ -82,11 +67,7 @@ it("Changes the selected date", async () => {
     date: "",
   };
 
-  render(
-    <Formik initialValues={initialValues}>
-      <DateInput name="date" label="Date" />
-    </Formik>
-  );
+  renderWithForm(<DateInput name="date" label="Date" />, { initialValues });
 
   const datePickerInput = screen.getByLabelText("Date");
 
@@ -101,11 +82,7 @@ it("Cannot change the selected date when readOnly", async () => {
     date: "",
   };
 
-  render(
-    <Formik initialValues={initialValues}>
-      <DateInput name="date" label="Date" readOnly />
-    </Formik>
-  );
+  renderWithForm(<DateInput name="date" label="Date" readOnly />, { initialValues });
 
   const datePickerInput = screen.getByLabelText("Date");
 
