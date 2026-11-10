@@ -327,8 +327,9 @@ tribs delete-datasets <primary_db> <gsurl> --dataset-id <dataset id>
 At least one of `--dataset-type` or `--dataset-id` is required (the command never deletes every dataset);
 `--project-id` narrows the selection.
 
-Like the app, the command leaves alone a dataset that a model still needs: one that is linked to a scenario, or that
-an input card of a linked realization refers to. Such datasets are listed as skipped (also by `--dry-run`) and make
+The command leaves alone a dataset that a model still needs: one that is linked to a scenario, or that an input card
+of a scenario or realization of its project refers to (a realization keeps a copy of its scenario's input file, so it
+can still refer to an input the scenario has since dropped). Such datasets are listed as skipped (also by `--dry-run`) and make
 the command exit with status 1. `--force` deletes them as well, after removing every reference to them from the
 input files of the scenarios and realizations concerned, which leaves those models without that input:
 

@@ -5,15 +5,16 @@ was dropped from realizations on 2026-10-30. Deleting a dataset does what the ap
 visualization, delete the file collection, delete the resource) and also drops the dataset from the output file
 paths recorded in the input file of the realizations it was linked to.
 
-Like the app, the command does not delete a dataset that a model still needs: one that is linked to a scenario, or
-that an input card of a linked realization refers to. ``--force`` deletes those as well, after removing every
-reference to them from the input files of the scenarios and realizations concerned.
+The command does not delete a dataset that a model still needs: one that is linked to a scenario, or that an input
+card of a scenario or realization of its project refers to. A realization keeps a copy of its scenario's input file,
+so it can still refer to an input that the scenario has since dropped. ``--force`` deletes those datasets as well,
+after removing every reference to them from the input files of the scenarios and realizations concerned.
 """
 import logging
 import sys
 
 from tribs_adapter.io.input_file import FileDatabasePathCollection, tRIBSInput
-from tribs_adapter.resources import Dataset
+from tribs_adapter.resources import Dataset, Scenario
 from tethysapp.tribs.cli.cli_helpers import (
     add_dataset_filter_arguments, make_session, make_spatial_manager, parse_dataset_type, print_error, print_header,
     print_info, print_success, print_warning
@@ -112,18 +113,44 @@ def _referring_cards(resource, dataset, mode):
     return [card for card, field in input_file.files(mode=mode) if _references(field, str(dataset.id))]
 
 
+def _models_that_may_refer_to(dataset):
+    """The scenarios and realizations whose input file may refer to the dataset.
+
+    Links do not find them all: a realization keeps a copy of its scenario's input file but is only linked to the
+    output datasets it created, and a scenario that has dropped an input leaves its earlier realizations referring
+    to it. So this is every scenario and realization of the dataset's project, plus the ones it is linked to.
+    """
+    models = list(dataset.linked_scenarios) + list(dataset.linked_realizations)
+    project = dataset.project
+    if project is not None:
+        for scenario in project.scenarios:
+            models.append(scenario)
+            models.extend(scenario.realizations)
+    unique = {}
+    for model in models:
+        unique.setdefault(model.id, model)
+    return list(unique.values())
+
+
+def _describe(model, cards=()):
+    """How a scenario or realization is named in the messages: ``realization "Run 1" (GRIDDATA)``."""
+    kind = 'scenario' if isinstance(model, Scenario) else 'realization'
+    return f'{kind} "{model.name}"' + (f' ({", ".join(cards)})' if cards else '')
+
+
 def blocking_links(dataset):
     """What still needs a dataset, so that it is only deleted with ``--force``.
 
     Returns:
-        list: A description of every scenario the dataset is linked to and of every linked realization that refers
-            to it in an input card. Empty for a dataset that only realization output cards refer to.
+        list: A description of every scenario or realization of the dataset's project that refers to it in an input
+            card, and of every scenario it is linked to. Empty for a dataset that only output cards refer to.
     """
-    reasons = [f'scenario "{scenario.name}"' for scenario in dataset.linked_scenarios]
-    for realization in dataset.linked_realizations:
-        cards = _referring_cards(realization, dataset, tRIBSInput.FilesMode.INPUT_ONLY)
-        if cards:
-            reasons.append(f'realization "{realization.name}" ({", ".join(cards)})')
+    linked_scenario_ids = {scenario.id for scenario in dataset.linked_scenarios}
+    reasons = []
+    for model in _models_that_may_refer_to(dataset):
+        cards = _referring_cards(model, dataset, tRIBSInput.FilesMode.INPUT_ONLY)
+        if cards or model.id in linked_scenario_ids:
+            reasons.append(_describe(model, cards))
     return reasons
 
 
@@ -133,30 +160,27 @@ def unlink_references(dataset, force=False):
     Args:
         dataset (Dataset): The dataset that is about to be deleted.
         force (bool): False drops it from the output cards of the realizations it is linked to. True drops it from
-            every card of those realizations, of the scenarios it is linked to and of their realizations.
+            every card of every scenario and realization that may refer to it (see ``_models_that_may_refer_to``).
 
     Returns:
         list: The scenarios and realizations whose input file was changed.
     """
-    resources = list(dataset.linked_realizations)
-    mode = tRIBSInput.FilesMode.OUTPUT_ONLY
     if force:
+        models = _models_that_may_refer_to(dataset)
         mode = tRIBSInput.FilesMode.ALL_FILES
-        for scenario in dataset.linked_scenarios:
-            resources.append(scenario)
-            resources.extend(scenario.realizations)
+    else:
+        models = dataset.linked_realizations
+        mode = tRIBSInput.FilesMode.OUTPUT_ONLY
 
     changed = []
-    seen = set()
-    for resource in resources:
-        input_file = resource.input_file
-        if resource.id in seen or input_file is None:
+    for model in models:
+        input_file = model.input_file
+        if input_file is None:
             continue
-        seen.add(resource.id)
         touched = [_drop_references(field, str(dataset.id)) for _card, field in input_file.files(mode=mode)]
         if any(touched):
-            resource.input_file = input_file
-            changed.append(resource)
+            model.input_file = input_file
+            changed.append(model)
     return changed
 
 

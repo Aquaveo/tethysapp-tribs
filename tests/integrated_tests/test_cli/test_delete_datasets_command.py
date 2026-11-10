@@ -60,6 +60,27 @@ def scenario_dataset(complete_project):
 
 
 @pytest.fixture
+def stale_input_dataset(db_session, complete_project):
+    """An input dataset its scenario no longer uses, which the scenario's earlier realization still refers to.
+
+    A realization keeps a copy of the scenario's input file, and realizations are never linked to input datasets.
+    """
+    scenario = complete_project.scenarios[0]
+    realization = scenario.realizations[0]
+    dataset = next(d for d in scenario.linked_datasets if str(d.id) in _referenced_ids(realization))
+    card = next(
+        card
+        for card, field in scenario.input_file.files() if str(dataset.id) in _referenced_ids(scenario, only_card=card)
+    )
+    scenario.unlink_dataset(dataset, card)
+    db_session.commit()
+    assert not dataset.linked_scenarios and not dataset.linked_realizations
+    assert str(dataset.id) not in _referenced_ids(scenario)
+    assert str(dataset.id) in _referenced_ids(realization)
+    return dataset
+
+
+@pytest.fixture
 def mock_services(session_maker, mocker):
     """Point the command at the test database (its own session, which it closes) and a mocked GeoServer."""
     mocker.patch.object(cmd, 'make_session', side_effect=lambda primary_db: session_maker())
@@ -83,12 +104,14 @@ def run(capsys, **options):
     return status, capsys.readouterr().out
 
 
-def _referenced_ids(resource, output_only=False):
-    """The ids of the datasets the input file of a scenario or realization refers to."""
+def _referenced_ids(resource, output_only=False, only_card=None):
+    """The ids of the datasets the input file (or one card of it) of a scenario or realization refers to."""
     input_file = resource.input_file
     mode = input_file.FilesMode.OUTPUT_ONLY if output_only else input_file.FilesMode.ALL_FILES
     ids = []
-    for _card, field in input_file.files(mode=mode):
+    for card, field in input_file.files(mode=mode):
+        if only_card is not None and card != only_card:
+            continue
         for path in getattr(field, 'file_database_paths', [field]):
             resource_ids = path.resource_id if isinstance(path.resource_id, list) else [path.resource_id]
             ids.extend(str(resource_id) for resource_id in resource_ids if resource_id is not None)
@@ -207,7 +230,10 @@ def test_skips_a_dataset_a_scenario_still_uses(db_session, scenario_dataset, moc
 
     status, out = run(capsys, dataset_ids=[str(dataset_id)], dry_run=True)
     assert status == 0
-    assert f'Skipped, still used by scenario "{scenario.name}". Use --force to unlink and delete it.' in out
+    # The scenario and the realization that holds a copy of its input file are both named, with the card
+    assert f'Skipped, still used by scenario "{scenario.name}" (' in out
+    assert f'realization "{scenario.realizations[0].name}" (' in out
+    assert 'Use --force to unlink and delete it.' in out
 
     status, out = run(capsys, dataset_ids=[str(dataset_id)])
     assert status == 1
@@ -231,7 +257,7 @@ def test_force_unlinks_and_deletes_a_dataset_a_scenario_still_uses(db_session, s
 
     status, out = run(capsys, dataset_ids=[str(dataset_id)], force=True)
     assert status == 0
-    assert f'--force: will be unlinked from scenario "{scenario.name}".' in out
+    assert f'--force: will be unlinked from scenario "{scenario.name}" (' in out
     assert 'Successfully deleted 1 dataset(s).' in out
 
     db_session.expire_all()
@@ -294,3 +320,34 @@ def test_drop_references_leaves_other_fields_alone():
     field = _path(KEPT_ID, ['kept.txt'])
     assert cmd._drop_references(field, DELETED_ID) is False
     assert str(field.resource_id) == KEPT_ID and field.file_collection_paths == ['kept.txt']
+
+
+def test_skips_a_dataset_only_an_earlier_realization_still_uses(db_session, stale_input_dataset, mock_services, capsys):
+    dataset_id = stale_input_dataset.id
+    realization = stale_input_dataset.project.scenarios[0].realizations[0]
+
+    status, out = run(capsys, dataset_ids=[str(dataset_id)])
+    assert status == 1
+    assert f'Skipped, still used by realization "{realization.name}"' in out
+    assert 'Deleted 0 of 1 dataset(s).' in out
+
+    db_session.expire_all()
+    assert db_session.query(Dataset).get(dataset_id) is not None
+    assert str(dataset_id) in _referenced_ids(db_session.query(Realization).get(realization.id))
+
+
+def test_force_removes_the_references_of_an_earlier_realization(db_session, stale_input_dataset, mock_services, capsys):
+    dataset_id = stale_input_dataset.id
+    realization = stale_input_dataset.project.scenarios[0].realizations[0]
+    other_ids = [i for i in _referenced_ids(realization) if i != str(dataset_id)]
+    assert other_ids
+
+    status, out = run(capsys, dataset_ids=[str(dataset_id)], force=True)
+    assert status == 0
+    assert f'--force: will be unlinked from realization "{realization.name}"' in out
+
+    db_session.expire_all()
+    assert db_session.query(Dataset).get(dataset_id) is None
+    realization = db_session.query(Realization).get(realization.id)
+    assert str(dataset_id) not in _referenced_ids(realization)
+    assert sorted(_referenced_ids(realization)) == sorted(other_ids)
