@@ -957,6 +957,9 @@ async def test_dataset_receive_timeseries(a_session, a_pixel_dataset_with_files,
         assert payload == {
             'x': [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0],
             'y': [0.0, 0.0, 0.0, 0.0, 18.3, 57.7, 88.2, 106.9, 118.7, 127.5, 134.6],
+            # What was asked for, so the frontend can tell which request a reply answers
+            'dataset_id': str(dataset.id),
+            'point_id': point_id,
             # Pixel variables are not in the output variable table: raw name, units from the header token
             'name': 'Nf_mm',
             'label': 'Nf',
@@ -999,6 +1002,7 @@ async def test_dataset_receive_mrf_timeseries_labels_and_converts_sheet_variable
     async with make_communicator(project.id) as communicator:
         payload = await _request_output_timeseries(communicator, dataset, 'MGW')
         assert (payload['name'], payload['label'], payload['units']) == ('MGW', 'Depth to Groundwater', 'm')
+        assert payload['dataset_id'] == str(dataset.id) and 'point_id' not in payload
         assert len(payload['y']) == len(raw) == len(payload['x'])
         assert payload['y'] == pytest.approx([v / 1000 for v in raw])
         assert payload['x'][:3] == [1.0, 2.0, 3.0]

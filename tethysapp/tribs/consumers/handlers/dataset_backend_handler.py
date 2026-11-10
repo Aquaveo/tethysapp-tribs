@@ -210,11 +210,14 @@ class DatasetBackendHandler(RBH):
         time, variable_data = await session.run_sync(_get_czml_point_file_dataset, dataset, point_id, variable)
         info = self._describe_timeseries_variable(dataset, variable)
 
-        # The series for a plot, with values in display units and how to label it
+        # The series for a plot, with values in display units and how to label it. What was asked for (dataset, point
+        # and variable) is sent back so the frontend can tell which request a reply answers.
         await self.send_action(
             BackendActions.DATASET_GET_PIXEL_TIMESERIES, {
                 'x': time.to_list(),
                 'y': (variable_data * info['factor']).to_list(),
+                'dataset_id': str(dataset.id),
+                'point_id': point_id,
                 'name': variable,
                 'label': info['label'],
                 'units': info['units'],
@@ -267,11 +270,13 @@ class DatasetBackendHandler(RBH):
         time, variable_data, file_units = await session.run_sync(_get_mrf_or_rft_dataset, dataset, variable)
         info = self._describe_timeseries_variable(dataset, variable, file_units=file_units)
 
-        # The series for a plot, with values in display units and how to label it
+        # The series for a plot, with values in display units and how to label it. What was asked for (dataset and
+        # variable) is sent back so the frontend can tell which request a reply answers.
         await self.send_action(
             BackendActions.DATASET_GET_MRF_OR_RFT_TIMESERIES, {
                 'x': time.to_list(),
                 'y': (variable_data * info['factor']).to_list(),
+                'dataset_id': str(dataset.id),
                 'name': variable,
                 'label': info['label'],
                 'units': info['units'],

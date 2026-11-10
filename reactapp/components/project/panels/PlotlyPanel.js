@@ -140,6 +140,21 @@ function hoursToDateConverter(date, h) {
   return `${dateString} ${timeString}`;
 }
 
+// The backend keeps one handler per action (Backend.on replaces it) and every CZML dataset has a plot sheet, so the
+// sheets share one handler that passes a series on to the sheet of the dataset it was read from. A reply without
+// a dataset id (an older backend) goes to the sheet that was rendered last, which is the one that asked.
+const timeseriesHandlers = new Map(); // dataset id -> handler of that dataset's plot sheet
+let lastTimeseriesHandler = null;
+
+function dispatchTimeseries(plotData) {
+  const handler =
+    plotData?.dataset_id !== undefined ? timeseriesHandlers.get(plotData.dataset_id) : lastTimeseriesHandler;
+  handler?.(plotData);
+}
+
+/** The id of the selected point ("72" for "point_72 [<dataset id>]"), as it is sent with a pixel series request. */
+const selectedPointId = (selection) => selection?.split(" [")[0].split(VARIABLE_SEPARATOR)[1];
+
 const PlotlyPanel = ({
   placement = "bottom",
   layout,
@@ -194,7 +209,7 @@ const PlotlyPanel = ({
         }));
       };
       if (variableName !== DO_NOT_SET_LAYER && selectedCZMLPoint.includes("point") && variableName) {
-        const pointId = selectedCZMLPoint.split(" [")[0].split(VARIABLE_SEPARATOR)[1];
+        const pointId = selectedPointId(selectedCZMLPoint);
         backend.do(
           backend.actions.DATASET_GET_PIXEL_TIMESERIES,
           {id: datasetId, point_id: pointId, variable: variableName}
@@ -213,6 +228,14 @@ const PlotlyPanel = ({
   // The series arrives with its values already in display units and how to label it (label, units); older
   // backends send only x and y, in which case the titles derived from the layer name stay.
   const handleTimeseries = (plotData) => {
+    // The reply says what it answers (variable and, for a pixel series, point). Drop one that a newer request has
+    // overtaken; an older backend sends neither, and its reply is plotted as before.
+    const overtaken =
+      (plotData.name !== undefined && plotData.name !== visibleCZMLObject?.[dataset.id]) ||
+      (plotData.point_id !== undefined && String(plotData.point_id) !== selectedPointId(selectedCZMLPoint));
+    if (overtaken) {
+      return;
+    }
     const startDate = startDates[realizationIndex];
     const timeConverted = plotData.x.map(
       (timeInHours) => hoursToDateConverter(startDate, timeInHours)
@@ -235,8 +258,21 @@ const PlotlyPanel = ({
     }
   };
 
-  backend.on(backend.actions.DATASET_GET_PIXEL_TIMESERIES, handleTimeseries);
-  backend.on(backend.actions.DATASET_GET_MRF_OR_RFT_TIMESERIES, handleTimeseries);
+  // Registered after every render so the handler sees the current selection and start dates.
+  useEffect(() => {
+    timeseriesHandlers.set(dataset.id, handleTimeseries);
+    lastTimeseriesHandler = handleTimeseries;
+    backend.on(backend.actions.DATASET_GET_PIXEL_TIMESERIES, dispatchTimeseries);
+    backend.on(backend.actions.DATASET_GET_MRF_OR_RFT_TIMESERIES, dispatchTimeseries);
+    return () => {
+      if (timeseriesHandlers.get(dataset.id) === handleTimeseries) {
+        timeseriesHandlers.delete(dataset.id);
+      }
+      if (lastTimeseriesHandler === handleTimeseries) {
+        lastTimeseriesHandler = null;
+      }
+    };
+  });
 
   const handleYAxisScaleChange = (scale) => {
     setPlotLayout((prevData) => ({

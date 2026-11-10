@@ -190,6 +190,88 @@ describe("PlotlyPanel", () => {
     expect(showLegend([{ name: "a" }, { name: "b" }])).toBe(true);
   });
 
+  it("ignores a series read from another dataset", async () => {
+    const mrf = makeMrfDataset();
+    const { server, backend } = await renderPanel(mrf, "MDGW", `polygon_1 [${mrf.id}]`);
+    await server.nextMessage;
+    await act(async () => {
+      server.send(JSON.stringify({
+        action: { id: newUUID(), type: backend.actions.DATASET_GET_MRF_OR_RFT_TIMESERIES },
+        payload: { x: [1, 2], y: [5, 6], dataset_id: "another-dataset", name: "MDGW", label: "Other", units: "m" },
+      }));
+    });
+    expect(screen.getByTestId("plot")).toHaveAttribute("data-y", "null");
+  });
+
+  it("ignores a series of a variable that is no longer the selected one", async () => {
+    const mrf = makeMrfDataset();
+    const { server, backend } = await renderPanel(mrf, "MDGW", `polygon_1 [${mrf.id}]`);
+    await server.nextMessage;
+    await act(async () => {
+      server.send(JSON.stringify({
+        action: { id: newUUID(), type: backend.actions.DATASET_GET_MRF_OR_RFT_TIMESERIES },
+        payload: { x: [1, 2], y: [5, 6], dataset_id: mrf.id, name: "MAP", label: "Mean Areal Precipitation", units: "mm/hr" },
+      }));
+    });
+    const plot = screen.getByTestId("plot");
+    expect(plot).toHaveAttribute("data-y", "null");
+    expect(plot).toHaveAttribute("data-yaxis", "Depth to Groundwater (m)");
+  });
+
+  it("ignores a series of a point that is no longer the selected one", async () => {
+    const pixel = { ...makeMrfDataset(), dataset_type: "TRIBS_OUT_PIXEL", viz: { type: "czml", url: ["fdb/fc/czml/x-Nwt_mm.czml"] } };
+    const { server, backend } = await renderPanel(pixel, "Nwt_mm", `point_72 [${pixel.id}]`);
+    await server.nextMessage;
+    const send = (pointId, y) => act(async () => {
+      server.send(JSON.stringify({
+        action: { id: newUUID(), type: backend.actions.DATASET_GET_PIXEL_TIMESERIES },
+        payload: { x: [0, 1], y, dataset_id: pixel.id, point_id: pointId, name: "Nwt_mm", label: "Nwt", units: "mm" },
+      }));
+    });
+    await send("15", [1, 2]);
+    expect(screen.getByTestId("plot")).toHaveAttribute("data-y", "null");
+    await send("72", [0, 18.3]);
+    expect(screen.getByTestId("plot")).toHaveAttribute("data-y", "[0,18.3]");
+  });
+
+  it("gives a series to the plot sheet of its dataset, whichever sheet was rendered last", async () => {
+    const first = makeMrfDataset();
+    const second = { ...makeMrfDataset(), id: newUUID() };
+    const { server, backend } = await mockBackend();
+    const sidePanels = {
+      hideSidePanel: jest.fn(),
+      showPanel: jest.fn(),
+      visibleSidePanel: [`plotly-panel-${first.id}`, `plotly-panel-${second.id}`],
+    };
+    render(
+      <AppContext.Provider value={{ backend, csrf: "12345" }}>
+        <GraphicsWindowVisualsContext.Provider
+          value={{
+            visibleCZMLObject: { [first.id]: "MDGW", [second.id]: "MDGW" },
+            selectedCZMLPoint: `polygon_1 [${first.id}]`,
+            setSelectedCZMLPoint: jest.fn(),
+            startDates: [new Date(Date.UTC(2004, 5, 1))],
+          }}
+        >
+          <SidePanelContext.Provider value={sidePanels}>
+            <PlotlyPanel dataset={first} panelId={`plotly-panel-${first.id}`} realizationIndex={0} />
+            <PlotlyPanel dataset={second} panelId={`plotly-panel-${second.id}`} realizationIndex={0} />
+          </SidePanelContext.Provider>
+        </GraphicsWindowVisualsContext.Provider>
+      </AppContext.Provider>
+    );
+    await server.nextMessage;
+    await act(async () => {
+      server.send(JSON.stringify({
+        action: { id: newUUID(), type: backend.actions.DATASET_GET_MRF_OR_RFT_TIMESERIES },
+        payload: { x: [1, 2], y: [1.9, 2.0], dataset_id: first.id, name: "MDGW", label: "Depth to Groundwater", units: "m" },
+      }));
+    });
+    const [firstPlot, secondPlot] = screen.getAllByTestId("plot");
+    expect(firstPlot).toHaveAttribute("data-y", "[1.9,2]");
+    expect(secondPlot).toHaveAttribute("data-y", "null");
+  });
+
   it("keeps the layer-name titles for a series from an older backend", async () => {
     const pixel = { ...makeMrfDataset(), dataset_type: "TRIBS_OUT_PIXEL", viz: { type: "czml", url: ["fdb/fc/czml/x-Nwt_mm.czml"] } };
     const { server, backend } = await renderPanel(pixel, "Nwt_mm", `point_72 [${pixel.id}]`);
