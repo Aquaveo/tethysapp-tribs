@@ -33,6 +33,12 @@ Follow-ups that were noted but deliberately deferred. Newest at the bottom.
     ~7 MB file when the network is slow; a small cache of adjacent steps would smooth it.
   - *Time-step axis in the UI.* The Cesium timeline shows the range, but nothing labels the current time step in
     the Variables panel (the Legends panel does show it).
+  - *Other visible meshes only change step when the clock-driving variable does* (deferred from the Copilot review
+    of PR #17, 2026-11-10). `MeshClock.js` publishes `meshClockTime` only when the step index of the active
+    variable changes. A second visible mesh on a different step grid (driver every 20 h, the other at 0/10/20 h)
+    and its legend stay on a stale step until the driver crosses a boundary. Meshes that share the driver's steps,
+    the usual case, are not affected. Options: publish when any visible series crosses a step, or have each
+    `GltfLayer` derive its step from the clock itself.
 - **Detect inconsistent tRIBS mesh files before building Voronoi cells.** tRIBS's own output writer dumps
   `OUTFILENAME.nodes/.z` in internal list order while `.edges/.tri` keep the original ids (verified in tOutput.cpp,
   2026-10-08). Read as mesh input, every cell becomes a mesh-wide sliver (Cedar_Flats_Treated: 237 MB glb, 139 s).
