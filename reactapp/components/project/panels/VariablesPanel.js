@@ -1,7 +1,7 @@
 import PropTypes from "prop-types";
 import { useContext, useEffect } from "react";
 
-import { GraphicsWindowVisualsContext, SidePanelContext } from "react-tethys/context";
+import { GraphicsWindowVisualsContext, ProjectContext, SidePanelContext } from "react-tethys/context";
 import SlideSheet from "components/dialogs/SlideSheet";
 import { datasetPropTypes } from "components/tree/propTypes";
 import TreeItem from "components/tree/TreeItem";
@@ -27,7 +27,10 @@ export function getLayerItems(dataset) {
 
 const VariablesPanel = ({ dataset, panelId }) => {
   const { hideSidePanel, visibleSidePanel } = useContext(SidePanelContext);
-  const { visibleCZMLObject, setCZMLLayer, setActiveTimeSeries } = useContext(GraphicsWindowVisualsContext);
+  const { visibleObjects, visibleCZMLObject, setCZMLLayer, setActiveTimeSeries } =
+    useContext(GraphicsWindowVisualsContext);
+  const { projectId } = useContext(ProjectContext);
+  const onMap = Boolean(visibleObjects?.[projectId]?.includes(dataset.id));
   const handleClose = () => {
     hideSidePanel(panelId);
   }
@@ -37,20 +40,23 @@ const VariablesPanel = ({ dataset, panelId }) => {
   const { primary, more } = groupByTier(items);
   const selectedKey = visibleCZMLObject?.[dataset.id];
 
-  const selectLayer = (item) => {
+  const selectLayer = (item, driveClock = true) => {
     if (!item || visibleCZMLObject[dataset.id] === DO_NOT_SET_LAYER) {
       // This prevents czml from being set initially if the current dataset layer is null.
       return;
     }
     setCZMLLayer(dataset.id, item.key);
-    if (item.variable && isTimeDynamic(item.variable)) {
+    if (driveClock && item.variable && isTimeDynamic(item.variable)) {
       // The most recently selected time series variable drives the Cesium clock.
       setActiveTimeSeries?.(makeActiveTimeSeries(dataset, item.variable));
     }
   };
 
   useEffect(() => {
-    selectLayer(primary[0] ?? items[0]);
+    // Every output dataset mounts this panel, on the map or not. A hidden dataset gets its default layer here but
+    // must not take the clock from the ones that are shown; it takes it when it is revealed (see the tree item)
+    // or when one of its variables is picked.
+    selectLayer(primary[0] ?? items[0], onMap);
   // This uses an empty dependency array so that it only fires on the first render.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

@@ -1,7 +1,7 @@
 import userEvent from "@testing-library/user-event";
 import { render, screen } from '@testing-library/react';
 
-import { SidePanelContext, GraphicsWindowVisualsContext } from 'react-tethys/context';
+import { SidePanelContext, GraphicsWindowVisualsContext, ProjectContext } from 'react-tethys/context';
 import VariablesPanel from './VariablesPanel';
 import { DO_NOT_SET_LAYER } from "constants/GraphicsWindowConstants";
 import { makeMrfDataset, makeStaticMesh, makeTimeSeriesMesh } from "config/tests/mocks/meshMock";
@@ -93,7 +93,10 @@ const dataset = {
   "srid": null
 };
 
-const setupPanel = (show = false, disabled = false, panelDataset = dataset) => {
+const PROJECT_ID = 'testProjectId';
+
+// `onMap` is whether the dataset is visible on the map (listed in visibleObjects for the project).
+const setupPanel = (show = false, disabled = false, panelDataset = dataset, { onMap = true } = {}) => {
   const user = userEvent.setup();
   
   const mockSidePanelContextValue = {
@@ -102,6 +105,7 @@ const setupPanel = (show = false, disabled = false, panelDataset = dataset) => {
   };
   
   const mockGraphicsWindowVisualsContextValue = {
+    visibleObjects: { [PROJECT_ID]: onMap ? [panelDataset.id] : [] },
     visibleCZMLObject: {},
     setCZMLLayer: jest.fn(),
     setActiveTimeSeries: jest.fn(),
@@ -116,11 +120,15 @@ const setupPanel = (show = false, disabled = false, panelDataset = dataset) => {
   }
 
   const panelRender = (
-    <SidePanelContext.Provider value={mockSidePanelContextValue}>
-      <GraphicsWindowVisualsContext.Provider value={mockGraphicsWindowVisualsContextValue}>
-        <VariablesPanel dataset={panelDataset} panelId="testPanelId" />
-      </GraphicsWindowVisualsContext.Provider>
-    </SidePanelContext.Provider>
+    <ProjectContext.Provider
+      value={{ projectId: PROJECT_ID, openFolders: { [PROJECT_ID]: [] }, openFolder: jest.fn(), closeFolder: jest.fn() }}
+    >
+      <SidePanelContext.Provider value={mockSidePanelContextValue}>
+        <GraphicsWindowVisualsContext.Provider value={mockGraphicsWindowVisualsContextValue}>
+          <VariablesPanel dataset={panelDataset} panelId="testPanelId" />
+        </GraphicsWindowVisualsContext.Provider>
+      </SidePanelContext.Provider>
+    </ProjectContext.Provider>
   );
 
   const { rerender } = render(panelRender);
@@ -205,6 +213,23 @@ describe('VariablesPanel with glTF mesh variables', () => {
     const mesh = makeTimeSeriesMesh();
     const { user, mockGraphicsWindowVisualsContextValue } = setupPanel(true, false, mesh);
     jest.clearAllMocks();
+    await user.click(screen.getByText('Nwt'));
+    expect(mockGraphicsWindowVisualsContextValue.setCZMLLayer).toHaveBeenCalledWith(mesh.id, 'Nwt');
+    expect(mockGraphicsWindowVisualsContextValue.setActiveTimeSeries).toHaveBeenCalledWith(
+      expect.objectContaining({ datasetId: mesh.id, variableName: 'Nwt', count: 2 })
+    );
+  });
+
+  it('should select the first variable of a hidden dataset without taking the clock', () => {
+    const mesh = makeTimeSeriesMesh();
+    const { mockGraphicsWindowVisualsContextValue } = setupPanel(true, false, mesh, { onMap: false });
+    expect(mockGraphicsWindowVisualsContextValue.setCZMLLayer).toHaveBeenCalledWith(mesh.id, 'Mu');
+    expect(mockGraphicsWindowVisualsContextValue.setActiveTimeSeries).not.toHaveBeenCalled();
+  });
+
+  it('should give the clock to a hidden dataset when one of its variables is clicked', async () => {
+    const mesh = makeTimeSeriesMesh();
+    const { user, mockGraphicsWindowVisualsContextValue } = setupPanel(true, false, mesh, { onMap: false });
     await user.click(screen.getByText('Nwt'));
     expect(mockGraphicsWindowVisualsContextValue.setCZMLLayer).toHaveBeenCalledWith(mesh.id, 'Nwt');
     expect(mockGraphicsWindowVisualsContextValue.setActiveTimeSeries).toHaveBeenCalledWith(
