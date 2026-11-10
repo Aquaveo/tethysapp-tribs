@@ -65,6 +65,9 @@ def regenerate_dataset(session, spatial_manager, dataset):
         dataset.remove_visualization(session, spatial_manager)
         dataset.generate_visualization(session, spatial_manager)
     except Exception:
+        # A failure inside the database leaves the transaction unusable. Roll it back so the Error status can be
+        # recorded and the next dataset starts from a working session.
+        session.rollback()
         dataset.set_status(status=dataset.STATUS_ERROR)
         session.commit()
         raise
@@ -107,6 +110,7 @@ def regenerate_viz(arguments):
             try:
                 regenerate_dataset(session, spatial_manager, dataset)
             except Exception as e:  # keep going; report at the end
+                session.rollback()  # in case recording the Error status failed as well
                 log.exception(f'Failed to regenerate visualization of dataset {dataset_id}')
                 failures.append(dataset_id)
                 print_error(f'  An error occurred while regenerating {dataset_id}: {e}')

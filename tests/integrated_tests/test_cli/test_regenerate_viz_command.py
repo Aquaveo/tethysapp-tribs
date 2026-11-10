@@ -4,6 +4,8 @@ from argparse import Namespace
 from unittest import mock
 
 import pytest
+from sqlalchemy import event, text
+from sqlalchemy.orm import Session
 
 from tethysapp.tribs.cli import regenerate_viz_command as cmd
 from tribs_adapter.common.dataset_types import DatasetTypes
@@ -70,10 +72,36 @@ def second_viz_dataset(db_session):
     db_session.commit()
 
 
+class CommandSession(Session):
+    """A session for the command whose commits and rollbacks end at a savepoint.
+
+    The test sessions share one connection inside an outer transaction, and a session on such a connection commits
+    or rolls back whatever transaction is innermost. Without a savepoint of its own for every transaction, a
+    rollback in the command after one of its commits would undo the rows the fixtures created, which a rollback
+    never does in production. See "Joining a Session into an External Transaction" in the SQLAlchemy docs.
+    """
+    def __init__(self, connection):
+        super().__init__(connection)
+        self._connection = connection
+        self._closing = False
+        self._savepoint = connection.begin_nested()
+        event.listen(self, 'after_transaction_end', self._restart_savepoint)
+
+    def _restart_savepoint(self, _session, _transaction):
+        if not self._closing and not self._savepoint.is_active:
+            self._savepoint = self._connection.begin_nested()
+
+    def close(self):
+        self._closing = True
+        super().close()
+        if self._savepoint.is_active:
+            self._savepoint.commit()
+
+
 @pytest.fixture
-def mock_services(session_maker, mocker):
+def mock_services(db_connection, mocker):
     """Point the command at the test database (its own session, which it closes) and a mocked GeoServer."""
-    mocker.patch.object(cmd, 'make_session', side_effect=lambda primary_db: session_maker())
+    mocker.patch.object(cmd, 'make_session', side_effect=lambda primary_db: CommandSession(db_connection))
     mocker.patch.object(
         cmd, 'make_spatial_manager', side_effect=lambda gsurl: TribsSpatialManager(geoserver_engine=mock.MagicMock())
     )
@@ -204,3 +232,27 @@ def test_failure_summary_survives_a_later_commit(
     assert status == 1
     assert len(calls) == 2
     assert f'Regenerated 1 of 2 dataset(s); 1 failed: {calls[0]}' in out
+
+
+def test_database_failure_is_rolled_back_so_later_datasets_still_run(
+    db_session, tin_dataset, second_viz_dataset, mock_services, mocker, capsys
+):
+    """A failure inside the database is recorded as Error on that dataset only; the next dataset is regenerated."""
+    calls = []
+
+    def fail_in_the_database_once(session, spatial_manager):
+        calls.append(1)
+        if len(calls) == 1:
+            session.execute(text('SELECT 1/0'))  # aborts the transaction
+
+    mocker.patch.object(Dataset, 'remove_visualization')
+    mocker.patch.object(Dataset, 'generate_visualization', side_effect=fail_in_the_database_once)
+    status, out = run(capsys)
+    assert status == 1
+    assert 'Regenerated 1 of 2 dataset(s); 1 failed' in out
+    assert 'division by zero' in out
+
+    db_session.refresh(tin_dataset)
+    db_session.refresh(second_viz_dataset)
+    statuses = sorted([tin_dataset.get_status(), second_viz_dataset.get_status()])
+    assert statuses == sorted([Dataset.STATUS_ERROR, Dataset.STATUS_COMPLETE])
