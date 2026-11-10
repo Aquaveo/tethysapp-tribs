@@ -58,6 +58,15 @@ Follow-ups that were noted but deliberately deferred. Newest at the bottom.
     the selector is an approximation and its legend is the server PNG. Exposing the baked ramp's colours as a JS
     interpolator would let every ramp share one code path (and drop the PNG legend for glTF datasets entirely).
 
+- **Split the three long glTF methods** (deferred from the tribs-adapter PR #12 review, 2026-11-10). `tRIBSMeshViz.to_gltf`
+  (~108 lines, five levels deep) does extents, localization, geometry, the bare-mesh file, the per-variable files,
+  the legends and the metadata in one body: extract a bare-mesh writer, a per-file/per-variable writer and a legend
+  pass. `tRIBSMeshViz._assemble_gltf` (~140 lines) interleaves accessor, buffer-view and image layout with mesh
+  construction: extract `_build_accessors`, `_build_buffer_views` and `_attach_image`. `TribsSpatialManager.
+  create_tribs_tin_layer` finds the mesh file, filters output files, looks up the `_voi`, builds the legend labels
+  and mutates the dataset: extract `_find_mesh_file` and `_build_variable_labels`. Behaviour-preserving refactors;
+  the unit and intermediate tests cover the current behaviour.
+
 ## Output variable labels and priorities
 
 Landed 2026-10-30 (FHMB III 1.2/1.3): `tribs_adapter/common/output_variables.py` holds the scientist's sheet (qout,
@@ -85,6 +94,11 @@ variables under "More variables". Deferred:
   fuzzy matching.
 - **Post-upgrade regeneration job.** `tribs regenerate-viz` stays a manual step (see README). If regenerations
   become routine, add a version-gated Helm post-upgrade job in the wrapper repo.
+
+- **Guard `get_output_file_units` against files without a units row** (deferred from the tribs-adapter PR #12 review,
+  2026-11-10). `czml_converters.get_output_file_units` takes line two of an mrf/rft file as the units row. Every
+  tRIBS mrf/rft we have has one, but a file without it would turn the first data row into "units" for variables the
+  sheet does not know. Return `{}` (or skip the token) when a token parses as a number.
 
 ## App
 
