@@ -39,6 +39,10 @@ Follow-ups that were noted but deliberately deferred. Newest at the bottom.
     and its legend stay on a stale step until the driver crosses a boundary. Meshes that share the driver's steps,
     the usual case, are not affected. Options: publish when any visible series crosses a step, or have each
     `GltfLayer` derive its step from the clock itself.
+  - *Clock hand-over comment in `VariablesPanel.js`* (review of the PR #17 fixes, 2026-11-10). The mount effect's
+    comment says a hidden dataset takes the clock when it is revealed. That holds for `RealizationOutputTreeItem`,
+    but `GISTreeItem` also mounts the panel and its reveal never calls `setActiveTimeSeries`. Harmless while GIS
+    datasets are never time series glTF; correct the comment, or hand over the clock there too if that changes.
 - **Detect inconsistent tRIBS mesh files before building Voronoi cells.** tRIBS's own output writer dumps
   `OUTFILENAME.nodes/.z` in internal list order while `.edges/.tri` keep the original ids (verified in tOutput.cpp,
   2026-10-08). Read as mesh input, every cell becomes a mesh-wide sliver (Cedar_Flats_Treated: 237 MB glb, 139 s).
@@ -111,3 +115,22 @@ variables under "More variables". Deferred:
 - **Dev-only React root URL.** `reactapp/config/development.env` now sets `TETHYS_APP_ROOT_URL="/"` for the
   standalone-mode dev container. If the tribs app is also developed in multi-app mode, the dev container should write
   its own copy of that file (as the production Dockerfile does) instead of changing the shared one.
+
+- **`tribs delete-datasets` follow-ups** (minor findings of the independent review of the PR #17 fixes, 2026-11-10):
+  - *README wording on `--dry-run`.* "listed as skipped (also by `--dry-run`) and make the command exit with status
+    1" reads as if a dry run exits 1 when datasets are skipped. A dry run always exits 0; say so, or make it exit 1.
+  - *Unlink before deleting the files.* `delete_dataset` deletes the file collection before `unlink_references` and
+    the commit. If unlinking fails, the rollback leaves a dataset that scenarios still refer to with no files.
+    Drop the references first.
+  - *List-valued `resource_id`.* `_drop_references` handles a `FileDatabasePath` whose `resource_id` is a list by
+    assuming `file_collection_id` and `file_collection_paths` are lists of the same length, which the model does
+    not guarantee, and leaves `path` unchanged. In a collection, an entry with a list of ids is removed whole.
+    Nothing in the app or adapter writes list-valued ids today, so the branch is only reached by its unit test:
+    either drop it (leave the card empty) or make the two cases consistent.
+  - *Move the reference handling into tribs-adapter.* `_references` / `_drop_references` and the test helper encode
+    the shape of the adapter's `FileDatabasePath` (scalar or list ids, what an empty card looks like). They belong
+    next to `Scenario.unlink_dataset`, so a change to the model cannot silently break the command.
+  - *One transaction model for the CLI tests.* `CommandSession` in `test_regenerate_viz_command.py` gives the
+    command a savepoint per transaction, so a rollback after a commit does not undo the fixtures' rows on the
+    shared test connection. The delete tests still use `session_maker()`. If more commands roll back after a
+    commit, move it to `tests/integrated_tests/conftest.py` beside `session_maker`.
