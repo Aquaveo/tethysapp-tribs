@@ -8,6 +8,7 @@ from sqlalchemy.orm import sessionmaker
 from tethys_dataset_services.engines import GeoServerSpatialDatasetEngine
 from tethysext.atcore.utilities import parse_url
 from tribs_adapter.common.dataset_types import DatasetTypes
+from tribs_adapter.resources import Dataset
 from tribs_adapter.services.tribs_spatial_manager import TribsSpatialManager
 
 
@@ -111,6 +112,34 @@ def make_spatial_manager(gsurl):
         endpoint=url.endpoint, username=url.username, password=url.password, node_ports=node_ports
     )
     return TribsSpatialManager(geoserver_engine=geoserver_engine)
+
+
+def select_datasets(session, dataset_types=(), dataset_ids=(), project_id=None, include=None):
+    """The datasets a dataset command works on, oldest first.
+
+    Args:
+        session (Session): SQLAlchemy session on the primary database.
+        dataset_types (iterable): ``DatasetTypes`` members to keep; empty keeps every type.
+        dataset_ids (iterable): Dataset ids to keep; empty keeps every dataset.
+        project_id (str): Keep only the datasets of this project. A dataset without a project never matches.
+        include (callable): Optional ``include(dataset) -> bool`` for what else a command requires of a dataset.
+
+    Returns:
+        list: The matching datasets.
+    """
+    query = session.query(Dataset)
+    if dataset_ids:
+        query = query.filter(Dataset.id.in_(list(dataset_ids)))
+    datasets = []
+    for dataset in query.order_by(Dataset.date_created):
+        if include is not None and not include(dataset):
+            continue
+        if dataset_types and dataset.dataset_type not in dataset_types:
+            continue
+        if project_id and (dataset.project is None or str(dataset.project.id) != str(project_id)):
+            continue
+        datasets.append(dataset)
+    return datasets
 
 
 def add_dataset_filter_arguments(parser, verb):

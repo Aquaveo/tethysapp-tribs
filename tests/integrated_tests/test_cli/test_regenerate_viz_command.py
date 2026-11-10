@@ -256,3 +256,14 @@ def test_database_failure_is_rolled_back_so_later_datasets_still_run(
     db_session.refresh(second_viz_dataset)
     statuses = sorted([tin_dataset.get_status(), second_viz_dataset.get_status()])
     assert statuses == sorted([Dataset.STATUS_ERROR, Dataset.STATUS_COMPLETE])
+
+
+def test_project_filter_skips_datasets_without_a_project(
+    db_session, tin_dataset, second_viz_dataset, mock_services, capsys
+):
+    assert second_viz_dataset.project is None
+
+    status, out = run(capsys, project_id=str(tin_dataset.project.id), dry_run=True)
+    assert status == 0
+    assert '1 dataset(s) to regenerate:' in out
+    assert str(tin_dataset.id) in out and str(second_viz_dataset.id) not in out

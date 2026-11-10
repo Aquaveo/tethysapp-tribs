@@ -7,10 +7,9 @@ artifacts and metadata until they are regenerated, which this command does in bu
 import logging
 import sys
 
-from tribs_adapter.resources import Dataset
 from tethysapp.tribs.cli.cli_helpers import (
     add_dataset_filter_arguments, make_session, make_spatial_manager, parse_dataset_type, print_error, print_header,
-    print_info, print_success, print_warning
+    print_info, print_success, print_warning, select_datasets
 )
 
 log = logging.getLogger(f'tethys.apps.{__name__}')
@@ -40,21 +39,9 @@ def add_regenerate_viz_parser(subparsers):
     return parser
 
 
-def select_datasets(session, dataset_types=(), dataset_ids=(), project_id=None):
-    """The datasets to regenerate: those with a ``viz`` attribute, narrowed by the given filters."""
-    query = session.query(Dataset)
-    if dataset_ids:
-        query = query.filter(Dataset.id.in_(list(dataset_ids)))
-    datasets = []
-    for dataset in query.order_by(Dataset.date_created):
-        if dataset.get_attribute('viz') is None:
-            continue
-        if dataset_types and dataset.dataset_type not in dataset_types:
-            continue
-        if project_id and str(dataset.project.id) != str(project_id):
-            continue
-        datasets.append(dataset)
-    return datasets
+def has_visualization(dataset):
+    """Whether a dataset has a ``viz`` attribute, i.e. a visualization to regenerate."""
+    return dataset.get_attribute('viz') is not None
 
 
 def regenerate_dataset(session, spatial_manager, dataset):
@@ -91,7 +78,9 @@ def regenerate_viz(arguments):
     session = make_session(arguments.primary_db)
     failures = []
     try:
-        datasets = select_datasets(session, dataset_types, arguments.dataset_ids, arguments.project_id)
+        datasets = select_datasets(
+            session, dataset_types, arguments.dataset_ids, arguments.project_id, include=has_visualization
+        )
         if not datasets:
             print_warning('No datasets with a visualization match.')
             return 0

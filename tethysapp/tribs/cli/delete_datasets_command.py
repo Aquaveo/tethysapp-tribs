@@ -14,10 +14,10 @@ import logging
 import sys
 
 from tribs_adapter.io.input_file import FileDatabasePathCollection, tRIBSInput
-from tribs_adapter.resources import Dataset, Scenario
+from tribs_adapter.resources import Scenario
 from tethysapp.tribs.cli.cli_helpers import (
     add_dataset_filter_arguments, make_session, make_spatial_manager, parse_dataset_type, print_error, print_header,
-    print_info, print_success, print_warning
+    print_info, print_success, print_warning, select_datasets
 )
 
 log = logging.getLogger(f'tethys.apps.{__name__}')
@@ -54,21 +54,6 @@ def add_delete_datasets_parser(subparsers):
     )
     parser.set_defaults(func=main)
     return parser
-
-
-def select_datasets(session, dataset_types=(), dataset_ids=(), project_id=None):
-    """The datasets to delete: those of the given types or ids, optionally only of one project."""
-    query = session.query(Dataset)
-    if dataset_ids:
-        query = query.filter(Dataset.id.in_(list(dataset_ids)))
-    datasets = []
-    for dataset in query.order_by(Dataset.date_created):
-        if dataset_types and dataset.dataset_type not in dataset_types:
-            continue
-        if project_id and (dataset.project is None or str(dataset.project.id) != str(project_id)):
-            continue
-        datasets.append(dataset)
-    return datasets
 
 
 def _references(field, dataset_id):
