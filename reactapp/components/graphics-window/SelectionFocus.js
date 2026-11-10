@@ -27,6 +27,16 @@ export function coveredArea(canvas, windowHeight = window.innerHeight) {
 }
 
 /**
+ * Window coordinates of a world position. Cesium renamed SceneTransforms.wgs84ToWindowCoordinates to
+ * worldToWindowCoordinates and later removed the old name; package.json allows versions on both sides of that, so
+ * use whichever the installed one has.
+ */
+function toWindowCoordinates(scene, position) {
+  const transform = SceneTransforms.worldToWindowCoordinates ?? SceneTransforms.wgs84ToWindowCoordinates;
+  return transform(scene, position);
+}
+
+/**
  * Moves the camera, keeping its orientation, so `entity` shows in the middle of the map strip above the covered
  * `area`. Does nothing outside the 3D scene mode (the camera frame differs in 2D and Columbus view), while an
  * entity is tracked (the camera is in its frame), when the entity is not under the sheet, has no visualization
@@ -38,12 +48,16 @@ export function shiftToReveal(viewer, entity, area) {
     return false;
   }
   // getBoundingSphere is what Viewer.zoomTo uses but is marked @private in Cesium; it is the only way to place
-  // polygon entities (points could use entity.position instead).
+  // polygon entities (points could use entity.position instead). Being private it may go away: without it the
+  // view is simply not shifted.
+  if (typeof dataSourceDisplay?.getBoundingSphere !== "function") {
+    return false;
+  }
   const sphere = new BoundingSphere();
   if (dataSourceDisplay.getBoundingSphere(entity, true, sphere) !== BoundingSphereState.DONE) {
     return false;
   }
-  const screen = SceneTransforms.wgs84ToWindowCoordinates(scene, sphere.center);
+  const screen = toWindowCoordinates(scene, sphere.center);
   if (!screen) {
     return false;
   }

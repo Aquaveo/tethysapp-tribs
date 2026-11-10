@@ -94,6 +94,25 @@ describe("shiftToReveal", () => {
     expect(duration).toBeGreaterThan(0);
   });
 
+  it("uses worldToWindowCoordinates when the installed Cesium has it (the name newer releases use)", () => {
+    const viewer = makeViewer();
+    SceneTransforms.worldToWindowCoordinates = jest.fn((scene) => scene.__screen);
+    try {
+      expect(shiftToReveal(viewer, viewer.selectedEntity, AREA)).toBe(true);
+      expect(SceneTransforms.worldToWindowCoordinates).toHaveBeenCalledTimes(1);
+      expect(toWindow).not.toHaveBeenCalled();
+    } finally {
+      delete SceneTransforms.worldToWindowCoordinates;
+    }
+  });
+
+  it("leaves the camera alone when Cesium no longer offers a bounding sphere for entities", () => {
+    const viewer = makeViewer();
+    delete viewer.dataSourceDisplay.getBoundingSphere; // a private Cesium API
+    expect(shiftToReveal(viewer, viewer.selectedEntity, AREA)).toBe(false);
+    expect(viewer.camera.flyTo).not.toHaveBeenCalled();
+  });
+
   it("leaves the camera alone when the entity is not under the sheet", () => {
     const above = makeViewer({ screen: new Cartesian2(600, 300) });
     expect(shiftToReveal(above, above.selectedEntity, AREA)).toBe(false);
