@@ -4,10 +4,15 @@ For dataset types the app no longer creates, such as the time-dynamic spatial ou
 was dropped from realizations on 2026-10-30. Deleting a dataset does what the app's delete action does (remove the
 visualization, delete the file collection, delete the resource) and also drops the dataset from the output file
 paths recorded in the input file of the realizations it was linked to.
+
+Like the app, the command does not delete a dataset that a model still needs: one that is linked to a scenario, or
+that an input card of a linked realization refers to. ``--force`` deletes those as well, after removing every
+reference to them from the input files of the scenarios and realizations concerned.
 """
 import logging
 import sys
 
+from tribs_adapter.io.input_file import FileDatabasePathCollection, tRIBSInput
 from tribs_adapter.resources import Dataset
 from tethysapp.tribs.cli.cli_helpers import (
     add_dataset_filter_arguments, make_session, make_spatial_manager, parse_dataset_type, print_error, print_header,
@@ -25,7 +30,8 @@ def add_delete_datasets_parser(subparsers):
         description='Delete existing datasets by type or id: their visualization, file collection and resource, and '
         'the references to them in the input files of linked realizations. At least one of --dataset-type or '
         '--dataset-id is required; --project-id narrows the selection further. Meant for dataset types the app no '
-        'longer creates, e.g. --dataset-type TRIBS_OUT_TIME_DYNAMIC.',
+        'longer creates, e.g. --dataset-type TRIBS_OUT_TIME_DYNAMIC. Datasets that are linked to a scenario or used '
+        'as model input by a realization are skipped unless --force is given.',
     )
     parser.add_argument(
         'primary_db',
@@ -38,6 +44,13 @@ def add_delete_datasets_parser(subparsers):
         '(e.g.: "http://admin:geoserver@localhost:8181/geoserver/rest/").'
     )
     add_dataset_filter_arguments(parser, verb='deleted')
+    parser.add_argument(
+        '--force',
+        action='store_true',
+        help='Also delete datasets that are linked to a scenario or used as model input by a realization. Their '
+        'references are removed from the input files first, which leaves those scenarios and realizations without '
+        'that input.',
+    )
     parser.set_defaults(func=main)
     return parser
 
@@ -57,31 +70,105 @@ def select_datasets(session, dataset_types=(), dataset_ids=(), project_id=None):
     return datasets
 
 
-def unlink_from_realizations(dataset):
-    """Drop the dataset from the output file paths recorded in the input file of each realization it is linked to.
+def _references(field, dataset_id):
+    """Whether an input file field (a file path or a collection of them) refers to the dataset with this id."""
+    if isinstance(field, FileDatabasePathCollection):
+        return any(_references(path, dataset_id) for path in field.file_database_paths)
+    resource_ids = field.resource_id if isinstance(field.resource_id, list) else [field.resource_id]
+    return dataset_id in [str(resource_id) for resource_id in resource_ids]
+
+
+def _drop_references(field, dataset_id):
+    """Remove the references to a dataset from one input file field.
 
     Returns:
-        list: The realizations whose input file was changed.
+        bool: True when the field was changed.
     """
-    changed = []
+    if not _references(field, dataset_id):
+        return False
+    if isinstance(field, FileDatabasePathCollection):
+        field.file_database_paths = [path for path in field.file_database_paths if not _references(path, dataset_id)]
+        return True
+    if isinstance(field.resource_id, list):
+        keep = [i for i, resource_id in enumerate(field.resource_id) if str(resource_id) != dataset_id]
+        if keep:
+            field.resource_id = [field.resource_id[i] for i in keep]
+            field.file_collection_id = [field.file_collection_id[i] for i in keep]
+            field.file_collection_paths = [field.file_collection_paths[i] for i in keep]
+            return True
+    # The only dataset of the card: leave it empty, as Scenario.unlink_dataset does
+    field.resource_id = None
+    field.file_collection_id = None
+    field.file_collection_paths = []
+    field.path = ''
+    return True
+
+
+def _referring_cards(resource, dataset, mode):
+    """The cards of a scenario's or realization's input file that refer to the dataset."""
+    input_file = resource.input_file
+    if input_file is None:
+        return []
+    return [card for card, field in input_file.files(mode=mode) if _references(field, str(dataset.id))]
+
+
+def blocking_links(dataset):
+    """What still needs a dataset, so that it is only deleted with ``--force``.
+
+    Returns:
+        list: A description of every scenario the dataset is linked to and of every linked realization that refers
+            to it in an input card. Empty for a dataset that only realization output cards refer to.
+    """
+    reasons = [f'scenario "{scenario.name}"' for scenario in dataset.linked_scenarios]
     for realization in dataset.linked_realizations:
-        input_file = realization.input_file
-        if input_file is None:
+        cards = _referring_cards(realization, dataset, tRIBSInput.FilesMode.INPUT_ONLY)
+        if cards:
+            reasons.append(f'realization "{realization.name}" ({", ".join(cards)})')
+    return reasons
+
+
+def unlink_references(dataset, force=False):
+    """Drop the dataset from the input files that refer to it.
+
+    Args:
+        dataset (Dataset): The dataset that is about to be deleted.
+        force (bool): False drops it from the output cards of the realizations it is linked to. True drops it from
+            every card of those realizations, of the scenarios it is linked to and of their realizations.
+
+    Returns:
+        list: The scenarios and realizations whose input file was changed.
+    """
+    resources = list(dataset.linked_realizations)
+    mode = tRIBSInput.FilesMode.OUTPUT_ONLY
+    if force:
+        mode = tRIBSInput.FilesMode.ALL_FILES
+        for scenario in dataset.linked_scenarios:
+            resources.append(scenario)
+            resources.extend(scenario.realizations)
+
+    changed = []
+    seen = set()
+    for resource in resources:
+        input_file = resource.input_file
+        if resource.id in seen or input_file is None:
             continue
-        touched = False
-        for _card, field in input_file.files(mode=input_file.FilesMode.OUTPUT_ONLY):
-            kept = [fdp for fdp in field.file_database_paths if str(fdp.resource_id) != str(dataset.id)]
-            if len(kept) != len(field.file_database_paths):
-                field.file_database_paths = kept
-                touched = True
-        if touched:
-            realization.input_file = input_file
-            changed.append(realization)
+        seen.add(resource.id)
+        touched = [_drop_references(field, str(dataset.id)) for _card, field in input_file.files(mode=mode)]
+        if any(touched):
+            resource.input_file = input_file
+            changed.append(resource)
     return changed
 
 
-def delete_dataset(session, spatial_manager, dataset):
-    """Delete one dataset the way the app's delete action does, plus the realization input file references."""
+def delete_dataset(session, spatial_manager, dataset, force=False):
+    """Delete one dataset the way the app's delete action does, plus the input file references to it.
+
+    Args:
+        session (Session): SQLAlchemy session the dataset belongs to.
+        spatial_manager (TribsSpatialManager): Used to remove the visualization.
+        dataset (Dataset): The dataset to delete.
+        force (bool): Also remove the references that scenarios and input cards hold (see ``unlink_references``).
+    """
     try:
         dataset.remove_visualization(session, spatial_manager)
     except Exception as e:
@@ -95,7 +182,7 @@ def delete_dataset(session, spatial_manager, dataset):
             raise
         print_warning(f'  File collection of {dataset.id} was already deleted.')
 
-    unlink_from_realizations(dataset)
+    unlink_references(dataset, force=force)
     session.delete(dataset)
     session.commit()
 
@@ -118,26 +205,38 @@ def delete_datasets(arguments):
 
     session = make_session(arguments.primary_db)
     failures = []
+    refused = []
     try:
         datasets = select_datasets(session, dataset_types, arguments.dataset_ids, arguments.project_id)
         if not datasets:
             print_warning('No datasets match.')
             return 0
+        # Datasets a model still needs are only deleted with --force
+        links = {dataset.id: blocking_links(dataset) for dataset in datasets}
         print_info(f'{len(datasets)} dataset(s) to delete:')
         for dataset in datasets:
             project = dataset.project.name if dataset.project is not None else '-'
             print(f'  {dataset.id}  {dataset.dataset_type:<28} {dataset.name}  (project: {project})')
+            if links[dataset.id] and arguments.force:
+                print_warning(f'    --force: will be unlinked from {"; ".join(links[dataset.id])}.')
+            elif links[dataset.id]:
+                print_warning(
+                    f'    Skipped, still used by {"; ".join(links[dataset.id])}. Use --force to unlink and delete it.'
+                )
         if arguments.dry_run:
             print_info('Dry run: nothing deleted.')
             return 0
 
+        refused = [str(dataset.id) for dataset in datasets if links[dataset.id] and not arguments.force]
         spatial_manager = make_spatial_manager(arguments.gsurl)
         for dataset in datasets:
             # Kept as a string: the instance is expired by later commits and detached once the session closes.
             dataset_id = str(dataset.id)
+            if dataset_id in refused:
+                continue
             print_info(f'Deleting {dataset.name} ({dataset_id})...')
             try:
-                delete_dataset(session, spatial_manager, dataset)
+                delete_dataset(session, spatial_manager, dataset, force=arguments.force)
             except Exception as e:  # keep going; report at the end
                 session.rollback()
                 log.exception(f'Failed to delete dataset {dataset_id}')
@@ -148,9 +247,17 @@ def delete_datasets(arguments):
     finally:
         session.close()
 
-    done = len(datasets) - len(failures)
+    done = len(datasets) - len(refused) - len(failures)
+    if refused:
+        print_error(
+            f'{len(refused)} dataset(s) were skipped because a scenario or a model input still uses them '
+            f'(use --force to unlink and delete them): {", ".join(refused)}'
+        )
     if failures:
         print_error(f'Deleted {done} of {len(datasets)} dataset(s); {len(failures)} failed: ' + ', '.join(failures))
+        return 1
+    if refused:
+        print_info(f'Deleted {done} of {len(datasets)} dataset(s).')
         return 1
     print_success(f'Successfully deleted {done} dataset(s).')
     return 0

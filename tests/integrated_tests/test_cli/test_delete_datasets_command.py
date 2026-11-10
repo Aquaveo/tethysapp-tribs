@@ -6,11 +6,14 @@ from unittest import mock
 import pytest
 
 from tethysapp.tribs.cli import delete_datasets_command as cmd
-from tribs_adapter.io.input_file import FileDatabasePath
-from tribs_adapter.resources import Dataset, Realization
+from tribs_adapter.io.input_file import FileDatabasePath, FileDatabasePathCollection
+from tribs_adapter.resources import Dataset, Realization, Scenario
 from tribs_adapter.services.tribs_spatial_manager import TribsSpatialManager
 
 MISSING_ID = '00000000-0000-0000-0000-000000000000'
+DELETED_ID = '11111111-1111-4111-8111-111111111111'
+KEPT_ID = '22222222-2222-4222-8222-222222222222'
+COLLECTION_ID = '33333333-3333-4333-8333-333333333333'
 
 
 @pytest.fixture
@@ -50,6 +53,13 @@ def legacy_dataset(db_session, complete_project, test_files):
 
 
 @pytest.fixture
+def scenario_dataset(complete_project):
+    """An input dataset that a scenario is linked to and refers to in its input file."""
+    scenario = complete_project.scenarios[0]
+    return next(d for d in scenario.linked_datasets if str(d.id) in _referenced_ids(scenario))
+
+
+@pytest.fixture
 def mock_services(session_maker, mocker):
     """Point the command at the test database (its own session, which it closes) and a mocked GeoServer."""
     mocker.patch.object(cmd, 'make_session', side_effect=lambda primary_db: session_maker())
@@ -66,17 +76,27 @@ def run(capsys, **options):
         dataset_ids=[],
         project_id=None,
         dry_run=False,
+        force=False,
     )
     arguments = Namespace(**{**defaults, **options})
     status = cmd.delete_datasets(arguments)
     return status, capsys.readouterr().out
 
 
-def _output_resource_ids(realization):
+def _referenced_ids(resource, output_only=False):
+    """The ids of the datasets the input file of a scenario or realization refers to."""
+    input_file = resource.input_file
+    mode = input_file.FilesMode.OUTPUT_ONLY if output_only else input_file.FilesMode.ALL_FILES
     ids = []
-    for _card, field in realization.input_file.files(mode=realization.input_file.FilesMode.OUTPUT_ONLY):
-        ids.extend(str(fdp.resource_id) for fdp in field.file_database_paths)
+    for _card, field in input_file.files(mode=mode):
+        for path in getattr(field, 'file_database_paths', [field]):
+            resource_ids = path.resource_id if isinstance(path.resource_id, list) else [path.resource_id]
+            ids.extend(str(resource_id) for resource_id in resource_ids if resource_id is not None)
     return ids
+
+
+def _output_resource_ids(realization):
+    return _referenced_ids(realization, output_only=True)
 
 
 def test_delete_datasets_is_registered_on_the_tribs_cli():
@@ -93,6 +113,10 @@ def test_delete_datasets_is_registered_on_the_tribs_cli():
     assert args.primary_db == 'postgresql://db' and args.gsurl == 'http://gs'
     assert args.dataset_types == ['TRIBS_OUT_TIME_DYNAMIC']
     assert args.dataset_ids == [MISSING_ID] and args.project_id == 'p1' and args.dry_run is True
+    assert args.force is False
+
+    args = parser.parse_args(['delete-datasets', 'postgresql://db', 'http://gs', '--dataset-id', MISSING_ID, '--force'])
+    assert args.force is True
 
 
 def test_deletes_the_legacy_datasets_of_a_type(db_session, legacy_dataset, mock_services, capsys):
@@ -149,7 +173,7 @@ def test_refuses_to_run_without_a_filter_or_with_an_unknown_type(mock_services, 
 
 
 def test_reports_failures_and_keeps_going(db_session, legacy_dataset, mock_services, mocker, capsys):
-    mocker.patch.object(cmd, 'unlink_from_realizations', side_effect=RuntimeError('boom'))
+    mocker.patch.object(cmd, 'unlink_references', side_effect=RuntimeError('boom'))
     status, out = run(capsys, dataset_ids=[str(legacy_dataset.id)])
     assert status == 1
     assert f'1 failed: {legacy_dataset.id}' in out and 'boom' in out
@@ -163,7 +187,7 @@ def test_failure_summary_survives_a_later_commit(db_session, legacy_dataset, moc
     other = next(d for d in realization.linked_datasets if d.id != legacy_dataset.id)
     calls = []
 
-    def fail_first_then_commit(session, spatial_manager, dataset):
+    def fail_first_then_commit(session, spatial_manager, dataset, force=False):
         calls.append(str(dataset.id))
         if len(calls) == 1:
             raise RuntimeError('boom')
@@ -174,3 +198,99 @@ def test_failure_summary_survives_a_later_commit(db_session, legacy_dataset, moc
     assert status == 1
     assert len(calls) == 2
     assert f'Deleted 1 of 2 dataset(s); 1 failed: {calls[0]}' in out
+
+
+def test_skips_a_dataset_a_scenario_still_uses(db_session, scenario_dataset, mock_services, capsys):
+    dataset_id = scenario_dataset.id
+    files_dir = scenario_dataset.file_collection_client.path
+    scenario = scenario_dataset.linked_scenarios[0]
+
+    status, out = run(capsys, dataset_ids=[str(dataset_id)], dry_run=True)
+    assert status == 0
+    assert f'Skipped, still used by scenario "{scenario.name}". Use --force to unlink and delete it.' in out
+
+    status, out = run(capsys, dataset_ids=[str(dataset_id)])
+    assert status == 1
+    assert '1 dataset(s) were skipped because a scenario or a model input still uses them' in out
+    assert str(dataset_id) in out and 'Deleted 0 of 1 dataset(s).' in out
+
+    db_session.expire_all()
+    assert db_session.query(Dataset).get(dataset_id) is not None
+    assert os.path.isdir(files_dir)
+    scenario = db_session.query(Scenario).get(scenario.id)
+    assert dataset_id in [d.id for d in scenario.linked_datasets]
+    assert str(dataset_id) in _referenced_ids(scenario)
+
+
+def test_force_unlinks_and_deletes_a_dataset_a_scenario_still_uses(db_session, scenario_dataset, mock_services, capsys):
+    dataset_id = scenario_dataset.id
+    files_dir = scenario_dataset.file_collection_client.path
+    scenario = scenario_dataset.linked_scenarios[0]
+    other_ids = [str(d.id) for d in scenario.linked_datasets if d.id != dataset_id]
+    assert other_ids
+
+    status, out = run(capsys, dataset_ids=[str(dataset_id)], force=True)
+    assert status == 0
+    assert f'--force: will be unlinked from scenario "{scenario.name}".' in out
+    assert 'Successfully deleted 1 dataset(s).' in out
+
+    db_session.expire_all()
+    assert db_session.query(Dataset).get(dataset_id) is None
+    assert not os.path.exists(files_dir)
+    scenario = db_session.query(Scenario).get(scenario.id)
+    assert sorted(str(d.id) for d in scenario.linked_datasets) == sorted(other_ids)
+    assert str(dataset_id) not in _referenced_ids(scenario)
+    assert all(str(dataset_id) not in _referenced_ids(realization) for realization in scenario.realizations)
+    # The scenario's other inputs are untouched
+    assert all(other_id in _referenced_ids(scenario) for other_id in other_ids)
+
+
+def _path(resource_id, files):
+    return FileDatabasePath(resource_id=resource_id, file_collection_id=COLLECTION_ID, file_collection_paths=files)
+
+
+@pytest.mark.parametrize(
+    'field, expected', [
+        pytest.param(
+            _path(DELETED_ID, ['a.txt']),
+            dict(resource_id=None, file_collection_id=None, file_collection_paths=[], path=''),
+            id='only dataset of a card: card left empty',
+        ),
+        pytest.param(
+            FileDatabasePath(
+                resource_id=[KEPT_ID, DELETED_ID],
+                file_collection_id=[COLLECTION_ID, COLLECTION_ID],
+                file_collection_paths=[['kept.txt'], ['deleted.txt']],
+            ),
+            dict(resource_id=[KEPT_ID], file_collection_id=[COLLECTION_ID], file_collection_paths=[['kept.txt']]),
+            id='one of several datasets of a card: the others stay',
+        ),
+        pytest.param(
+            FileDatabasePathCollection(
+                file_database_paths=[_path(KEPT_ID, ['kept.txt']),
+                                     _path(DELETED_ID, ['d.txt'])]
+            ),
+            dict(file_database_paths=[dict(resource_id=KEPT_ID, file_collection_paths=['kept.txt'])]),
+            id='collection: only its entry is removed',
+        ),
+    ]
+)
+def test_drop_references_removes_only_the_deleted_dataset(field, expected):
+    assert cmd._drop_references(field, DELETED_ID) is True
+    assert cmd._references(field, DELETED_ID) is False
+
+    def subset(actual, wanted):
+        """``actual`` as plain data, limited to the keys ``wanted`` names."""
+        if isinstance(wanted, dict):
+            return {key: subset(actual[key], value) for key, value in wanted.items()}
+        if isinstance(wanted, list) and wanted and isinstance(wanted[0], dict):
+            return [subset(a, w) for a, w in zip(actual, wanted)] + actual[len(wanted):]
+        return actual
+
+    assert subset(field.model_dump(mode='json'), expected) == expected
+
+
+def test_drop_references_leaves_other_fields_alone():
+    field = _path(KEPT_ID, ['kept.txt'])
+    assert cmd._drop_references(field, DELETED_ID) is False
+    assert str(field.resource_id) == KEPT_ID and field.file_collection_paths == ['kept.txt']

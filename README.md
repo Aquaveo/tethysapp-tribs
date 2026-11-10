@@ -325,7 +325,18 @@ tribs delete-datasets <primary_db> <gsurl> --dataset-id <dataset id>
 ```
 
 At least one of `--dataset-type` or `--dataset-id` is required (the command never deletes every dataset);
-`--project-id` narrows the selection. Deletion is permanent, so back up the resources table first
+`--project-id` narrows the selection.
+
+Like the app, the command leaves alone a dataset that a model still needs: one that is linked to a scenario, or that
+an input card of a linked realization refers to. Such datasets are listed as skipped (also by `--dry-run`) and make
+the command exit with status 1. `--force` deletes them as well, after removing every reference to them from the
+input files of the scenarios and realizations concerned, which leaves those models without that input:
+
+```bash
+tribs delete-datasets <primary_db> <gsurl> --dataset-id <dataset id> --force
+```
+
+Deletion is permanent, so back up the resources table first
 (`pg_dump -t app_users_resources ...`) and run it per environment after the code is deployed. Failures are reported
 per dataset at the end and make the command exit with status 1.
 
