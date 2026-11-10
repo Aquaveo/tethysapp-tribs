@@ -77,6 +77,23 @@ Follow-ups that were noted but deliberately deferred. Newest at the bottom.
   and mutates the dataset: extract `_find_mesh_file` and `_build_variable_labels`. Behaviour-preserving refactors;
   the unit and intermediate tests cover the current behaviour.
 
+- **Mesh layer and legend follow-ups from the PR #17 review** (2026-11-10; the full report listed these as M4 and
+  minor items):
+  - *Show a failed mesh load.* `GltfLayers.js` `handleHiddenError` only logs to the console and clears the hidden
+    slot, so the mesh stays on the previous time step or variable while the clock and legend move on, with no
+    retry until the step changes. The visible slot has no `onError` at all. Record the failure on the dataset or
+    legend and give the visible slot a handler.
+  - *Ramp shader cache is never released.* The module-level `rampShaders` cache in `GltfLayers.js` holds
+    `CustomShader`/`TextureUniform` objects tied to the first WebGL context; they go stale if the `Viewer` is
+    remounted in one page life. Scope the cache per viewer or destroy the shaders.
+  - *A dataset without `viz.origin` renders nothing, silently* (`GltfLayers.js`, TODO only). Log a warning or flag
+    the dataset.
+  - *An unparseable time step pins playback.* `timestepIndexForTime` in `lib/meshTimeSeries.js` stops at the first
+    step whose time it cannot parse, so playback stays on the last good step with no hint that the `viz` metadata
+    is bad. Warn once.
+  - *`LegendCard.js` is long.* About 145 lines with 7 props, and the legend image callback nests four deep to
+    build the url. Split out the ramp selector and the legend images, and extract a `legendImageUrl` helper.
+
 ## Output variable labels and priorities
 
 Landed 2026-10-30 (FHMB III 1.2/1.3): `tribs_adapter/common/output_variables.py` holds the scientist's sheet (qout,
@@ -134,3 +151,53 @@ variables under "More variables". Deferred:
     command a savepoint per transaction, so a rollback after a commit does not undo the fixtures' rows on the
     shared test connection. The delete tests still use `session_maker()`. If more commands roll back after a
     commit, move it to `tests/integrated_tests/conftest.py` beside `session_maker`.
+
+- **Plot sheet follow-ups from the PR #17 review** (2026-11-10). In `PlotlyPanel.js` the effect that requests a
+  series nests four levels deep and the y-axis title update is written twice (in the effect's `applyTitles` and in
+  `handleTimeseries`). Use early returns and one `setYAxisTitle` helper; the component body is also long enough
+  to move the request and title logic into hooks.
+
+- **Backend follow-ups from the PR #17 review** (2026-11-10):
+  - *Timeseries file parsing* (`dataset_backend_handler.py`, mrf/rft handler). The header row drops empty cells
+    with `x != ''` and the units row with `x.strip()`, so a blank units cell shifts every later unit onto the
+    wrong column; a file with only a header raises `IndexError` where it used to give an empty series. Split both
+    rows the same way and check the length. `extension` also starts as `None` and is only safe through the
+    dataset type check above it: use a type-to-extension mapping.
+  - *`info['factor']` is assumed numeric* in both timeseries handlers, including for pixel and rft variables the
+    output variable table does not cover. Default it to 1.
+  - *A repeated delete is reported as an error.* `ManageResourceDeleteMixin._handle_delete` returns
+    `success: False` when the resource is already gone, although there is nothing left to do, and the delete
+    thread closes its session only on the not-found path. Return success and close the session in the `finally`.
+    Its docstring still documents a `resource` argument, and `delete_resource_artifacts` reads `self._Resource`
+    where `_handle_delete` uses `get_resource_model()`.
+  - *`upload_realization_exe.py` has no tests.* The upload now fails when no output files are found; neither that
+    branch nor any other condor executable is covered. The guard also passes if `realization.init` ever links a
+    non-output dataset: check for output types specifically.
+  - *CLI helpers.* `make_spatial_manager` repeats the port parsing and engine setup of `init_command.py`, and
+    both fall back to the default ports when `GEOSERVER_CLUSTER_PORTS` is set but malformed, the same as when it
+    is unset. Have `init` call the helper, and fail on a malformed value. `parse_dataset_type` raises its
+    `ValueError` without `from None`.
+  - *The two dataset commands share a loop.* `regenerate_viz` and `delete_datasets` repeat the list, dry-run,
+    per-dataset try and failure summary; a shared runner in `cli_helpers.py` would keep them from drifting (the
+    selection is already shared).
+
+- **Test follow-ups from the PR #17 review** (2026-11-10):
+  - *Over-specified delete mixin tests* (`test_manage_resources_delete_mixin.py`).
+    `test_delete_resource_artifacts_repairs_cwd_after_each_step` patches eight targets and asserts the exact call
+    order, six `validate_cwd` calls included, so any reordering fails it with no behaviour change.
+    `test__handle_delete_missing_resource` patches `tethys_apps.decorators.isinstance` with a list tied to how
+    often the decorator calls it, and both use bare `MagicMock` sessions. Assert the response and the end state.
+  - *CLI command tests* (`tests/integrated_tests/test_cli`). `mock_services`, `run()` and `MISSING_ID` are
+    repeated in both files (move to a `conftest.py`); the GeoServer engine is an unspecced `MagicMock`; option
+    sets are looped inside one test where `parametrize` would name the failing case; the parser tests chain
+    several comparisons in one assert; failures are forced by patching internals instead of the GeoServer
+    boundary.
+  - *A test that cannot fail.* "should not call setCZMLLayer if the visibleCZMLObject is set to DO_NOT_SET_LAYER"
+    in `VariablesPanel.test.js` clicks without `await`, so its assertion runs before the click is handled
+    (older than PR #17, found by its review). The same file asserts `toHaveLength(47)` against a large fixture.
+  - *Jest suites with loops and large tests.* Assertions inside `for` loops do not say which case failed
+    (`colorRamps.test.js`, `SelectionFocus.test.js`, `Panel.test.js`, `MapToolbar.test.js`): use `it.each`.
+    `GltfLayers.test.js` has tests with about eleven assertions that pin GLSL source fragments, sets
+    `process.env.TETHYS_MEDIA_URL` without restoring it and never resets its module-level `mockModelProps`.
+    `GraphicsWindow.test.js` still wraps assertions in `setTimeout`. `MeshClock.test.js` and
+    `useLegendEntry.test.js` count calls to internal collaborators.
