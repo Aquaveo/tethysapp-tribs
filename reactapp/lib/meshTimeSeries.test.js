@@ -82,7 +82,7 @@ describe("clockSettingsForVariable / makeActiveTimeSeries", () => {
     const mu = findVariable(makeTimeSeriesMesh(), "Mu");
     expect(clockSettingsForVariable(mu)).toEqual({
       start: "2004-06-01T00:00:00Z",
-      stop: "2004-06-01T20:00:00Z",
+      stop: "2004-06-02T06:00:00Z",
       stepHours: 10,
       multiplier: 72000,
       count: 3,
@@ -90,7 +90,20 @@ describe("clockSettingsForVariable / makeActiveTimeSeries", () => {
   });
   it("falls back to the last time step when end is missing", () => {
     const mu = { ...findVariable(makeTimeSeriesMesh(), "Mu"), end: null };
-    expect(clockSettingsForVariable(mu).stop).toBe("2004-06-01T20:00:00Z");
+    expect(clockSettingsForVariable(mu).stop).toBe("2004-06-02T06:00:00Z");
+  });
+  it("stops one step after the last time step starts, so the last step plays as long as the others", () => {
+    const mu = findVariable(makeTimeSeriesMesh(), "Mu");
+    const { stop, stepHours } = clockSettingsForVariable(mu);
+    const lastIndex = mu.timesteps.length - 1;
+    const stopMs = Date.parse(stop);
+    expect(stopMs - Date.parse(mu.timesteps[lastIndex].time)).toBe(stepHours * HOUR);
+    expect(timestepIndexForTime(mu, stopMs - stepHours * HOUR)).toBe(lastIndex);
+    expect(timestepIndexForTime(mu, stopMs - 1)).toBe(lastIndex);
+  });
+  it("has no stop time for a static variable", () => {
+    const elevation = makeStaticMesh().viz.variables[0];
+    expect(clockSettingsForVariable(elevation)).toMatchObject({ start: null, stop: null });
   });
   it("builds the activeTimeSeries context value", () => {
     const dataset = makeTimeSeriesMesh();

@@ -26,6 +26,11 @@ export function isoToUtcMs(iso) {
   return Number.isNaN(ms) ? null : ms;
 }
 
+/** The ISO 8601 UTC string of a time in milliseconds since the epoch, to the second: "2004-06-01T10:00:00Z". */
+function toIso(ms) {
+  return new Date(ms).toISOString().replace(/\.\d{3}Z$/, "Z");
+}
+
 /**
  * The variables list of a glTF dataset, or null when the dataset does not carry one. CZML datasets also carry
  * `viz.variables` (labels and units, see lib/outputVariables.js) but those have no time steps, so they are not
@@ -86,14 +91,18 @@ export function timestepForTime(variable, time) {
 /**
  * Cesium clock settings for playing through a variable: ISO start/stop, the step in hours, the clock multiplier
  * (simulated seconds per wall-clock second) and the number of steps.
+ *
+ * A variable's `end` is the time its last step starts. The clock stops one step after that, so the last step is
+ * shown for as long as the others before playback loops back to the start. A static variable has no stop time.
  */
 export function clockSettingsForVariable(variable) {
   const timesteps = variable.timesteps ?? [];
   const last = timesteps[timesteps.length - 1];
   const stepHours = variable.step_hours ?? 1;
+  const lastStepMs = isoToUtcMs(variable.end ?? last?.time ?? null);
   return {
     start: variable.start ?? timesteps[0]?.time ?? null,
-    stop: variable.end ?? last?.time ?? null,
+    stop: lastStepMs === null ? null : toIso(lastStepMs + stepHours * MS_PER_HOUR),
     stepHours,
     multiplier: (stepHours * 3600) / SECONDS_PER_TIMESTEP_WALL,
     count: timesteps.length,
