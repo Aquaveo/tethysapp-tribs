@@ -101,13 +101,15 @@ def regenerate_viz(arguments):
 
         spatial_manager = make_spatial_manager(arguments.gsurl)
         for dataset in datasets:
-            print_info(f'Regenerating {dataset.name} ({dataset.id})...')
+            # Kept as a string: the instance is expired by later commits and detached once the session closes.
+            dataset_id = str(dataset.id)
+            print_info(f'Regenerating {dataset.name} ({dataset_id})...')
             try:
                 regenerate_dataset(session, spatial_manager, dataset)
             except Exception as e:  # keep going; report at the end
-                log.exception(f'Failed to regenerate visualization of dataset {dataset.id}')
-                failures.append(dataset)
-                print_error(f'  An error occurred while regenerating {dataset.id}: {e}')
+                log.exception(f'Failed to regenerate visualization of dataset {dataset_id}')
+                failures.append(dataset_id)
+                print_error(f'  An error occurred while regenerating {dataset_id}: {e}')
             else:
                 print_success('  done')
     finally:
@@ -115,10 +117,7 @@ def regenerate_viz(arguments):
 
     done = len(datasets) - len(failures)
     if failures:
-        print_error(
-            f'Regenerated {done} of {len(datasets)} dataset(s); {len(failures)} failed: ' +
-            ', '.join(str(dataset.id) for dataset in failures)
-        )
+        print_error(f'Regenerated {done} of {len(datasets)} dataset(s); {len(failures)} failed: ' + ', '.join(failures))
         return 1
     print_success(f'Successfully regenerated {done} dataset(s).')
     return 0

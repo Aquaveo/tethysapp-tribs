@@ -133,14 +133,16 @@ def delete_datasets(arguments):
 
         spatial_manager = make_spatial_manager(arguments.gsurl)
         for dataset in datasets:
-            print_info(f'Deleting {dataset.name} ({dataset.id})...')
+            # Kept as a string: the instance is expired by later commits and detached once the session closes.
+            dataset_id = str(dataset.id)
+            print_info(f'Deleting {dataset.name} ({dataset_id})...')
             try:
                 delete_dataset(session, spatial_manager, dataset)
             except Exception as e:  # keep going; report at the end
                 session.rollback()
-                log.exception(f'Failed to delete dataset {dataset.id}')
-                failures.append(dataset)
-                print_error(f'  An error occurred while deleting {dataset.id}: {e}')
+                log.exception(f'Failed to delete dataset {dataset_id}')
+                failures.append(dataset_id)
+                print_error(f'  An error occurred while deleting {dataset_id}: {e}')
             else:
                 print_success('  done')
     finally:
@@ -148,10 +150,7 @@ def delete_datasets(arguments):
 
     done = len(datasets) - len(failures)
     if failures:
-        print_error(
-            f'Deleted {done} of {len(datasets)} dataset(s); {len(failures)} failed: ' +
-            ', '.join(str(dataset.id) for dataset in failures)
-        )
+        print_error(f'Deleted {done} of {len(datasets)} dataset(s); {len(failures)} failed: ' + ', '.join(failures))
         return 1
     print_success(f'Successfully deleted {done} dataset(s).')
     return 0

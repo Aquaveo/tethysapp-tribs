@@ -155,3 +155,22 @@ def test_reports_failures_and_keeps_going(db_session, legacy_dataset, mock_servi
     assert f'1 failed: {legacy_dataset.id}' in out and 'boom' in out
     db_session.expire_all()
     assert db_session.query(Dataset).get(legacy_dataset.id) is not None
+
+
+def test_failure_summary_survives_a_later_commit(db_session, legacy_dataset, mock_services, mocker, capsys):
+    """The ids of failed datasets are reported even though a later commit expired them before the session closed."""
+    realization = legacy_dataset.linked_realizations[0]
+    other = next(d for d in realization.linked_datasets if d.id != legacy_dataset.id)
+    calls = []
+
+    def fail_first_then_commit(session, spatial_manager, dataset):
+        calls.append(str(dataset.id))
+        if len(calls) == 1:
+            raise RuntimeError('boom')
+        session.commit()
+
+    mocker.patch.object(cmd, 'delete_dataset', side_effect=fail_first_then_commit)
+    status, out = run(capsys, dataset_ids=[str(legacy_dataset.id), str(other.id)])
+    assert status == 1
+    assert len(calls) == 2
+    assert f'Deleted 1 of 2 dataset(s); 1 failed: {calls[0]}' in out

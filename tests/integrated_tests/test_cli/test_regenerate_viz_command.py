@@ -58,6 +58,19 @@ def tin_dataset(db_session, project_with_fdb, test_files):
 
 
 @pytest.fixture
+def second_viz_dataset(db_session):
+    """A second dataset that has a visualization, so a run covers more than one dataset."""
+    dataset = Dataset(name='Second', description='Another dataset with a visualization.')
+    dataset.dataset_type = Dataset.DatasetTypes.TRIBS_TIN
+    dataset.set_attribute('viz', {'type': 'gltf', 'url': [], 'legend': []})
+    db_session.add(dataset)
+    db_session.commit()
+    yield dataset
+    db_session.delete(dataset)
+    db_session.commit()
+
+
+@pytest.fixture
 def mock_services(session_maker, mocker):
     """Point the command at the test database (its own session, which it closes) and a mocked GeoServer."""
     mocker.patch.object(cmd, 'make_session', side_effect=lambda primary_db: session_maker())
@@ -172,3 +185,22 @@ def test_reports_failures_and_keeps_going(db_session, tin_dataset, mock_services
     assert 'boom' in out
     db_session.refresh(tin_dataset)
     assert tin_dataset.get_status() == tin_dataset.STATUS_ERROR
+
+
+def test_failure_summary_survives_a_later_commit(
+    db_session, tin_dataset, second_viz_dataset, mock_services, mocker, capsys
+):
+    """The ids of failed datasets are reported even though a later commit expired them before the session closed."""
+    calls = []
+
+    def fail_first_then_commit(session, spatial_manager, dataset):
+        calls.append(str(dataset.id))
+        if len(calls) == 1:
+            raise RuntimeError('boom')
+        session.commit()
+
+    mocker.patch.object(cmd, 'regenerate_dataset', side_effect=fail_first_then_commit)
+    status, out = run(capsys)
+    assert status == 1
+    assert len(calls) == 2
+    assert f'Regenerated 1 of 2 dataset(s); 1 failed: {calls[0]}' in out
