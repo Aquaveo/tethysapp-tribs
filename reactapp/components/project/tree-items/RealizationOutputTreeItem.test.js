@@ -369,13 +369,20 @@ it("Creates a tree item with details and download actions in options menu", asyn
   expect(downloadButton).toBeVisible();
 });
 
-async function renderGltfWithLegendRegistry({ visible, selectedLayer = "Nwt", meshClockTime = null, updateCallback = jest.fn() }) {
+// `clockDatasetId` is the dataset whose variable drives the Cesium clock: "own" for the rendered dataset.
+async function renderGltfWithLegendRegistry({
+  visible, selectedLayer = "Nwt", meshClockTime = null, updateCallback = jest.fn(), clockDatasetId = null,
+}) {
   const { backend } = await mockBackend();
   const dataset = makeTimeSeriesMesh();
   const projectId = newUUID();
   const registerLegend = jest.fn();
   const unregisterLegend = jest.fn();
-  render(
+  const setActiveTimeSeries = jest.fn();
+  const activeTimeSeries = clockDatasetId
+    ? { datasetId: clockDatasetId === "own" ? dataset.id : clockDatasetId, variableName: "Nwt" }
+    : null;
+  const { unmount } = render(
     <AppContext.Provider value={{ backend, csrf: "12345" }}>
       <ProjectContext.Provider value={{ projectId, setProjectId: jest.fn(), openFolders: {}, closeFolder: jest.fn(), openFolder: jest.fn() }}>
         <GraphicsWindowVisualsContext.Provider
@@ -388,8 +395,8 @@ async function renderGltfWithLegendRegistry({ visible, selectedLayer = "Nwt", me
             visibleCZMLObject: { [dataset.id]: selectedLayer },
             setCZMLLayer: jest.fn(),
             setSelectedCZMLPoint: jest.fn(),
-            activeTimeSeries: null,
-            setActiveTimeSeries: jest.fn(),
+            activeTimeSeries,
+            setActiveTimeSeries,
             meshClockTime,
           }}
         >
@@ -409,8 +416,23 @@ async function renderGltfWithLegendRegistry({ visible, selectedLayer = "Nwt", me
       </ProjectContext.Provider>
     </AppContext.Provider>
   );
-  return { dataset, registerLegend, unregisterLegend };
+  return { dataset, registerLegend, unregisterLegend, setActiveTimeSeries, unmount };
 }
+
+it("Releases the Cesium clock when the output that drives it leaves the tree (e.g. it was deleted)", async () => {
+  const { setActiveTimeSeries, unmount } = await renderGltfWithLegendRegistry({ visible: true, clockDatasetId: "own" });
+  setActiveTimeSeries.mockClear();
+  unmount();
+  expect(setActiveTimeSeries).toHaveBeenCalledTimes(1);
+  expect(setActiveTimeSeries).toHaveBeenCalledWith(null);
+});
+
+it("Leaves the Cesium clock alone when another output drives it", async () => {
+  const { setActiveTimeSeries, unmount } = await renderGltfWithLegendRegistry({ visible: false, clockDatasetId: newUUID() });
+  setActiveTimeSeries.mockClear();
+  unmount();
+  expect(setActiveTimeSeries).not.toHaveBeenCalled();
+});
 
 it("Registers the legend of the selected glTF variable at the current time step, and saves a ramp chosen there", async () => {
   const updateCallback = jest.fn();

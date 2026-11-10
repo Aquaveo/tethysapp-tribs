@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import PropTypes from "prop-types";
 
 import Icon from 'assets/Icon';
@@ -62,6 +62,16 @@ const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationInd
       }
     }
   }, [visibleObjects, isFirstProjectRender, dataset.id, hideObject, projectId]);
+
+  // An output that leaves the tree (it was deleted, or its realization was) must not keep driving the Cesium clock.
+  // Refs, so the cleanup only runs on unmount and still sees the current clock owner.
+  const clockRef = useRef({ activeTimeSeries, setActiveTimeSeries });
+  clockRef.current = { activeTimeSeries, setActiveTimeSeries };
+  useEffect(() => () => {
+    if (clockRef.current.activeTimeSeries?.datasetId === dataset.id) {
+      clockRef.current.setActiveTimeSeries?.(null);
+    }
+  }, [dataset.id]);
 
   const variables = getVariables(dataset);
   // The selected layer; glTF output is drawn with its first variable until one is picked (see GltfLayers).
