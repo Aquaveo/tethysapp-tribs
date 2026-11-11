@@ -2,7 +2,6 @@ import userEvent from "@testing-library/user-event";
 import { render, screen } from "@testing-library/react";
 
 import Panel from "./Panel";
-import { ModalContext } from "react-tethys/context";
 
 it("Has a default title of Panel", async () => {
   render(<Panel />);
@@ -131,18 +130,28 @@ it("Displays absolutely from left with any other value of placement", () => {
   console.error = originalError;
 });
 
-it("Opens the workflows Modal", async () => {
+it("Gives both project header buttons a tooltip", async () => {
   const user = userEvent.setup();
-  const setWorkflowsModal = jest.fn();
   render(
-    <ModalContext.Provider value={{setWorkflowsModal}}>
-      <Panel isProject>
-        <p>Panel content.</p>
-      </Panel>
-    </ModalContext.Provider>
+    <Panel isProject>
+      <p>Panel content.</p>
+    </Panel>
   );
+  for (const name of ["Go to Projects List", "Shrink"]) {
+    const button = screen.getByRole("button", { name });
+    expect(button).not.toHaveAttribute("title"); // no second, native tooltip
+    await user.hover(button);
+    expect(await screen.findByRole("tooltip")).toBeInTheDocument();
+    await user.unhover(button);
+  }
+});
 
-  const workflowsButton = screen.getByRole("button", { name: "Open Workflows"});
-  await user.click(workflowsButton);
-  expect(setWorkflowsModal).toHaveBeenCalledWith(true);
+it("Has no map tool buttons: those live in the map toolbar", () => {
+  render(
+    <Panel isProject>
+      <p>Panel content.</p>
+    </Panel>
+  );
+  const names = screen.getAllByRole("button").map((button) => button.getAttribute("aria-label"));
+  expect(names).toEqual(["Go to Projects List", "Shrink"]);
 });

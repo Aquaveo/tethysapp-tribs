@@ -4,16 +4,17 @@ import Icon from 'assets/Icon';
 import Materials_Display_Options from 'assets/Materials_Display_Options.svg';
 import TreeItem from "components/tree/TreeItem";
 import VisibilityAction from "components/project/actions/VisibilityAction";
-import { GraphicsWindowVisualsContext, ProjectContext, SidePanelContext } from "react-tethys/context";
+import { GraphicsWindowVisualsContext, ProjectContext } from "react-tethys/context";
 import { FRAME_OBJECT } from "constants/GraphicsWindowConstants";
 import { datasetPropTypes } from "components/tree/propTypes";
-import LegendPanel from "../panels/LegendPanel";
-import LegendsAction from "../actions/LegendsAction";
+import { LEGEND_GROUPS, hasLegend } from "lib/legends";
+import useLegendEntry from "hooks/useLegendEntry";
 import DownloadAction from "../actions/DownloadAction";
 
 const LayerRasterTreeItem = ({
   layer,
   datasetIndex,
+  layerIndex,
   extent,
   raster,
 }) => {
@@ -25,7 +26,6 @@ const LayerRasterTreeItem = ({
     revealObject,
     setZoomToExtent,
   } = useContext(GraphicsWindowVisualsContext);
-  const { showPanel, hideSidePanel, visibleSidePanel } = useContext(SidePanelContext);
   const [visible, setVisible] = useState(visibleObjects?.[projectId] ? !visibleObjects?.[projectId].includes(layer) : false);
 
   useEffect(() => {
@@ -36,7 +36,7 @@ const LayerRasterTreeItem = ({
     if (isFirstProjectRender) {
       // Do Nothing
     } else if (visibleObjects[projectId] !== undefined) {
-      if (!visibleObjects[projectId].includes(layer)) {
+      if (!visibleObjects[projectId]?.includes(layer)) {
         // TODO Add test in Project for changing visibility of a collection.
         setVisible(false);
       } else {
@@ -53,15 +53,17 @@ const LayerRasterTreeItem = ({
     raster.id,
   ]);
 
-  let legendExists = false;
-  if (raster?.viz?.legend) {
-    if (raster?.viz?.legend.length > 0) {
-      legendExists = true;
-    }
-  }
+  // The layer's legend is listed in the global Legends panel while the layer is shown.
+  useLegendEntry({
+    id: `${raster.id}-${layer}`,
+    active: hasLegend(raster) && Boolean(visibleObjects?.[projectId]?.includes(layer)),
+    order: [LEGEND_GROUPS.RASTER, datasetIndex ?? 0, layerIndex ?? 0],
+    dataset: raster,
+    uniqueId: layer,
+  });
 
   const handleFrame = () => {
-    if (!visibleObjects[projectId].includes(layer)) {
+    if (!visibleObjects[projectId]?.includes(layer)) {
       revealObject(layer);
     }
     setFramedObject(extent, FRAME_OBJECT);
@@ -75,14 +77,6 @@ const LayerRasterTreeItem = ({
       revealObject(layer)
     }
     setVisible(visibility);
-  };
-
-  const handleShowLegend = () => {
-    if (visibleSidePanel.includes(`legend-panel-${raster.id}-${layer}`)) {
-      hideSidePanel(`legend-panel-${raster.id}-${layer}`)
-    } else {
-      showPanel(`legend-panel-${raster.id}-${layer}`);
-    }
   };
 
   const layerActions = [
@@ -99,17 +93,6 @@ const LayerRasterTreeItem = ({
     />
   ];
 
-  if (legendExists) {
-    layerActions.push(...[
-      <LegendsAction
-        key="legends"
-        onClick={handleShowLegend}
-        title={`${visibleSidePanel.includes(`legend-panel-${raster.id}-${layer}`) ? "Close" : "Open"} Legend`}
-        disabled={!visible}
-      />,
-    ]);
-  }
-
   return (
     <>
       <TreeItem
@@ -120,13 +103,6 @@ const LayerRasterTreeItem = ({
         onFrame={handleFrame}
         actions={layerActions}
       />
-      {legendExists && (
-        <LegendPanel
-          dataset={raster}
-          panelId={`legend-panel-${raster.id}-${layer}`}
-          uniqueId={layer}
-        />
-      )}      
     </>
   );
 };
@@ -136,6 +112,7 @@ LayerRasterTreeItem.propTypes = {
   extent: PropTypes.arrayOf(PropTypes.number), // This will be an array of 4 values, one for each corner of the boundary
   raster: datasetPropTypes.isRequired,
   datasetIndex: PropTypes.number,
+  layerIndex: PropTypes.number, // position of the layer in the compound raster, for legend ordering
   onDelete: PropTypes.func,
   onDuplicate: PropTypes.func,
   onUpdate: PropTypes.func,

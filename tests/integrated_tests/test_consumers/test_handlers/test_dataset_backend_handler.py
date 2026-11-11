@@ -584,12 +584,41 @@ async def test_dataset_receive_create_tin(
         fc = await a_session.run_sync(_get_file_collection, post_datasets[0])
         fc_id = str(fc.instance.id)
         f_id = str(post_datasets[0].id)
+        gltf_url = f'{fdb_id}/{fc_id}/gltf/{f_id}-salas.glb'
+        legend_url = f'{fdb_id}/{fc_id}/gltf/{f_id}-salas_legend.png'
         assert payload3["viz"] == {
-            'type': 'gltf',
-            'url': [f'{fdb_id}/{fc_id}/gltf/{f_id}-salas.gltf'],
-            'extent': pytest.approx([-106.60003268693941, 34.29129978075136, -106.56766128437329, 34.331757077410224]),
-            'legend': [f'{fdb_id}/{fc_id}/gltf/{f_id}-salas_legend.png'],
-            'origin': pytest.approx([-106.58421362030992, 34.309707781406104, 1960.196533203125]),
+            'type':
+                'gltf',
+            'url': [gltf_url],
+            'extent':
+                pytest.approx([-106.60003268693941, 34.29129978075136, -106.56766128437329, 34.331757077410224]),
+            'legend': [legend_url],
+            'origin':
+                pytest.approx([-106.58421362030992, 34.309707781406104, 1960.196533203125]),
+            # A bare TIN has a single, time-independent 'Elevation' variable, colored over its elevation range
+            'variables':
+                [
+                    {
+                        'name': 'Elevation',
+                        # not in the output variable table: raw name, no units, no tier, no conversion
+                        'label': 'Elevation',
+                        'units': None,
+                        'tier': None,
+                        'description': '',
+                        'factor': 1.0,
+                        'start': None,
+                        'end': None,
+                        'step_hours': None,
+                        'min': pytest.approx(1868.0003662109375),
+                        'max': pytest.approx(2167.0),
+                        'timesteps': [{
+                            'hours': None,
+                            'time': None,
+                            'url': gltf_url,
+                            'legend': legend_url
+                        }],
+                    }
+                ],
         }
 
 
@@ -679,10 +708,12 @@ async def test_dataset_receive_update(a_session, a_dataset_with_files, make_comm
             "id": str(dataset.id),
             "name": "updated name",
             "description": "changed description",
-            "attributes": {
-                "foo": "bar",
-                "dataset_type": "garbage",  # dataset_type is handled separately
-            },
+            "attributes":
+                {
+                    "foo": "bar",
+                    "color_ramp": "viridis",  # user-selected mesh color ramp, persisted as a plain attribute
+                    "dataset_type": "garbage",  # dataset_type is handled separately
+                },
             "dataset_type": Dataset.DatasetTypes.TRIBS_POINTS,
             'status': 'Dirty',
         }
@@ -703,6 +734,7 @@ async def test_dataset_receive_update(a_session, a_dataset_with_files, make_comm
         assert payload["description"] == data["description"]
         assert payload["status"] == data["status"]
         assert payload["attributes"]["foo"] == data["attributes"]["foo"]
+        assert payload["attributes"]["color_ramp"] == "viridis"
         assert "dataset_type" not in payload["attributes"]  # dataset_type should be moved out of attributes
         assert payload["dataset_type"] == data["dataset_type"]
 
@@ -924,5 +956,70 @@ async def test_dataset_receive_timeseries(a_session, a_pixel_dataset_with_files,
         payload = response["payload"]
         assert payload == {
             'x': [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0],
-            'y': [0.0, 0.0, 0.0, 0.0, 18.3, 57.7, 88.2, 106.9, 118.7, 127.5, 134.6]
+            'y': [0.0, 0.0, 0.0, 0.0, 18.3, 57.7, 88.2, 106.9, 118.7, 127.5, 134.6],
+            # What was asked for, so the frontend can tell which request a reply answers
+            'dataset_id': str(dataset.id),
+            'point_id': point_id,
+            # Pixel variables are not in the output variable table: raw name, units from the header token
+            'name': 'Nf_mm',
+            'label': 'Nf',
+            'units': 'mm',
         }
+
+
+async def _request_output_timeseries(communicator, dataset, variable):
+    action_id = str(uuid.uuid4())
+    await communicator.send_json_to(
+        {
+            "action": {
+                "id": action_id,
+                "type": BackendActions.DATASET_GET_MRF_OR_RFT_TIMESERIES,
+            },
+            "payload": {
+                "id": str(dataset.id),
+                "variable": variable,
+            }
+        }
+    )
+    response = await communicator.receive_json_from()
+    assert response["action"]["type"] == BackendActions.DATASET_GET_MRF_OR_RFT_TIMESERIES
+    return response["payload"]
+
+
+@pytest.mark.asyncio
+async def test_dataset_receive_mrf_timeseries_labels_and_converts_sheet_variables(
+    a_session, a_mrf_dataset_with_files, make_communicator, test_files
+):
+    """An mrf variable in the output variable table comes back with its friendly label and in display units; the older
+    column name MGW is recognised as MDGW (depth to groundwater, mm in the file -> m)."""
+    dataset = a_mrf_dataset_with_files
+    project = await a_session.run_sync(_get_project, dataset)
+    with open(test_files / 'backend' / 'datasets' / 'hyd' / 'salas0700_00.mrf') as f:
+        header = f.readline().split('\t')
+        f.readline()  # units row
+        raw = [float(line.split()[header.index('MGW')]) for line in f if line.strip()]
+
+    async with make_communicator(project.id) as communicator:
+        payload = await _request_output_timeseries(communicator, dataset, 'MGW')
+        assert (payload['name'], payload['label'], payload['units']) == ('MGW', 'Depth to Groundwater', 'm')
+        assert payload['dataset_id'] == str(dataset.id) and 'point_id' not in payload
+        assert len(payload['y']) == len(raw) == len(payload['x'])
+        assert payload['y'] == pytest.approx([v / 1000 for v in raw])
+        assert payload['x'][:3] == [1.0, 2.0, 3.0]
+
+        # A variable without a conversion keeps its values; units come from the sheet
+        payload = await _request_output_timeseries(communicator, dataset, 'MAP')
+        assert (payload['label'], payload['units']) == ('Mean Areal Precipitation', 'mm/hr')
+
+
+@pytest.mark.asyncio
+async def test_dataset_receive_rft_timeseries_uses_the_units_row(
+    a_session, a_rft_dataset_with_files, make_communicator
+):
+    """rft variables are not in the table: the raw name is the label and the units come from the file's units row."""
+    dataset = a_rft_dataset_with_files
+    project = await a_session.run_sync(_get_project, dataset)
+    async with make_communicator(project.id) as communicator:
+        payload = await _request_output_timeseries(communicator, dataset, 'Hsrf')
+        assert (payload['name'], payload['label'], payload['units']) == ('Hsrf', 'Hsrf', 'm3/s')
+        assert len(payload['y']) == len(payload['x']) > 0

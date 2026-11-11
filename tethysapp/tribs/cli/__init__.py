@@ -7,7 +7,9 @@
 ********************************************************************************
 """
 import argparse
+from tethysapp.tribs.cli.delete_datasets_command import add_delete_datasets_parser
 from tethysapp.tribs.cli.init_command import init_tribs
+from tethysapp.tribs.cli.regenerate_viz_command import add_regenerate_viz_parser
 
 
 def tribs_command():
@@ -31,6 +33,12 @@ def tribs_command():
         '(e.g.: "postgresql://tethys_super:***@localhost:5435/tribs_primary_db").'
     )
     init_parser.set_defaults(func=init_tribs)
+
+    # regenerate-viz command ------------------------------------------------------------------------------------------#
+    add_regenerate_viz_parser(subparsers)
+
+    # delete-datasets command -----------------------------------------------------------------------------------------#
+    add_delete_datasets_parser(subparsers)
 
     # Parse commandline arguments and call command --------------------------------------------------------------------#
     args = parser.parse_args()

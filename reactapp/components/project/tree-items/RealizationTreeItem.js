@@ -131,6 +131,8 @@ const RealizationTreeItem = ({
                 onDelete={onDeleteDataset}
                 onUpdate={onUpdateDataset}
                 realizationIndex={realizationIndex}
+                realizationName={realization.name}
+                outputIndex={i}
               />
             );
           })}

@@ -6,13 +6,14 @@ import TreeItem from "components/tree/TreeItem";
 import VisibilityAction from "components/project/actions/VisibilityAction";
 import TINTreeItem from "./TINTreeItem";
 import { meshDatasetPropTypes } from "components/tree/propTypes";
-import { GraphicsWindowVisualsContext, ProjectContext, SidePanelContext } from "react-tethys/context";
+import { GraphicsWindowVisualsContext, ProjectContext } from "react-tethys/context";
 import { FRAME_OBJECT } from "constants/GraphicsWindowConstants";
+import { getVariables } from "lib/meshTimeSeries";
+import { LEGEND_GROUPS, hasLegend } from "lib/legends";
+import useLegendEntry from "hooks/useLegendEntry";
 import { ConfirmDeleteModal } from "components/dialogs/ConfirmDeleteModal";
 import DetailsAction from "../actions/DetailsAction";
-import LegendsAction from "../actions/LegendsAction";
 import DownloadAction from "../actions/DownloadAction";
-import LegendPanel from "../panels/LegendPanel";
 
 const MeshTreeItem = ({
   mesh,
@@ -35,7 +36,6 @@ const MeshTreeItem = ({
     revealObject,
     setZoomToExtent,
   } = useContext(GraphicsWindowVisualsContext);
-  const { showPanel, hideSidePanel, visibleSidePanel } = useContext(SidePanelContext);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const [visible, setVisible] = useState(visibleObjects?.[projectId] ? !visibleObjects?.[projectId].includes(mesh.id) : false);
   const [disabled, setDisabled] = useState(false);
@@ -48,7 +48,7 @@ const MeshTreeItem = ({
     if (isFirstProjectRender) {
       // Do Nothing
     } else if (visibleObjects[projectId] !== undefined) {
-      if (!visibleObjects[projectId].includes(mesh.id)) {
+      if (!visibleObjects[projectId]?.includes(mesh.id)) {
         // TODO Add test in Project for changing visibility of a collection.
         setVisible(false);
       } else {
@@ -70,13 +70,6 @@ const MeshTreeItem = ({
     }
   }, [disabled]);
 
-  let legendExists = false;
-  if (mesh?.viz?.legend) {
-    if (mesh?.viz?.legend.length > 0) {
-      legendExists = true;
-    }
-  }
-
   const handleDelete = () => {
     setShowConfirmDelete(true);
   };
@@ -96,7 +89,7 @@ const MeshTreeItem = ({
   };
 
   const handleFrame = () => {
-    if (!visibleObjects[projectId].includes(mesh.id)) {
+    if (!visibleObjects[projectId]?.includes(mesh.id)) {
       revealObject(mesh.id);
     }
     setFramedObject(mesh.viz.extent, FRAME_OBJECT);
@@ -112,10 +105,25 @@ const MeshTreeItem = ({
     handleUpdate(newGeometry);
   };
 
+  // Only the chosen ramp is sent: the backend merges attributes one key at a time.
+  const handleColorRampChange = (rampName) => {
+    handleUpdate({ id: mesh.id, attributes: { color_ramp: rampName } });
+  };
+
+  // The mesh's legend is listed in the global Legends panel while the mesh is shown.
+  useLegendEntry({
+    id: mesh.id,
+    active: hasLegend(mesh) && Boolean(visibleObjects?.[projectId]?.includes(mesh.id)),
+    order: [LEGEND_GROUPS.MESH, datasetIndex ?? 0, 0],
+    dataset: mesh,
+    uniqueId: mesh.id,
+    variable: getVariables(mesh)?.[0] ?? undefined,
+    onColorRampChange: handleColorRampChange,
+  });
+
   const toggleVisibility = (event, visibility) => {
     if (!visibility) {
       hideObject(mesh.id)
-      hideSidePanel(`legend-panel-${mesh.id}`)
     } else {
       revealObject(mesh.id)
     }
@@ -125,14 +133,6 @@ const MeshTreeItem = ({
   const handleOpenDatasetDetails = () => {
     const details_url = TETHYS_ROOT_URL + dataset_url;
     window.open(details_url, "_blank", "noopener noreferrer");
-  };
-
-  const handleShowLegend = () => {
-    if (visibleSidePanel.includes(`legend-panel-${mesh.id}`)) {
-      hideSidePanel(`legend-panel-${mesh.id}`)
-    } else {
-      showPanel(`legend-panel-${mesh.id}`);
-    }
   };
 
   const meshActions = [
@@ -156,17 +156,6 @@ const MeshTreeItem = ({
         disabled={disabled}
       />,
     ])
-  }
-
-  if (legendExists) {
-    meshActions.push(...[
-      <LegendsAction
-        key="legends"
-        onClick={handleShowLegend}
-        title={`${visibleSidePanel.includes(`legend-panel-${mesh.id}`) ? "Close" : "Open"} Legend`}
-        disabled={!visible}
-      />,
-    ]);
   }
 
   return (
@@ -202,13 +191,6 @@ const MeshTreeItem = ({
         handleDeleteConfirm={handleDeleteConfirm}
         message={`Are you sure you want to delete ${mesh.name}?`}
       />
-      {legendExists && (
-        <LegendPanel
-          dataset={mesh}
-          panelId={`legend-panel-${mesh.id}`}
-          uniqueId={mesh.id}
-        />
-      )}
     </>
   );
 };

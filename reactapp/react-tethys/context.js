@@ -1,6 +1,7 @@
 import { FRAME_OBJECT, HOME } from "constants/GraphicsWindowConstants";
 import PropTypes from "prop-types";
-import { createContext, useEffect, useState } from "react";
+import { createContext, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { sameLegendEntry } from "lib/legends";
 
 export const AppContext = createContext();
 
@@ -63,6 +64,12 @@ const GraphicsWindowVisualsContext = createContext({
   setSelectedCZMLPoint: () => {},
   startDates: [],
   setStartDates: () => {},
+  activeTimeSeries: null,
+  setActiveTimeSeries: () => {},
+  meshClockTime: null,
+  setMeshClockTime: () => {},
+  colorRamps: {},
+  setColorRamp: () => {},
 });
 
 const SidePanelContext = createContext({
@@ -71,11 +78,85 @@ const SidePanelContext = createContext({
   hideSidePanel: () => {},
 });
 
+// The global Legends panel (components/project/panels/LegendsPanel.js). Tree items register the legend of each
+// visible layer with the stable actions in LegendsRegistryContext (see hooks/useLegendEntry.js); the panel and
+// the map toolbar (components/project/MapToolbar.js) read the state in LegendsContext. Two contexts so that registering an entry does not
+// re-render every tree item.
+const LegendsRegistryContext = createContext({
+  registerLegend: () => {},
+  unregisterLegend: () => {},
+  setShowLegends: () => {},
+});
+
+const LegendsContext = createContext({
+  showLegends: false,
+  legends: {},
+});
+
 // ReadOnly Dataset Context for accessing in child components
 const DatasetContext = createContext({
   contextDatasets: [],
   setContextDatasets: () => {}
 });
+
+const LegendsProvider = ({ children }) => {
+  // Whether the Legends panel is open; remembered per browser like visibleObjects.
+  const [showLegends, setShowLegends] = useState(() => {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+    return window.localStorage.getItem('showLegends') === 'true';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('showLegends', JSON.stringify(showLegends));
+  }, [showLegends]);
+
+  // Registered legend entries by id ({ id, order, seq, dataset, uniqueId, legendUrls, subtitle, variable,
+  // realizationName, onColorRampChange }); seq records first registration so equal sort keys keep tree order.
+  // (seq is taken inside the updater, which StrictMode may run twice; gaps in the sequence do not matter.)
+  const [legends, setLegends] = useState({});
+  const seqRef = useRef(0);
+
+  const registerLegend = useCallback((id, entry) => {
+    setLegends((prevLegends) => {
+      const previous = prevLegends[id];
+      const next = { ...entry, id, seq: previous?.seq ?? seqRef.current++ };
+      if (previous && sameLegendEntry(previous, next)) {
+        return prevLegends;
+      }
+      return { ...prevLegends, [id]: next };
+    });
+  }, []);
+
+  const unregisterLegend = useCallback((id) => {
+    setLegends((prevLegends) => {
+      if (!(id in prevLegends)) {
+        return prevLegends;
+      }
+      const { [id]: _removed, ...rest } = prevLegends;
+      return rest;
+    });
+  }, []);
+
+  const registryValue = useMemo(
+    () => ({ registerLegend, unregisterLegend, setShowLegends }),
+    [registerLegend, unregisterLegend]
+  );
+  const legendsValue = useMemo(() => ({ showLegends, legends }), [showLegends, legends]);
+
+  return (
+    <LegendsRegistryContext.Provider value={registryValue}>
+      <LegendsContext.Provider value={legendsValue}>
+        {children}
+      </LegendsContext.Provider>
+    </LegendsRegistryContext.Provider>
+  );
+};
+
+LegendsProvider.propTypes = {
+  children: PropTypes.node.isRequired,
+};
 
 const AppContextProvider = ({ children }) => {
   // Modal States
@@ -217,6 +298,13 @@ const AppContextProvider = ({ children }) => {
   const [visibleCZMLObject, setVisibleCZMLObject] = useState({});
   const [selectedCZMLPoint, setSelectedCZMLPoint] = useState(null);
   const [startDates, setStartDates] = useState([]);
+  // The glTF mesh variable that currently drives the Cesium clock (see lib/meshTimeSeries makeActiveTimeSeries),
+  // and the clock time (ms since epoch, UTC) the mesh layers render; written by MeshClock when the time step changes.
+  const [activeTimeSeries, setActiveTimeSeries] = useState(null);
+  const [meshClockTime, setMeshClockTime] = useState(null);
+  // Color ramp chosen for a glTF mesh dataset in this session ({datasetId: ramp name}, see lib/colorRamps). It
+  // applies immediately; the choice is also saved on the dataset (attributes.color_ramp) for later sessions.
+  const [colorRamps, setColorRamps] = useState({});
 
   const setFramedObject = (extent, key) => {
     setNewFramedObject((prevObjects) => ({...prevObjects, [key]: extent}))
@@ -264,6 +352,10 @@ const AppContextProvider = ({ children }) => {
     });
   };
 
+  const setColorRamp = (datasetID, rampName) => {
+    setColorRamps((prevRamps) => ({ ...prevRamps, [datasetID]: rampName }));
+  };
+
   const VisualsContextValue = {
     framedObject,
     setFramedObject,
@@ -280,6 +372,12 @@ const AppContextProvider = ({ children }) => {
     setSelectedCZMLPoint,
     startDates,
     setStartDates,
+    activeTimeSeries,
+    setActiveTimeSeries,
+    meshClockTime,
+    setMeshClockTime,
+    colorRamps,
+    setColorRamp,
   };
 
   const [visibleSidePanel, setVisibleSidePanel] = useState([]);
@@ -323,7 +421,9 @@ const AppContextProvider = ({ children }) => {
           <ModalContext.Provider value={modalContextValue}>
             <GraphicsWindowVisualsContext.Provider value={VisualsContextValue}>
               <SidePanelContext.Provider value={SidePanelContextValue}>
-                {children}
+                <LegendsProvider>
+                  {children}
+                </LegendsProvider>
               </SidePanelContext.Provider>
             </GraphicsWindowVisualsContext.Provider>
           </ModalContext.Provider>
@@ -344,5 +444,8 @@ export {
   ProjectObjectContext,
   GraphicsWindowVisualsContext,
   SidePanelContext,
-  DatasetContext
+  DatasetContext,
+  LegendsContext,
+  LegendsRegistryContext,
+  LegendsProvider,
 };

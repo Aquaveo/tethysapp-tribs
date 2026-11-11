@@ -3,15 +3,16 @@ import { render, screen } from "@testing-library/react";
 
 import MeshTreeItem from "./MeshTreeItem";
 import { makeMesh } from "config/tests/mocks/meshMock";
-import { GraphicsWindowVisualsContext, ProjectContext } from "react-tethys/context";
+import { GraphicsWindowVisualsContext, LegendsRegistryContext, ProjectContext } from "react-tethys/context";
 import { FRAME_OBJECT } from "constants/GraphicsWindowConstants";
 import newUUID from "lib/uuid";
+import { makeStaticMesh } from "config/tests/mocks/meshMock";
 
-function initAndRender() {
+function initAndRender({ visibleObjects: visibleObjectsOverride } = {}) {
   const user = userEvent.setup();
   const mesh = makeMesh("Soil Moisture");
   const projectId = newUUID();
-  const visibleObjects = {[projectId]: []};
+  const visibleObjects = visibleObjectsOverride ?? {[projectId]: []};
   const openFolders = {[projectId]: []};
   const deleteCallback = jest.fn();
   const duplicateCallback = jest.fn();
@@ -134,11 +135,24 @@ it("Opens and then closes the Confirm Delete modal", async () => {
 });
 
 it("Calls graphics frame callback when frame button pressed", async () => {
-  const { user, mesh, setFramedObject, setZoomToExtent } = initAndRender();
+  const { user, mesh, revealObject, setFramedObject, setZoomToExtent } = initAndRender();
   const optionsButton = screen.getByRole("button", { name: /Options/ });
   await user.click(optionsButton);
   const frameButton = await screen.findByRole("button", { name: /Frame/ });
   await user.click(frameButton);
+  expect(revealObject).toHaveBeenCalledWith(mesh.id);
+  expect(setFramedObject).toHaveBeenCalledWith(mesh.viz.extent, FRAME_OBJECT);
+  expect(setZoomToExtent).toHaveBeenCalledWith(FRAME_OBJECT);
+});
+
+it("Reveals and frames the mesh when the project has no visibility entry yet", async () => {
+  // visibleObjects comes from localStorage and has no entry for a project until something is revealed in it.
+  const { user, mesh, revealObject, setFramedObject, setZoomToExtent } = initAndRender({ visibleObjects: {} });
+  const optionsButton = screen.getByRole("button", { name: /Options/ });
+  await user.click(optionsButton);
+  const frameButton = await screen.findByRole("button", { name: /Frame/ });
+  await user.click(frameButton);
+  expect(revealObject).toHaveBeenCalledWith(mesh.id);
   expect(setFramedObject).toHaveBeenCalledWith(mesh.viz.extent, FRAME_OBJECT);
   expect(setZoomToExtent).toHaveBeenCalledWith(FRAME_OBJECT);
 });
@@ -176,4 +190,48 @@ it("Creates a tree item with details and download actions in options menu", asyn
   const downloadButton = await screen.findByRole("button", { name: /Download/ });
   expect(detailsButton).toBeVisible();
   expect(downloadButton).toBeVisible();
+});
+
+function renderWithLegendRegistry({ visible, updateCallback = jest.fn() }) {
+  const mesh = { ...makeStaticMesh(), datasets: [] }; // the mesh tree item lists the TIN datasets under it
+  const projectId = newUUID();
+  const registerLegend = jest.fn();
+  const unregisterLegend = jest.fn();
+  render(
+    <ProjectContext.Provider value={{ projectId, setProjectId: jest.fn(), openFolders: { [projectId]: [] }, closeFolder: jest.fn(), openFolder: jest.fn() }}>
+      <GraphicsWindowVisualsContext.Provider
+        value={{
+          visibleObjects: { [projectId]: visible ? [mesh.id] : [] },
+          hideObject: jest.fn(),
+          revealObject: jest.fn(),
+          setFramedObject: jest.fn(),
+          setZoomToExtent: jest.fn(),
+        }}
+      >
+        <LegendsRegistryContext.Provider value={{ registerLegend, unregisterLegend, setShowLegends: jest.fn() }}>
+          <MeshTreeItem mesh={mesh} datasetIndex={2} onDelete={jest.fn()} onDuplicate={jest.fn()} onUpdate={updateCallback} />
+        </LegendsRegistryContext.Provider>
+      </GraphicsWindowVisualsContext.Provider>
+    </ProjectContext.Provider>
+  );
+  return { mesh, registerLegend, unregisterLegend };
+}
+
+it("Registers the legend of a shown TIN mesh with the global Legends panel, and saves a ramp chosen there", () => {
+  const updateCallback = jest.fn();
+  const { mesh, registerLegend } = renderWithLegendRegistry({ visible: true, updateCallback });
+  expect(registerLegend).toHaveBeenCalledWith(
+    mesh.id,
+    expect.objectContaining({ id: mesh.id, uniqueId: mesh.id, order: [0, 2, 0], variable: mesh.viz.variables[0] })
+  );
+  registerLegend.mock.calls.at(-1)[1].onColorRampChange("turbo");
+  // Only the id and the ramp are sent; the backend merges attributes one key at a time
+  expect(updateCallback).toHaveBeenCalledWith({ id: mesh.id, attributes: { color_ramp: "turbo" } });
+  // (The legend card itself is covered by LegendCard.test.js.)
+});
+
+it("Does not register the legend of a hidden mesh", () => {
+  const { mesh, registerLegend, unregisterLegend } = renderWithLegendRegistry({ visible: false });
+  expect(registerLegend).not.toHaveBeenCalled();
+  expect(unregisterLegend).toHaveBeenCalledWith(mesh.id);
 });

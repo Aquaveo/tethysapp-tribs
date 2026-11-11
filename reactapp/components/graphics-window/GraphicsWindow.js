@@ -16,15 +16,36 @@ import {
   SidePanelContext,
 } from "react-tethys/context";
 import CustomCamera from "./CustomCamera";
+import SelectionFocus from "./SelectionFocus";
 import {
   DATASET_VIZ_TYPES,
   FRAME_OBJECT,
   HOME,
 } from "constants/GraphicsWindowConstants";
+import { isPlotPanelId, plotPanelId, selectionDatasetId } from "constants/PlotConstants";
 import CompoundWmsLayer from "./CompoundWmsLayers";
 import GltfLayer from "./GltfLayers";
+import MeshClock from "./MeshClock";
 import WmsLayer from "./WmsLayers";
 import CzmlLayer from "./CzmlLayers";
+
+const PLACEHOLDER_ENTITY_IDS = ["None", "Loading..."]; // CZML placeholders, not features
+
+/**
+ * What a change of the globe's selected entity means for the app: the new selection (null when cleared), the
+ * plot sheets to close, and the one to open. Any change closes the open plot sheets except the selected dataset's,
+ * which is opened (or kept open, so a new feature of the same dataset only refreshes the plot).
+ */
+export function planSelectionChange(entityId, visibleSidePanel = []) {
+  const cleared = entityId === undefined || entityId === null || PLACEHOLDER_ENTITY_IDS.includes(entityId);
+  const datasetId = cleared ? null : selectionDatasetId(entityId);
+  const keep = datasetId ? plotPanelId(datasetId) : null;
+  return {
+    selection: cleared ? null : entityId,
+    hide: visibleSidePanel.filter((id) => isPlotPanelId(id) && id !== keep),
+    show: keep,
+  };
+}
 
 const GraphicsWindow = ({ datasets }) => {
   const { tethysApp } = useContext(AppContext);
@@ -35,7 +56,7 @@ const GraphicsWindow = ({ datasets }) => {
     setZoomToExtent,
     setSelectedCZMLPoint,
   } = useContext(GraphicsWindowVisualsContext);
-  const { showPanel } = useContext(SidePanelContext);
+  const { showPanel, hideSidePanel, visibleSidePanel } = useContext(SidePanelContext);
 
   Ion.defaultAccessToken = tethysApp.customSettings.Cesium_API_Key.value;
   const terrain_provider = createWorldTerrainAsync({
@@ -49,21 +70,14 @@ const GraphicsWindow = ({ datasets }) => {
     setZoomToExtent(null);
   };
 
+  // Cesium raises this with undefined when the selection is cleared (a click on empty globe, or SelectionFocus
+  // mirroring a cleared app selection); any change closes the plot sheets that no longer match the selection.
   const handleSelectedEntityChange = (entity) => {
-    if (entity !== undefined && !["None", "Loading..."].includes(entity?.id)) {
-      setSelectedCZMLPoint(entity.id);
-      const datasetId = entity.id.match(/\[(.*?)\]/)[1]; // This grabs any string inbetween brackets "[" or "]"
-      showPanel(`plotly-panel-${datasetId}`);
-    } else if (["None", "Loading..."].includes(entity.id)) {
-      const match = entity.id.match(/\[(.*?)\]/);
-
-      if (match && match[1]) {
-        const datasetId = match[1];
-        showPanel(`plotly-panel-${datasetId}`);
-      } else {
-        console.error("This dataset is not set up to show a plot panel");
-      }
-      setSelectedCZMLPoint(null);
+    const { selection, hide, show } = planSelectionChange(entity?.id, visibleSidePanel);
+    setSelectedCZMLPoint(selection);
+    hide.forEach(hideSidePanel);
+    if (show) {
+      showPanel(show);
     }
   };
 
@@ -76,6 +90,7 @@ const GraphicsWindow = ({ datasets }) => {
   return (
     <Viewer
       full
+      homeButton={false} // Cesium's "View Home" flies to the whole globe; the map toolbar's Zoom to Home replaces it
       style={{ top: "50px" }}
       defaultAccessToken={Ion}
       terrainProvider={terrain_provider}
@@ -83,6 +98,8 @@ const GraphicsWindow = ({ datasets }) => {
       onTrackedEntityChange={handleTrackedEntityChange}
     >
       <CustomCamera />
+      <MeshClock />
+      <SelectionFocus />
       {zoomToExtent !== null &&
         zoomToExtent === HOME &&
         framedObject?.[zoomToExtent] !== undefined && (

@@ -9,15 +9,31 @@ const TopOverlayTrigger = styled(OverlayTrigger)`
   z-index: 9999;
 `;
 
-const StyledTooltip = styled(Tooltip)`
+const TOOLTIP_BG = "#000";
+
+/** The app's tooltip: white text on black, used by the form info icons and the panel header buttons. */
+export const StyledTooltip = styled(Tooltip)`
   & .tooltip-inner {
     color: #fff;
-    background-color: #115590;
+    background-color: ${TOOLTIP_BG};
   }
 
-  & .tooltip-arrow::before {
-    color: #fff;
-    border-top-color: #115590;
+  /* the arrow is drawn with a different border side per placement */
+  &.bs-tooltip-top .tooltip-arrow::before,
+  &[data-popper-placement^="top"] .tooltip-arrow::before {
+    border-top-color: ${TOOLTIP_BG};
+  }
+  &.bs-tooltip-bottom .tooltip-arrow::before,
+  &[data-popper-placement^="bottom"] .tooltip-arrow::before {
+    border-bottom-color: ${TOOLTIP_BG};
+  }
+  &.bs-tooltip-start .tooltip-arrow::before,
+  &[data-popper-placement^="left"] .tooltip-arrow::before {
+    border-left-color: ${TOOLTIP_BG};
+  }
+  &.bs-tooltip-end .tooltip-arrow::before,
+  &[data-popper-placement^="right"] .tooltip-arrow::before {
+    border-right-color: ${TOOLTIP_BG};
   }
 `;
 

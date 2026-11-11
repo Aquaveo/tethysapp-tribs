@@ -286,7 +286,8 @@ export const DATASET_TYPE_MAPS = {
   TRIBS_OUT_MRF: DATASET_GROUPS.OUTPUT, // Mentioned as GIS dataset type in OUTHYDROFILENAME file_database_paths
   TRIBS_OUT_RFT: DATASET_GROUPS.OUTPUT, // Mentioned as GIS dataset type in OUTHYDROFILENAME file_database_paths
   TRIBS_OUT_PIXEL: DATASET_GROUPS.OUTPUT, // Mentioned as GIS dataset type in OUTFILENAME file_database_paths
-  TRIBS_OUT_TIME_DYNAMIC: DATASET_GROUPS.OUTPUT, // Mentioned in OUTFILENAME file_database_paths
+  // TRIBS_OUT_TIME_DYNAMIC was dropped on 2026-10-30 (snapshot output; see tribs delete-datasets in the README).
+  // Legacy datasets of that type are not listed under a realization until they are deleted.
   TRIBS_OUT_CNTRL: DATASET_GROUPS.OUTPUT, // Mentioned in OUTHYDROFILENAME file_database_paths
   TRIBS_OUT_QOUT: DATASET_GROUPS.OUTPUT, // Mentioned in OUTHYDROFILENAME file_database_paths
   TRIBS_OUT_TIME_INTEGRATED: DATASET_GROUPS.OUTPUT, // Mentioned in OUTFILENAME file_database_paths

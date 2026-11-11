@@ -102,6 +102,7 @@ const TreeItem = ({
   actions = [],
   uniqueId = null,
   title = "Tree Item",
+  tooltip = null,
   defaultOpen = false,
   leaf = false,
   disabled = false,
@@ -347,7 +348,7 @@ const TreeItem = ({
             </TreeItemIcon>
           )}
           {!renaming ? (
-            <TreeItemTitle title={title}>{title}</TreeItemTitle>
+            <TreeItemTitle title={tooltip ?? title}>{title}</TreeItemTitle>
           ) : (
             <InlineTextControl
               defaultValue={title}
@@ -413,6 +414,7 @@ TreeItem.propTypes = {
   onFrame: PropTypes.func,
   onRename: PropTypes.func,
   title: PropTypes.string,
+  tooltip: PropTypes.string, // hover text; defaults to the title
   highlight: PropTypes.bool,
   highlightNow: PropTypes.bool,
   onClick: PropTypes.func,
