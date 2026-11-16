@@ -13,7 +13,8 @@ dependencies = [
     "channels[daphne]>=4",
     "redis<8",
     "tethys-dataset-services>=2.4.1",
-    "bokeh_django"
+    "bokeh_django",
+    "tribs-adapter @ git+https://github.com/Aquaveo/tribs-adapter.git@v0.3.5",
 ]
 requires-python = ">=3.13"
 readme = "README.md"
@@ -36,6 +37,14 @@ test = [
     "typing-extensions>=4.12"
 ]
 lint = ["flake8>=5.0.4", "yapf>=0.32.0"]
+
+[[tool.pdm.source]]
+name = "aquaveo-dev"
+url = "https://public.aquapi.aquaveo.com/aquaveo/dev/+simple/"
+include_packages = ["xms*"]
+
+[tool.pdm.resolution.overrides]
+earthaccess = ">=0.14.0,<0.15.0"  # same cap as tribs-adapter
 
 [tool.pdm.scripts]
 test.cmd = "pytest"
