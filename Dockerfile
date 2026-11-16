@@ -138,12 +138,8 @@ RUN ls -la ${APP_SRC_ROOT}/tethysapp/tribs/public/project-editor
 ###############
 # APP INSTALL #
 ###############
-# Install tribs-adapter and tethysapp-tribs
-RUN /bin/bash -c "cd ${APP_SRC_ROOT} \
-  && cd ${APP_SRC_ROOT}/tribs-adapter \
-  && ${PDM} install --no-editable --production \
-  && cd ${APP_SRC_ROOT} \
-  && ${PDM} install --no-editable --production"
+# Install tethysapp-tribs (tribs-adapter comes from the GitHub tag pinned in its pyproject.toml)
+RUN /bin/bash -c "cd ${APP_SRC_ROOT} && ${PDM} install --no-editable --production"
 
 RUN pip install 'shapely>=2.0.0'
 
