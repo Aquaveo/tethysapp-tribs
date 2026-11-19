@@ -11,7 +11,7 @@ import { datasetPropTypes, matchesUUID } from "components/tree/propTypes";
 import { ConfirmDeleteModal } from "components/dialogs/ConfirmDeleteModal";
 import ModelTreeItem from "./ModelTreeItem";
 import { MODEL_DATA_NAMES } from "constants/modelData";
-import { DATASET_GROUPS, DATASET_TYPE_MAPS } from "constants/projectConstants";
+import { DATASET_GROUPS, DATASET_TYPE_MAPS, isHiddenDatasetType } from "constants/projectConstants";
 import RealizationOutputTreeItem from "./RealizationOutputTreeItem";
 import DownloadAction from "../actions/DownloadAction";
 
@@ -121,7 +121,8 @@ const RealizationTreeItem = ({
             const dataset = outputDatasets.find((output) => {
               return linked_dataset.id === output.id;
             });
-            if (DATASET_TYPE_MAPS?.[dataset?.dataset_type] !== DATASET_GROUPS.OUTPUT) {
+            const isOutput = DATASET_TYPE_MAPS?.[dataset?.dataset_type] === DATASET_GROUPS.OUTPUT;
+            if (!isOutput || isHiddenDatasetType(dataset.dataset_type)) {
               return null;
             }
             return (

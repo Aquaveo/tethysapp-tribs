@@ -15,7 +15,21 @@ export function sortDatasetsByKey(datasets, key = "name", ascending = true) {
   return sorted_datasets;
 }
 
-export function filterDatasets(datasets, filter_key, sort_key = "name", ascending = true) {
+/**
+ * The datasets linked to `realizations` ({id, name} each) that the project editor shows: all but those whose
+ * dataset in `datasets` is of a hidden type. A linked dataset not (yet) in `datasets` is kept.
+ */
+export function shownLinkedDatasets(realizations, datasets) {
+  const hiddenIds = new Set(
+    datasets.filter((dataset) => ProjectConstants.isHiddenDatasetType(dataset.dataset_type)).map((dataset) => dataset.id)
+  );
+  return realizations
+    .flatMap((realization) => realization?.linked_datasets ?? [])
+    .filter((linked) => !hiddenIds.has(linked.id));
+}
+
+export function filterDatasets(allDatasets, filter_key, sort_key = "name", ascending = true) {
+  const datasets = allDatasets.filter((dataset) => !ProjectConstants.isHiddenDatasetType(dataset.dataset_type));
   let filtered_datasets = datasets.filter(
     (dataset) => ProjectConstants.DATASET_TYPE_MAPS[dataset.dataset_type] === filter_key
   )

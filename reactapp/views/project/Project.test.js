@@ -536,6 +536,37 @@ describe("Project", () => {
       expect(newMeshTreeIcons).toHaveLength(2);
     });
 
+    it("Should not frame or reveal an arriving dataset of a hidden type", async () => {
+      const { server, backend, rerender, projectRender, setFramedObject, revealObject } = await setupProject();
+      setFramedObject.mockClear();
+      revealObject.mockClear();
+      const arrive = (dataset) => server.send(JSON.stringify({
+        action: { id: newUUID(), type: backend.actions.DATASET_DATA },
+        payload: dataset,
+      }));
+      const output = (name, dataset_type) => ({
+        ...serialized_project.datasets.find((dataset) => dataset.dataset_type === "TRIBS_OUT_MRF"),
+        id: newUUID(),
+        name,
+        dataset_type,
+        viz: { type: "czml", url: ["a.czml"], legend: [], extent: [-111.6, 34.5, -111.5, 34.6], origin: null },
+      });
+      const runoffTypes = output("Hydrograph Runoff Types File", "TRIBS_OUT_RFT");
+      const qout = output("Qout File", "TRIBS_OUT_QOUT");
+
+      arrive(runoffTypes);
+      rerender(projectRender());
+      await pauseFor(500);
+      expect(setFramedObject).not.toHaveBeenCalled();
+      expect(revealObject).not.toHaveBeenCalled();
+
+      arrive(qout); // an output type that is shown still gets framed and revealed
+      rerender(projectRender());
+      await pauseFor(500);
+      expect(setFramedObject).toHaveBeenCalledWith(qout.viz.extent, FRAME_OBJECT);
+      expect(revealObject).toHaveBeenCalledWith(qout.id);
+    });
+
     it("Should open the Add GIS modal and add a dataset", async () => {
       const {
         user,

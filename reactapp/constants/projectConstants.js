@@ -294,6 +294,15 @@ export const DATASET_TYPE_MAPS = {
   TRIBS_OUT_STATIONS: DATASET_GROUPS.OUTPUT,
 };
 
+// Dataset types the project editor does not show anywhere (tree, map, variables, legend). The datasets are still
+// created after a model run and their files are still part of the realization download.
+export const HIDDEN_DATASET_TYPES = [
+  "TRIBS_OUT_CNTRL", // Control File
+  "TRIBS_OUT_RFT", // Hydrograph Runoff Types File
+];
+
+export const isHiddenDatasetType = (datasetType) => HIDDEN_DATASET_TYPES.includes(datasetType);
+
 export const KEY_NAME_TO_DATASET_TYPE_MAP = {
   // This is for datasets that should be a general type but don't need to be restricted
   // The key names come from the scenarios
