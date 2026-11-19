@@ -1,6 +1,6 @@
 import { render } from "@testing-library/react";
 import {
-  BoundingSphereState, Cartesian2, Cartesian3, Matrix4, Ray, SceneMode, SceneTransforms,
+  BoundingSphereState, Cartesian2, Cartesian3, Math as CesiumMath, Matrix4, Ray, SceneMode, SceneTransforms,
   ScreenSpaceEventType, Transforms,
 } from "cesium";
 import { useCesium } from "resium";
@@ -21,6 +21,9 @@ const localDirection = (east, north, up) =>
     Matrix4.multiplyByPointAsVector(ENU, new Cartesian3(east, north, up), new Cartesian3()),
     new Cartesian3()
   );
+// Metres above the entity of a world position.
+const heightAboveEntity = (position) =>
+  Matrix4.multiplyByPoint(Matrix4.inverseTransformation(ENU, new Matrix4()), position, new Cartesian3()).z;
 const rayFrom = (origin, through) =>
   new Ray(origin, Cartesian3.normalize(Cartesian3.subtract(through, origin, new Cartesian3()), new Cartesian3()));
 
@@ -41,6 +44,7 @@ function makeViewer({
   direction = localDirection(0, 0, -1),
   ray = rayFrom(TOP_DOWN_POSITION, TOP_DOWN_TARGET),
   terrainHeight = undefined,
+  pitch = -1.2,
 } = {}) {
   const canvas = { getBoundingClientRect: () => ({ top: 50, left: 0 }) };
   return {
@@ -50,7 +54,8 @@ function makeViewer({
     camera: {
       positionWC: position,
       directionWC: direction,
-      heading: 0.1, pitch: -1.2, roll: 0,
+      rightWC: localDirection(1, 0, 0), // every view here looks north or straight down with north up
+      heading: 0.1, pitch, roll: 0,
       getPickRay: jest.fn(() => ray),
       flyTo: jest.fn(),
     },
@@ -134,26 +139,61 @@ describe("shiftToReveal", () => {
     expect(orientation).toEqual({ heading: 0.1, pitch: -1.2, roll: 0 });
   });
 
-  it("leaves the camera alone when the move would take it to the feature's level or below", () => {
-    // Nearly level with the entity: the target screen point shows sky, and bringing the entity up to it would
-    // lower the camera by more than its height.
+  it("tilts a nearly level view towards overhead, just enough to make the move above the ground", () => {
+    // Nearly level with the entity: the target screen point shows sky, and bringing the entity up to it without
+    // tilting would lower the camera to 150 m below the entity.
     const position = local(0, -5000, 300);
     const viewer = makeViewer({
       position,
       direction: localDirection(0, 5000, -300),
       ray: rayFrom(position, local(0, 5000, 600)),
     });
-    expect(shiftToReveal(viewer, viewer.selectedEntity, AREA)).toBe(false);
-    expect(viewer.camera.flyTo).not.toHaveBeenCalled();
+    expect(shiftToReveal(viewer, viewer.selectedEntity, AREA)).toBe(true);
+    const { destination, orientation } = flownTo(viewer);
+    const tilt = -1.2 - orientation.pitch;
+    expect(tilt).toBeGreaterThan(0); // looks further down than before
+    expect(tilt).toBeLessThan(CesiumMath.toRadians(5)); // but only slightly
+    expect(orientation).toEqual({ heading: 0.1, pitch: orientation.pitch, roll: 0 });
+    // The camera ends up above the entity, by less than one more degree of tilt would add...
+    const distance = Cartesian3.distance(destination, ENTITY_POS);
+    expect(heightAboveEntity(destination)).toBeGreaterThanOrEqual(10);
+    expect(heightAboveEntity(destination)).toBeLessThan(10 + distance * Math.sin(CesiumMath.toRadians(1)));
+    // ...and as far from it as it was.
+    expect(distance / Cartesian3.distance(position, ENTITY_POS)).toBeCloseTo(1, 2);
   });
 
-  it("leaves the camera alone when the move would take it below the terrain at its destination", () => {
+  it("does not tilt a view that can make the move as it is", () => {
     const position = local(0, -5000, 5000);
     const viewer = makeViewer({
       position,
       direction: localDirection(0, 1, -1),
       ray: rayFrom(position, local(0, 3000, 0)),
-      terrainHeight: 6000, // a ridge between the camera and the feature, higher than where the camera would end up
+    });
+    shiftToReveal(viewer, viewer.selectedEntity, AREA);
+    expect(flownTo(viewer).orientation.pitch).toBe(-1.2);
+  });
+
+  it("leaves the camera alone when no small tilt would lift it clear of the terrain at its destination", () => {
+    const position = local(0, -5000, 5000);
+    const viewer = makeViewer({
+      position,
+      direction: localDirection(0, 1, -1),
+      ray: rayFrom(position, local(0, 3000, 0)),
+      terrainHeight: 20000, // higher than the camera can get by tilting
+    });
+    expect(shiftToReveal(viewer, viewer.selectedEntity, AREA)).toBe(false);
+    expect(viewer.camera.flyTo).not.toHaveBeenCalled();
+  });
+
+  it("leaves a level view alone when the ground is higher than a 35 degree tilt would lift the camera", () => {
+    const position = local(0, -5000, 300);
+    const viewer = makeViewer({
+      position,
+      pitch: -0.06,
+      direction: localDirection(0, 5000, -300),
+      ray: rayFrom(position, local(0, 5000, 600)),
+      // 3500 m above the entity: about 44 degrees of tilt at this distance, which looking straight down would reach
+      terrainHeight: 4000,
     });
     expect(shiftToReveal(viewer, viewer.selectedEntity, AREA)).toBe(false);
     expect(viewer.camera.flyTo).not.toHaveBeenCalled();

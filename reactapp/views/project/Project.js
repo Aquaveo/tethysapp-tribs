@@ -529,8 +529,8 @@ const Project = ({ project, setProject }) => {
 
   const deleteDataset = (data) => {
     setDatasets((prevDatasets) => {
-      const currentDataset = prevDatasets.find((dataset) => dataset.id = data.id);
-      if (currentDataset.viz) {
+      const currentDataset = prevDatasets.find((dataset) => dataset.id === data.id);
+      if (currentDataset?.viz) {
         // Removes the dataset from visibleObjects as cleanup
         hideObject(data.id);
       }
@@ -678,8 +678,8 @@ const Project = ({ project, setProject }) => {
     setRealizationData(newRealization);
 
     const newStartDates = [...startDates];
-    const startDate = newRealization.input_file.run_parameters.time_variables.STARTDATE;
-    newStartDates[index] = startDate
+    // A Date, as in the effect that derives the start dates from the realizations.
+    newStartDates[index] = new Date(realization.input_file.run_parameters.time_variables.STARTDATE);
     setStartDates(newStartDates);
   };
 

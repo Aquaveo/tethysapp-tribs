@@ -567,6 +567,46 @@ describe("Project", () => {
       expect(revealObject).toHaveBeenCalledWith(qout.id);
     });
 
+    it("Should remove only the deleted dataset from the tree", async () => {
+      const { server, backend, rerender, projectRender, hideObject } = await setupProject();
+      const deleted = serialized_project.datasets.find((dataset) => dataset.name === "GIS Dataset");
+      const others = serialized_project.datasets.filter((dataset) => dataset.name !== deleted.name);
+      const shown = () => others.map((dataset) => `${dataset.name}: ${screen.queryAllByText(dataset.name).length}`);
+      const before = shown();
+      expect(screen.queryAllByText(deleted.name).length).toBeGreaterThan(0);
+
+      server.send(JSON.stringify({
+        action: { id: newUUID(), type: backend.actions.DATASET_DELETE },
+        payload: deleted,
+      }));
+      rerender(projectRender());
+      await pauseFor(500);
+
+      expect(screen.queryAllByText(deleted.name)).toHaveLength(0);
+      expect(shown()).toEqual(before);
+      expect(hideObject).toHaveBeenCalledWith(deleted.id); // it has a visualization, which is switched off
+    });
+
+    it("Should take an updated realization and its start date without an error", async () => {
+      const { server, backend, rerender, projectRender, setStartDates } = await setupProject();
+      const realization = serialized_project.scenarios[0].realizations[0];
+      const updated = JSON.parse(JSON.stringify({ ...realization, name: "Renamed Realization" }));
+      updated.input_file.run_parameters.time_variables.STARTDATE = "2005-07-01T00:00:00.000Z";
+      setStartDates.mockClear();
+
+      expect(() => server.send(JSON.stringify({
+        action: { id: newUUID(), type: backend.actions.REALIZATION_UPDATE },
+        payload: updated,
+      }))).not.toThrow();
+      rerender(projectRender());
+      await pauseFor(500);
+
+      expect(screen.getAllByText("Renamed Realization").length).toBeGreaterThan(0);
+      expect(setStartDates).toHaveBeenCalledWith(
+        expect.arrayContaining([new Date("2005-07-01T00:00:00.000Z")])
+      );
+    });
+
     it("Should open the Add GIS modal and add a dataset", async () => {
       const {
         user,
