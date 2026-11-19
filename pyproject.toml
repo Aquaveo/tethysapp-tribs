@@ -14,6 +14,8 @@ dependencies = [
     "redis<8",
     "tethys-dataset-services>=2.4.1",
     "bokeh_django",
+    # panel (installed from the conda lock, so invisible to pdm) requires bokeh<3.10
+    "bokeh<3.10",
     "tribs-adapter @ git+https://github.com/Aquaveo/tribs-adapter.git@v0.3.5",
 ]
 requires-python = ">=3.13"
