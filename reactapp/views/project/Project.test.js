@@ -536,6 +536,77 @@ describe("Project", () => {
       expect(newMeshTreeIcons).toHaveLength(2);
     });
 
+    it("Should not frame or reveal an arriving dataset of a hidden type", async () => {
+      const { server, backend, rerender, projectRender, setFramedObject, revealObject } = await setupProject();
+      setFramedObject.mockClear();
+      revealObject.mockClear();
+      const arrive = (dataset) => server.send(JSON.stringify({
+        action: { id: newUUID(), type: backend.actions.DATASET_DATA },
+        payload: dataset,
+      }));
+      const output = (name, dataset_type) => ({
+        ...serialized_project.datasets.find((dataset) => dataset.dataset_type === "TRIBS_OUT_MRF"),
+        id: newUUID(),
+        name,
+        dataset_type,
+        viz: { type: "czml", url: ["a.czml"], legend: [], extent: [-111.6, 34.5, -111.5, 34.6], origin: null },
+      });
+      const runoffTypes = output("Hydrograph Runoff Types File", "TRIBS_OUT_RFT");
+      const qout = output("Qout File", "TRIBS_OUT_QOUT");
+
+      arrive(runoffTypes);
+      rerender(projectRender());
+      await pauseFor(500);
+      expect(setFramedObject).not.toHaveBeenCalled();
+      expect(revealObject).not.toHaveBeenCalled();
+
+      arrive(qout); // an output type that is shown still gets framed and revealed
+      rerender(projectRender());
+      await pauseFor(500);
+      expect(setFramedObject).toHaveBeenCalledWith(qout.viz.extent, FRAME_OBJECT);
+      expect(revealObject).toHaveBeenCalledWith(qout.id);
+    });
+
+    it("Should remove only the deleted dataset from the tree", async () => {
+      const { server, backend, rerender, projectRender, hideObject } = await setupProject();
+      const deleted = serialized_project.datasets.find((dataset) => dataset.name === "GIS Dataset");
+      const others = serialized_project.datasets.filter((dataset) => dataset.name !== deleted.name);
+      const shown = () => others.map((dataset) => `${dataset.name}: ${screen.queryAllByText(dataset.name).length}`);
+      const before = shown();
+      expect(screen.queryAllByText(deleted.name).length).toBeGreaterThan(0);
+
+      server.send(JSON.stringify({
+        action: { id: newUUID(), type: backend.actions.DATASET_DELETE },
+        payload: deleted,
+      }));
+      rerender(projectRender());
+      await pauseFor(500);
+
+      expect(screen.queryAllByText(deleted.name)).toHaveLength(0);
+      expect(shown()).toEqual(before);
+      expect(hideObject).toHaveBeenCalledWith(deleted.id); // it has a visualization, which is switched off
+    });
+
+    it("Should take an updated realization and its start date without an error", async () => {
+      const { server, backend, rerender, projectRender, setStartDates } = await setupProject();
+      const realization = serialized_project.scenarios[0].realizations[0];
+      const updated = JSON.parse(JSON.stringify({ ...realization, name: "Renamed Realization" }));
+      updated.input_file.run_parameters.time_variables.STARTDATE = "2005-07-01T00:00:00.000Z";
+      setStartDates.mockClear();
+
+      expect(() => server.send(JSON.stringify({
+        action: { id: newUUID(), type: backend.actions.REALIZATION_UPDATE },
+        payload: updated,
+      }))).not.toThrow();
+      rerender(projectRender());
+      await pauseFor(500);
+
+      expect(screen.getAllByText("Renamed Realization").length).toBeGreaterThan(0);
+      expect(setStartDates).toHaveBeenCalledWith(
+        expect.arrayContaining([new Date("2005-07-01T00:00:00.000Z")])
+      );
+    });
+
     it("Should open the Add GIS modal and add a dataset", async () => {
       const {
         user,
