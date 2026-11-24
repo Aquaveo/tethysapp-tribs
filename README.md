@@ -330,6 +330,17 @@ sublimation, snowpack evaporation and canopy snow sublimation); the columns they
 themselves. A variable that does not change during the run
 (vegetation parameters, unless dynamic land use is on) is stored once and shown without a time axis.
 
+## Time-Integrated Spatial Output
+
+The "Time-Integrated Variable Output" layer (type `TRIBS_OUT_TIME_INTEGRATED`) shows the end of the run only. tRIBS
+writes an `_i` file at hour 0 and at the end of the run; the layer is built from the last one, has no time axis, and
+its legend shows the time of that file. Every `_i` file stays in the dataset and its download. Datasets visualized
+before this change still step through all their files; rebuild them with
+
+```bash
+tribs regenerate-viz <primary_db> <gsurl> --dataset-type TRIBS_OUT_TIME_INTEGRATED
+```
+
 ## Deleting Datasets
 
 `tribs delete-datasets` removes datasets for good, with their visualization, file collection and the references in
