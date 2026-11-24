@@ -121,10 +121,12 @@ variables under "More variables". Deferred:
 - **Extend the sheet to the other output files.** Pixel, `.rft` and SDF station variables are not in the sheet, so
   they keep their raw names (plus the header unit token where there is one) and all stay visible. Once the scientist
   adds them, extend `OUTPUT_VARIABLES` and `KIND_BY_DATASET_TYPE`, then `tribs regenerate-viz` those types.
-- **Derived time-dynamic variables.** The `_d` sheet asks for snow water equivalent to be shown as one variable
-  (`IWE + LWE`) rather than its ice and liquid parts, and for the snow losses (`SnSub`, `SnEvap`, `IntSub`) to be
-  added into `ET`. Each column is offered by itself for now; a derived variable needs the mesh writer to combine
-  columns before it colours the cells.
+- **Confirm the combined time-dynamic variables with the scientist.** Snow water equivalent is shown as
+  `IWE + LWE` and evapotranspiration as `ET` plus the snow losses (`SnSub`, `SnEvap`, `IntSub`), as the `_d` sheet
+  asks (`DERIVED_VARIABLES` in `tribs_adapter/common/output_variables.py`). The snow losses are depths per met time
+  step and `ET` is a rate, so they are divided by `METSTEP` to add them as mm/hr; that conversion is ours, not the
+  sheet's (the input file template calls `ETISTEP` the snow time step; the two are both one hour by default). The other "do not display by itself" notes (heat fluxes under snow, canopy values per vegetated area)
+  are not acted on.
 - **Time-dynamic columns outside the sheet.** tRIBS builds other than v5.3.1 also write `Z`, `S`, `CAr`, `SWE`, `DU`,
   `SoilID` and `LUseID` in the `_d` files. They are offered under their column names, up front with the priority
   variables (the panel only tucks away the secondary tier); ask the scientist which to hide and how to label `SWE`.

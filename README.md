@@ -324,7 +324,10 @@ files tRIBS writes every `SPOPINTRVL`. It was not created between 2026-10-30 and
   ```
 
 The variables offered, their labels and display units come from the "Dynamic spatial (_d)" sheet of the scientists'
-output variable list (`tribs_adapter/common/output_variables.py`). A variable that does not change during the run
+output variable list (`tribs_adapter/common/output_variables.py`). Two of them are combined from several columns,
+as the sheet asks: snow water equivalent (snowpack ice plus liquid water) and evapotranspiration (ET plus snowpack
+sublimation, snowpack evaporation and canopy snow sublimation); the columns they are made of are not listed by
+themselves. A variable that does not change during the run
 (vegetation parameters, unless dynamic land use is on) is stored once and shown without a time axis.
 
 ## Deleting Datasets
