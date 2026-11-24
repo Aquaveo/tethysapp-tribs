@@ -50,7 +50,7 @@ import Polygons from 'assets/Polygons.svg';
 import Scalar_Dataset from 'assets/Scalar_Dataset_Active.svg';
 
 // Constants/Misc imports
-import { filterDatasets, sortDatasetsByKey } from "../../components/project/utils/DatasetCreation";
+import { filterDatasets, shownLinkedDatasets, sortDatasetsByKey } from "../../components/project/utils/DatasetCreation";
 import * as ProjectConstants from "constants/projectConstants";
 import { FRAME_OBJECT, HOME, USA_EXTENT } from "constants/GraphicsWindowConstants";
 
@@ -512,7 +512,8 @@ const Project = ({ project, setProject }) => {
       const sorted_datasets = sortDatasetsByKey(allDatasets, datasetSortKey, isAscendingSort)
       return sorted_datasets;
     });
-    if (data?.viz) {
+    // A dataset of a hidden type has no place in the project editor, so there is nothing to frame or reveal.
+    if (data?.viz && !ProjectConstants.isHiddenDatasetType(data.dataset_type)) {
       // TODO Add tests for this.
       setFramedObject(data.viz.extent, FRAME_OBJECT);
       setZoomToExtent(FRAME_OBJECT);
@@ -528,8 +529,8 @@ const Project = ({ project, setProject }) => {
 
   const deleteDataset = (data) => {
     setDatasets((prevDatasets) => {
-      const currentDataset = prevDatasets.find((dataset) => dataset.id = data.id);
-      if (currentDataset.viz) {
+      const currentDataset = prevDatasets.find((dataset) => dataset.id === data.id);
+      if (currentDataset?.viz) {
         // Removes the dataset from visibleObjects as cleanup
         hideObject(data.id);
       }
@@ -677,8 +678,8 @@ const Project = ({ project, setProject }) => {
     setRealizationData(newRealization);
 
     const newStartDates = [...startDates];
-    const startDate = newRealization.input_file.run_parameters.time_variables.STARTDATE;
-    newStartDates[index] = startDate
+    // A Date, as in the effect that derives the start dates from the realizations.
+    newStartDates[index] = new Date(realization.input_file.run_parameters.time_variables.STARTDATE);
     setStartDates(newStartDates);
   };
 
@@ -1072,20 +1073,11 @@ const Project = ({ project, setProject }) => {
                 inline
                 key="realization-visibility"
                 onClick={(evt, on) => {
-                  setVisibilityAll(realizationData.flatMap((realization) => realization?.linked_datasets), on);
+                  setVisibilityAll(shownLinkedDatasets(realizationData, datasets), on);
                 }}
-                disabled={realizationData.every(
-                  (realization) => realization?.linked_datasets.length === 0
-                )}
-                off={realizationData.every(
-                  (realization, i) => realization?.linked_datasets.every(
-                    (dataset) => {
-                      if (visibleObjects?.[projectId] !== undefined) {
-                        return !visibleObjects?.[projectId].includes(dataset.id);
-                      }
-                      return true;
-                    }
-                  )
+                disabled={shownLinkedDatasets(realizationData, datasets).length === 0}
+                off={shownLinkedDatasets(realizationData, datasets).every(
+                  (dataset) => !visibleObjects?.[projectId]?.includes(dataset.id)
                 )}
               />,
             ]}

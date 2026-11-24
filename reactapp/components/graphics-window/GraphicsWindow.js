@@ -81,12 +81,6 @@ const GraphicsWindow = ({ datasets }) => {
     }
   };
 
-  const handleTrackedEntityChange = (entity) => {
-    if (entity !== undefined) {
-      setSelectedCZMLPoint(entity.id.split("_")[1]);
-    }
-  };
-
   return (
     <Viewer
       full
@@ -95,7 +89,6 @@ const GraphicsWindow = ({ datasets }) => {
       defaultAccessToken={Ion}
       terrainProvider={terrain_provider}
       onSelectedEntityChange={handleSelectedEntityChange}
-      onTrackedEntityChange={handleTrackedEntityChange}
     >
       <CustomCamera />
       <MeshClock />

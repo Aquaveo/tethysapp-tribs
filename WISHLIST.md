@@ -94,6 +94,23 @@ Follow-ups that were noted but deliberately deferred. Newest at the bottom.
   - *`LegendCard.js` is long.* About 145 lines with 7 props, and the legend image callback nests four deep to
     build the url. Split out the ramp selector and the legend images, and extract a `legendImageUrl` helper.
 
+## Hidden output datasets and plot selection
+
+Landed 2026-11-19 (FHMB III 1.1-3 feedback from ASU): the "Control File" and "Hydrograph Runoff Types File" output
+datasets are hidden in the project editor (`HIDDEN_DATASET_TYPES` in `reactapp/constants/projectConstants.js`), and
+opening a plot in a tilted view no longer zooms out. Deferred:
+
+- **Skip the visualization of hidden output types.** The `.rft` dataset still gets a CZML layer and legend on every
+  run, which nobody can show. Skip it in `TribsSpatialManager.create_layer_for_dataset` if the types stay hidden;
+  `tribs regenerate-viz` only rebuilds datasets that already have a `viz`, so un-hiding later would then need a way
+  to generate the missing ones.
+- **Hidden types in the Model Control file selectors.** Unrestricted selectors in `TabContent.js` list every project
+  dataset, including the hidden output types.
+- **Plot opening in a tilted view.** Opening a plot from a tilted view replaces the view by one from overhead
+  that frames the feature above the sheet (`revealAboveSheet`), because moving a tilted camera sideways lowers it,
+  into the ground in a level view. Keeping the tilt would need the camera to be placed against real terrain
+  (sampled at its destination and along the line of sight), not the globe's coarse height guess.
+
 ## Output variable labels and priorities
 
 Landed 2026-10-30 (FHMB III 1.2/1.3): `tribs_adapter/common/output_variables.py` holds the scientist's sheet (qout,

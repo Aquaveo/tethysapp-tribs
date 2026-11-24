@@ -8,11 +8,11 @@ import { serialized_project } from "config/tests/mocks/projectContext";
 import { filterDatasets } from "../utils/DatasetCreation";
 import { DATASET_GROUPS } from "constants/projectConstants";
 
-function initAndRender() {
+function initAndRender(datasets = filterDatasets(serialized_project.datasets, DATASET_GROUPS.OTHER)) {
   const user = userEvent.setup();
   const linked_datasets = serialized_project.scenarios[0].realizations[0].linked_datasets
   const realization = makeRealization("Basin Tin", linked_datasets);
-  const outputDatasets = filterDatasets(serialized_project.datasets, DATASET_GROUPS.OTHER);
+  const outputDatasets = datasets;
   const updateCallback = jest.fn();
   const openCallback = jest.fn();
   const deleteCallback = jest.fn();
@@ -133,4 +133,13 @@ it("Navigates to the realization download_all endpoint when download button pres
   );
 
   window.location = originalLocation;
+});
+
+it("Lists the realization's output datasets except the hidden types", () => {
+  initAndRender(serialized_project.datasets); // every dataset, the hidden types included
+  for (const name of ["Basin Averaged Hydrograph File", "Qout File", "Node Dynamic Output"]) {
+    expect(screen.getByText(name)).toBeInTheDocument();
+  }
+  expect(screen.queryByText("Control File")).not.toBeInTheDocument();
+  expect(screen.queryByText("Hydrograph Runoff Types File")).not.toBeInTheDocument();
 });

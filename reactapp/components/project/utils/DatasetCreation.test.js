@@ -1,5 +1,5 @@
 import { serialized_project } from "config/tests/mocks/projectContext";
-import { filterDatasets } from "./DatasetCreation";
+import { filterDatasets, shownLinkedDatasets } from "./DatasetCreation";
 import * as ProjectConstants from "constants/projectConstants";
 
 describe("filterDatasets", () => {
@@ -82,12 +82,46 @@ describe("filterDatasets", () => {
   it("Should return only OTHER group datasets", () => {
     // The OTHER group is currently set to be Output data or any dataset that doesn't have a dataset_type.
     const datasets = filterDatasets(serialized_project.datasets, ProjectConstants.DATASET_GROUPS.OTHER);
-    expect(datasets).toHaveLength(6);
+    expect(datasets).toHaveLength(4);
 
     const otherDataset = datasets[0];
     expect(otherDataset).toHaveProperty("id");
     expect(otherDataset).toHaveProperty("dataset_type");
     expect(otherDataset.dataset_type).toBe("TRIBS_OUT_MRF");
+  });
+
+  it("leaves hidden dataset types out of every group", () => {
+    const hidden = ["TRIBS_OUT_CNTRL", "TRIBS_OUT_RFT"];
+    const inProject = serialized_project.datasets.map((dataset) => dataset.dataset_type);
+    expect(inProject).toEqual(expect.arrayContaining(hidden)); // the project does have them
+    for (const group of Object.values(ProjectConstants.DATASET_GROUPS)) {
+      const grouped = [filterDatasets(serialized_project.datasets, group)].flat();
+      const types = grouped.flatMap((entry) => [entry, ...(entry.datasets ?? [])]).map((entry) => entry.dataset_type);
+      expect(types).not.toEqual(expect.arrayContaining([hidden[0]]));
+      expect(types).not.toEqual(expect.arrayContaining([hidden[1]]));
+    }
+  });
+});
+
+describe("shownLinkedDatasets", () => {
+  const datasets = [
+    { id: "mrf", dataset_type: "TRIBS_OUT_MRF" },
+    { id: "cntrl", dataset_type: "TRIBS_OUT_CNTRL" },
+    { id: "rft", dataset_type: "TRIBS_OUT_RFT" },
+  ];
+  const linked = (...ids) => ({ linked_datasets: ids.map((id) => ({ id, name: id })) });
+
+  it("leaves out the linked datasets of hidden types, across realizations", () => {
+    const shown = shownLinkedDatasets([linked("mrf", "cntrl"), linked("rft"), linked()], datasets);
+    expect(shown).toEqual([{ id: "mrf", name: "mrf" }]);
+  });
+
+  it("keeps a linked dataset the project has not received yet", () => {
+    expect(shownLinkedDatasets([linked("new")], datasets)).toEqual([{ id: "new", name: "new" }]);
+  });
+
+  it("copes with a realization that has no linked datasets", () => {
+    expect(shownLinkedDatasets([{}, undefined], datasets)).toEqual([]);
   });
 });
 
