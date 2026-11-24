@@ -1,4 +1,4 @@
-import { makeStaticMesh, makeTimeSeriesMesh } from "config/tests/mocks/meshMock";
+import { makeStaticMesh, makeTimeSeriesMesh, makeValueLayer } from "config/tests/mocks/meshMock";
 import { LEGEND_GROUPS, compareLegends, hasLegend, sameLegendEntry } from "./legends";
 
 describe("hasLegend", () => {
@@ -10,6 +10,12 @@ describe("hasLegend", () => {
     const mesh = makeTimeSeriesMesh();
     expect(mesh.viz.variables[0].timesteps[0].legend).toBeTruthy(); // the mock carries one
     expect(hasLegend({ ...mesh, viz: { ...mesh.viz, legend: [] } })).toBe(true);
+  });
+
+  it("is true for a value layer, whose legend is drawn in the browser", () => {
+    const layer = makeValueLayer();
+    expect(layer.viz.legend).toEqual([]); // no legend images
+    expect(hasLegend(layer)).toBe(true);
   });
 
   it("is false without legend images or time step legends", () => {

@@ -1,4 +1,4 @@
-import { makeMesh, makeStaticMesh, makeTimeSeriesMesh } from "config/tests/mocks/meshMock";
+import { makeMesh, makeStaticMesh, makeTimeSeriesMesh, makeValueLayer } from "config/tests/mocks/meshMock";
 import {
   clockSettingsForVariable,
   findVariable,
@@ -6,6 +6,7 @@ import {
   getVariables,
   isoToUtcMs,
   isTimeDynamic,
+  isValueVariable,
   makeActiveTimeSeries,
   timestepForTime,
   timestepIndexForTime,
@@ -117,3 +118,40 @@ it("formatTimestepTime renders a short UTC label", () => {
   expect(formatTimestepTime("2004-06-01T10:00:00Z")).toBe("2004-06-01 10:00");
   expect(formatTimestepTime(null)).toBeNull();
 });
+
+describe("value layer variables", () => {
+  const variable = makeValueLayer().viz.variables[0]; // 01:00 to 03:00, hourly
+
+  it("are told apart by their values file", () => {
+    expect(isValueVariable(variable)).toBe(true);
+    expect(isValueVariable(findVariable(makeTimeSeriesMesh(), "Mu"))).toBe(false);
+    expect(isValueVariable({ name: "MAP" })).toBe(false);
+    expect(isValueVariable(null)).toBe(false);
+  });
+
+  it("are time dynamic when their rows span more than one time", () => {
+    expect(isTimeDynamic(variable)).toBe(true);
+    expect(isTimeDynamic({ ...variable, end: variable.start, step_hours: null })).toBe(false); // a single row
+    expect(isTimeDynamic({ ...variable, start: null, end: null, step_hours: null })).toBe(false); // no date
+  });
+
+  it("give the clock their range and step", () => {
+    expect(clockSettingsForVariable(variable)).toEqual({
+      start: "2004-06-01T01:00:00Z",
+      stop: "2004-06-01T04:00:00Z", // one step after the last row
+      stepHours: 1,
+      multiplier: 7200,
+      count: 0,
+    });
+  });
+
+  it("count clock steps from their start, so the clock republishes the time once per step", () => {
+    const start = Date.UTC(2004, 5, 1, 1);
+    expect(timestepIndexForTime(variable, start - HOUR)).toBe(0);
+    expect(timestepIndexForTime(variable, start)).toBe(0);
+    expect(timestepIndexForTime(variable, start + 1.5 * HOUR)).toBe(1);
+    expect(timestepIndexForTime({ ...variable, step_hours: 0.5 }, start + 1.5 * HOUR)).toBe(3);
+    expect(timestepIndexForTime(variable, null)).toBe(0);
+  });
+});
+

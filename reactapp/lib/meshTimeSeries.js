@@ -47,9 +47,21 @@ export function findVariable(dataset, name) {
   return getVariables(dataset)?.find((variable) => variable.name === name) ?? null;
 }
 
+/**
+ * Whether a variable is colored in the browser from a values file (node, outlet and basin output, see
+ * lib/layerValues.js). It has no `timesteps`: its time axis is `start`, `end` and `step_hours`.
+ */
+export function isValueVariable(variable) {
+  return typeof variable?.values === "string" && variable.values.length > 0;
+}
+
 /** Whether a variable has a time axis the Cesium clock can play through. */
 export function isTimeDynamic(variable) {
-  return Boolean(variable?.start && variable?.timesteps?.length > 1);
+  if (!variable?.start) return false;
+  if (isValueVariable(variable)) {
+    return Boolean(variable.end && variable.end !== variable.start && variable.step_hours > 0);
+  }
+  return variable.timesteps?.length > 1;
 }
 
 /** Milliseconds since the epoch of a time step, falling back to its hours offset from the variable start. */
@@ -70,6 +82,7 @@ function timestepMs(variable, timestep) {
  * @param time      Milliseconds since the epoch, an ISO string or a Date. Null/undefined selects the first step.
  */
 export function timestepIndexForTime(variable, time) {
+  if (isValueVariable(variable)) return clockStepIndexForTime(variable, time);
   const timesteps = variable?.timesteps ?? [];
   if (timesteps.length < 2) return 0;
   const t = isoToUtcMs(time);
@@ -81,6 +94,18 @@ export function timestepIndexForTime(variable, time) {
     index = i;
   }
   return index;
+}
+
+/**
+ * Index of the clock step of a value variable at a given time: how many `step_hours` have passed since its
+ * `start` (0 before it). The clock steps only pace how often the layers are redrawn; which row of the values file
+ * is shown is decided from the row times (lib/layerValues rowIndexForTime).
+ */
+function clockStepIndexForTime(variable, time) {
+  const t = isoToUtcMs(time);
+  const startMs = isoToUtcMs(variable.start);
+  if (t === null || startMs === null || !(variable.step_hours > 0)) return 0;
+  return Math.max(0, Math.floor((t - startMs) / (variable.step_hours * MS_PER_HOUR)));
 }
 
 /** The time step a variable should show at a given time (see timestepIndexForTime), or null. */

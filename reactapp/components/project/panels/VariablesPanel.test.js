@@ -4,7 +4,7 @@ import { render, screen } from '@testing-library/react';
 import { SidePanelContext, GraphicsWindowVisualsContext, ProjectContext } from 'react-tethys/context';
 import VariablesPanel from './VariablesPanel';
 import { DO_NOT_SET_LAYER } from "constants/GraphicsWindowConstants";
-import { makeMrfDataset, makeStaticMesh, makeTimeSeriesMesh } from "config/tests/mocks/meshMock";
+import { makeMrfDataset, makeStaticMesh, makeTimeSeriesMesh, makeValueLayer } from "config/tests/mocks/meshMock";
 
 
 const dataset = {
@@ -252,6 +252,36 @@ describe('VariablesPanel with glTF mesh variables', () => {
     expect(screen.getByText('Elevation')).toBeInTheDocument();
     expect(mockGraphicsWindowVisualsContextValue.setCZMLLayer).toHaveBeenCalledWith(mesh.id, 'Elevation');
     expect(mockGraphicsWindowVisualsContextValue.setActiveTimeSeries).not.toHaveBeenCalled();
+  });
+});
+
+describe('VariablesPanel with a value layer (node, outlet or basin output)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should select the first variable and let it drive the clock over the times of its rows', () => {
+    const layer = makeValueLayer();
+    const { mockGraphicsWindowVisualsContextValue } = setupPanel(true, false, layer);
+    expect(screen.getByText('Nwt (mm)')).toBeInTheDocument();
+    expect(mockGraphicsWindowVisualsContextValue.setCZMLLayer).toHaveBeenCalledWith(layer.id, 'Nwt_mm');
+    expect(mockGraphicsWindowVisualsContextValue.setActiveTimeSeries).toHaveBeenCalledWith(
+      expect.objectContaining({
+        datasetId: layer.id, variableName: 'Nwt_mm', start: '2004-06-01T01:00:00Z', stop: '2004-06-01T04:00:00Z',
+        multiplier: 7200,
+      })
+    );
+  });
+
+  it('should give the clock to the clicked variable', async () => {
+    const layer = makeValueLayer();
+    const { user, mockGraphicsWindowVisualsContextValue } = setupPanel(true, false, layer);
+    mockGraphicsWindowVisualsContextValue.setActiveTimeSeries.mockClear();
+    await user.click(screen.getByText('Srf (mm)'));
+    expect(mockGraphicsWindowVisualsContextValue.setCZMLLayer).toHaveBeenCalledWith(layer.id, 'Srf_mm');
+    expect(mockGraphicsWindowVisualsContextValue.setActiveTimeSeries).toHaveBeenCalledWith(
+      expect.objectContaining({ datasetId: layer.id, variableName: 'Srf_mm' })
+    );
   });
 });
 

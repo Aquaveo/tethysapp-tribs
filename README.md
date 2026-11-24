@@ -297,6 +297,17 @@ tribs regenerate-viz <primary_db> <gsurl> --dataset-type TRIBS_OUT_TIME_INTEGRAT
     --dataset-type TRIBS_OUT_QOUT --dry-run   # then without --dry-run
 ```
 
+Node Dynamic (`.pixel`), Qout and Basin Averaged (`.mrf`) output is colored in the browser from per-variable values
+files, which is what gives these layers the color ramp picker and a drawn legend. Datasets visualized before that
+keep their white-to-blue CZML files and legend images and have no picker until they are regenerated. The same run
+also repairs Node Dynamic layers that came out empty for current tRIBS output (pixel headers without column
+numbers), and Qout layers, whose time axis now comes from the file:
+
+```bash
+tribs regenerate-viz <primary_db> <gsurl> --dataset-type TRIBS_OUT_PIXEL --dataset-type TRIBS_OUT_QOUT \
+    --dataset-type TRIBS_OUT_MRF --dataset-type TRIBS_OUT_RFT --dry-run   # then without --dry-run
+```
+
 Each dataset is briefly without files while it is rebuilt (status `Processing`), so run it during low usage, per
 project with `--project-id` for large tables. Verify afterwards that every variable carries a label:
 

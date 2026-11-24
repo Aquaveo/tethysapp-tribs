@@ -25,15 +25,24 @@ import {
   interpolateYlGnBu,
 } from "d3-scale-chromatic";
 import { rgb } from "d3-color";
+import { interpolateRgb } from "d3-interpolate";
+
+import { hasValues } from "lib/layerValues";
 
 /** The ramp baked into the glTF files (templates/color_ramps/TopoAtlasShader.png). It has no interpolator. */
 export const DEFAULT_RAMP = "topo_atlas";
+/**
+ * The default ramp of value layers (node, outlet and basin output, see lib/layerValues.js): the white to blue the
+ * server used to bake into them. They are colored in the browser, so the baked glTF ramp is not offered for them.
+ */
+export const DEFAULT_VALUE_RAMP = "white_blue";
 export const RAMP_TEXTURE_WIDTH = 256;
 export const LEGEND_TICK_COUNT = 5;
 
 /** Ordered as shown in the selector. Interpolators map t in 0..1 (min..max) to a CSS color string. */
 export const COLOR_RAMPS = [
   { name: DEFAULT_RAMP, label: "Topo Atlas (default)", interpolator: null },
+  { name: DEFAULT_VALUE_RAMP, label: "White-Blue (default)", interpolator: interpolateRgb("white", "blue") },
   { name: "viridis", label: "Viridis", interpolator: interpolateViridis },
   { name: "plasma", label: "Plasma", interpolator: interpolatePlasma },
   { name: "inferno", label: "Inferno", interpolator: interpolateInferno },
@@ -58,17 +67,43 @@ export function isDefaultRamp(name) {
   return findRamp(name).name === DEFAULT_RAMP;
 }
 
-/** Options for a select input. */
-export function rampOptions() {
-  return COLOR_RAMPS.map(({ name, label }) => ({ value: name, label }));
+/** The ramp a dataset is drawn with until one is picked: white to blue for value layers, else the baked ramp. */
+export function defaultRampFor(dataset) {
+  return hasValues(dataset) ? DEFAULT_VALUE_RAMP : DEFAULT_RAMP;
+}
+
+/** The ramps a dataset can be drawn with, its default first: each kind of layer has its own default ramp only. */
+export function rampsFor(dataset) {
+  const defaultName = defaultRampFor(dataset);
+  const others = COLOR_RAMPS.filter((ramp) => ramp.name !== DEFAULT_RAMP && ramp.name !== DEFAULT_VALUE_RAMP);
+  return [COLOR_RAMPS.find((ramp) => ramp.name === defaultName), ...others];
+}
+
+/** Options for a select input: the ramps of the dataset (see rampsFor). */
+export function rampOptions(dataset) {
+  return rampsFor(dataset).map(({ name, label }) => ({ value: name, label }));
 }
 
 /**
  * The ramp a dataset should be drawn with: the unsaved selection made in this session (GraphicsWindowVisualsContext
- * colorRamps) wins over the ramp saved on the dataset (attributes.color_ramp), which wins over the default.
+ * colorRamps) wins over the ramp saved on the dataset (attributes.color_ramp), which wins over the dataset's
+ * default. A name that is not one of the dataset's ramps (removed later, or of the other kind of layer) falls back
+ * to the default too.
  */
 export function resolveRampName(dataset, colorRamps) {
-  return findRamp(colorRamps?.[dataset?.id] ?? dataset?.attributes?.color_ramp).name;
+  const name = colorRamps?.[dataset?.id] ?? dataset?.attributes?.color_ramp;
+  const ramps = rampsFor(dataset);
+  return (ramps.find((ramp) => ramp.name === name) ?? ramps[0]).name;
+}
+
+/** The color `{ r, g, b }` (0..255) of a ramp at t in 0..1 (min..max); only for ramps with an interpolator. */
+export function rampColor(name, t) {
+  const ramp = findRamp(name);
+  if (!ramp.interpolator) {
+    throw new Error(`Color ramp "${ramp.name}" is baked into the glTF files and cannot be sampled.`);
+  }
+  const { r, g, b } = rgb(ramp.interpolator(Math.min(1, Math.max(0, t))));
+  return { r: Math.round(r), g: Math.round(g), b: Math.round(b) };
 }
 
 const texelCache = new Map();

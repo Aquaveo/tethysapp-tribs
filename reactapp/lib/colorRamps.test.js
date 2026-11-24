@@ -1,12 +1,17 @@
+import { makeTimeSeriesMesh, makeValueLayer } from "config/tests/mocks/meshMock";
 import {
   COLOR_RAMPS,
   DEFAULT_RAMP,
+  DEFAULT_VALUE_RAMP,
+  defaultRampFor,
   findRamp,
   isDefaultRamp,
   legendTicks,
+  rampColor,
   rampOptions,
   rampStops,
   rampTexels,
+  rampsFor,
   resolveRampName,
 } from "./colorRamps";
 
@@ -26,9 +31,34 @@ describe("ramp registry", () => {
     expect(isDefaultRamp("viridis")).toBe(false);
   });
 
-  it("offers one select option per ramp", () => {
-    expect(rampOptions()[0]).toEqual({ value: DEFAULT_RAMP, label: "Topo Atlas (default)" });
-    expect(rampOptions().map((option) => option.value)).toEqual(COLOR_RAMPS.map((ramp) => ramp.name));
+  it("offers a glTF mesh the baked ramp first and every picked ramp, but not the value layer default", () => {
+    const options = rampOptions(makeTimeSeriesMesh());
+    expect(options[0]).toEqual({ value: DEFAULT_RAMP, label: "Topo Atlas (default)" });
+    expect(options.map((option) => option.value)).toEqual(
+      COLOR_RAMPS.map((ramp) => ramp.name).filter((name) => name !== DEFAULT_VALUE_RAMP)
+    );
+    expect(rampOptions(undefined)).toEqual(options);
+  });
+
+  it("offers a value layer white-blue first and every picked ramp, but not the baked glTF ramp", () => {
+    const dataset = makeValueLayer();
+    expect(defaultRampFor(dataset)).toBe(DEFAULT_VALUE_RAMP);
+    expect(defaultRampFor(makeTimeSeriesMesh())).toBe(DEFAULT_RAMP);
+    const options = rampOptions(dataset);
+    expect(options[0]).toEqual({ value: DEFAULT_VALUE_RAMP, label: "White-Blue (default)" });
+    expect(options.map((option) => option.value)).not.toContain(DEFAULT_RAMP);
+    expect(options).toHaveLength(COLOR_RAMPS.length - 1);
+    expect(rampsFor(dataset).every((ramp) => typeof ramp.interpolator === "function")).toBe(true);
+  });
+
+  it("draws a value layer with its own default until a ramp it offers is picked", () => {
+    const dataset = makeValueLayer();
+    expect(resolveRampName(dataset, {})).toBe(DEFAULT_VALUE_RAMP);
+    expect(resolveRampName({ ...dataset, attributes: { color_ramp: "viridis" } }, {})).toBe("viridis");
+    expect(resolveRampName({ ...dataset, attributes: { color_ramp: "viridis" } }, { [dataset.id]: "turbo" })).toBe("turbo");
+    // The baked glTF ramp cannot color a value layer, and a glTF mesh does not take the value layer default
+    expect(resolveRampName({ ...dataset, attributes: { color_ramp: DEFAULT_RAMP } }, {})).toBe(DEFAULT_VALUE_RAMP);
+    expect(resolveRampName({ ...makeTimeSeriesMesh(), attributes: { color_ramp: DEFAULT_VALUE_RAMP } }, {})).toBe(DEFAULT_RAMP);
   });
 
   it("prefers the session selection over the saved attribute over the default", () => {
@@ -84,5 +114,20 @@ describe("legend helpers", () => {
     expect(stops[0].color).toBe("rgb(68, 1, 84)");
     expect(stops[2].color).toBe("rgb(253, 231, 37)");
     expect(rampStops(DEFAULT_RAMP)).toEqual([]);
+  });
+});
+
+describe("rampColor", () => {
+  it("samples a ramp from its minimum to its maximum color", () => {
+    expect(rampColor(DEFAULT_VALUE_RAMP, 0)).toEqual({ r: 255, g: 255, b: 255 }); // white
+    expect(rampColor(DEFAULT_VALUE_RAMP, 1)).toEqual({ r: 0, g: 0, b: 255 }); // blue
+    expect(rampColor(DEFAULT_VALUE_RAMP, 0.5)).toEqual({ r: 128, g: 128, b: 255 });
+    expect(rampColor("viridis", 0)).toEqual({ r: 68, g: 1, b: 84 });
+  });
+
+  it("clamps outside 0..1 and refuses the baked glTF ramp", () => {
+    expect(rampColor(DEFAULT_VALUE_RAMP, -3)).toEqual(rampColor(DEFAULT_VALUE_RAMP, 0));
+    expect(rampColor(DEFAULT_VALUE_RAMP, 9)).toEqual(rampColor(DEFAULT_VALUE_RAMP, 1));
+    expect(() => rampColor(DEFAULT_RAMP, 0.5)).toThrow(/baked/);
   });
 });

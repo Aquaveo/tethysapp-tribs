@@ -967,6 +967,80 @@ async def test_dataset_receive_timeseries(a_session, a_pixel_dataset_with_files,
         }
 
 
+def test_plot_values_sends_none_for_values_json_cannot_carry():
+    from tethysapp.tribs.consumers.handlers.dataset_backend_handler import _plot_values
+    assert _plot_values([1.5, float('nan'), float('inf'), 0.0]) == [1.5, None, None, 0.0]
+
+
+async def _request_point_timeseries(communicator, dataset, point_id, variable):
+    await communicator.send_json_to(
+        {
+            "action": {
+                "id": str(uuid.uuid4()),
+                "type": BackendActions.DATASET_GET_PIXEL_TIMESERIES,
+            },
+            "payload": {
+                "id": str(dataset.id),
+                "point_id": point_id,
+                "variable": variable,
+            }
+        }
+    )
+    return await communicator.receive_json_from()
+
+
+@pytest.mark.asyncio
+async def test_dataset_receive_timeseries_finds_the_file_by_the_node_in_it(
+    a_session, a_pixel_dataset_with_files, make_communicator
+):
+    """examplebasin72.pixel ends in 2 and examplebasin1156.pixel in 56 and 6: none of them is the file of node 2, 56
+    or 6. The node of a file is the one its rows name."""
+    dataset = a_pixel_dataset_with_files
+    project = await a_session.run_sync(_get_project, dataset)
+    async with make_communicator(project.id) as communicator:
+        for point_id in (2, 56, 6):
+            response = await _request_point_timeseries(communicator, dataset, point_id, 'Nf_mm')
+            assert response["action"]["type"] == BackendActions.MESSAGE_ERROR
+            assert response["payload"]["message"] == \
+                f'Point file for point ID: "{point_id}" not found in dataset with ID: "{dataset.id}".'
+
+        response = await _request_point_timeseries(communicator, dataset, 1156, 'Nf_mm')
+        assert response["action"]["type"] == BackendActions.DATASET_GET_PIXEL_TIMESERIES
+        assert response["payload"]["point_id"] == 1156 and len(response["payload"]["y"]) > 0
+
+
+@pytest.mark.asyncio
+async def test_dataset_receive_timeseries_unknown_variable(a_session, a_pixel_dataset_with_files, make_communicator):
+    dataset = a_pixel_dataset_with_files
+    project = await a_session.run_sync(_get_project, dataset)
+    async with make_communicator(project.id) as communicator:
+        response = await _request_point_timeseries(communicator, dataset, 72, 'NoSuchVariable_mm')
+        assert response["action"]["type"] == BackendActions.MESSAGE_ERROR
+        assert response["payload"]["message"] == \
+            f'Variable "NoSuchVariable_mm" not found in examplebasin72.pixel of dataset with ID: "{dataset.id}".'
+
+
+@pytest.mark.asyncio
+async def test_dataset_receive_qout_timeseries_keeps_the_first_row_and_the_file_times(
+    a_session, a_qout_dataset_with_files, make_communicator
+):
+    """A qout file has no units row: its first data row is part of the series, at the time the file gives it."""
+    dataset = a_qout_dataset_with_files
+    project = await a_session.run_sync(_get_project, dataset)
+    async with make_communicator(project.id) as communicator:
+        response = await _request_point_timeseries(communicator, dataset, 'Outlet', 'Qstrm_m3-s')
+        assert response["action"]["type"] == BackendActions.DATASET_GET_PIXEL_TIMESERIES
+        assert response["payload"] == {
+            'x': [0.0625, 0.125, 0.1875],
+            'y': [0.5, 0.7, 0.6],
+            'dataset_id': str(dataset.id),
+            'point_id': 'Outlet',
+            'name': 'Qstrm_m3-s',
+            'label': 'Streamflow',
+            'units': 'm³/s',
+        }
+
+
 async def _request_output_timeseries(communicator, dataset, variable):
     action_id = str(uuid.uuid4())
     await communicator.send_json_to(

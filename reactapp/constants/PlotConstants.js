@@ -18,6 +18,15 @@ export const UNIT_NAMES = {
   "m2-h": "m²/hr", // Meters^2/Hour
   "m": "m", // Meters
   "Pa": "Pa", // Pascals
+  // Current tRIBS pixel headers (mirrors UNIT_TOKEN_NAMES in tribs_adapter/common/output_variables.py)
+  "cm": "cm",
+  "kJ-m2": "kJ/m²",
+  "kJ-m2-etistep": "kJ/m² per ET step",
+  "C": "°C",
+  "s-m": "s/m",
+  "1-mm": "1/mm",
+  "h": "hr",
+  "hr": "hr",
   // Add any more that might pop up
 };
 

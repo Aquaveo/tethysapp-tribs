@@ -180,3 +180,41 @@ export function makeMrfDataset(id = "3e3f5c7a-7f2d-4b0a-9c4c-8f8c9a3e4d5f") {
     },
   };
 }
+
+/** The values file of a variable of makeValueLayer: three hourly rows from hour 1 for two nodes. */
+export function makeLayerValues(datasetId = "5b1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f", variable = "Nwt_mm") {
+  return {
+    variable,
+    start: "2004-06-01T00:00:00Z",
+    hours: [1, 2, 3],
+    ids: [`point_42 [${datasetId}]`, `point_1656 [${datasetId}]`],
+    values: [[0, 50, 100], [100, null, 0]],
+  };
+}
+
+/**
+ * A value layer as written by tribs-adapter for node, outlet and basin output: one CZML document with the features
+ * and, per variable, the url of a values file the browser colors them from (see lib/layerValues.js).
+ */
+export function makeValueLayer(id = "5b1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f") {
+  const variable = (name, label, units, min, max, position) => ({
+    name, label, units, tier: null, description: "", factor: 1, min, max,
+    start: "2004-06-01T01:00:00Z", end: "2004-06-01T03:00:00Z", step_hours: 1,
+    values: `${CZML_DIR}/values/00${position}_${name}.json`,
+  });
+  return {
+    ...datasetBase(id),
+    name: "Node Dynamic Output",
+    description: "Node output for test.",
+    dataset_type: "TRIBS_OUT_PIXEL",
+    viz: {
+      type: "czml",
+      url: [`${CZML_DIR}/${id}.czml`],
+      legend: [],
+      origin: [-112.5841635588148, 34.29805405819842],
+      extent: [-124.914551, 24.766785, -67.412109, 49.15297],
+      variables: [variable("Nwt_mm", "Nwt", "mm", 0, 100, 0), variable("Srf_mm", "Srf", "mm", 0, 0, 1)],
+    },
+  };
+}
+

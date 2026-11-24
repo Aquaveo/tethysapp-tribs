@@ -1,5 +1,5 @@
 import PropTypes from "prop-types";
-import { useContext, useId, useState } from "react";
+import { useContext, useId, useMemo, useState } from "react";
 import Collapse from "react-bootstrap/Collapse";
 import { BsChevronDown, BsChevronRight } from "react-icons/bs";
 import Select from "react-select";
@@ -9,16 +9,16 @@ import GltfLegend from "components/project/panels/GltfLegend";
 import { datasetPropTypes } from "components/tree/propTypes";
 import { DATASET_VIZ_TYPES } from "constants/GraphicsWindowConstants";
 import { GraphicsWindowVisualsContext } from "react-tethys/context";
-import { isDefaultRamp, rampOptions, rampStops, resolveRampName } from "lib/colorRamps";
+import useLayerValues from "hooks/useLayerValues";
+import { DEFAULT_RAMP, isDefaultRamp, rampOptions, rampStops, resolveRampName } from "lib/colorRamps";
+import { findValueVariable, hasValues, rowIndexForTime, rowTime } from "lib/layerValues";
 import { formatTimestepTime } from "lib/meshTimeSeries";
 import { describeLayer, isLayerOf, variableLabel, variableUnits } from "lib/outputVariables";
-
-const RAMP_OPTIONS = rampOptions();
 
 /** A select option with a swatch of the ramp's gradient in front of its label. */
 const RampOptionLabel = ({ value, label }) => {
   const stops = rampStops(value, 8);
-  const background = stops.length
+  const background = value !== DEFAULT_RAMP
     ? `linear-gradient(to right, ${stops.map((stop) => `${stop.color} ${stop.offset * 100}%`).join(", ")})`
     : "linear-gradient(to right, #1f3b8a, #4f9fd8, #9ad38b, #e9d36a, #ffffff)"; // the baked Topo Atlas ramp
   return (
@@ -39,8 +39,8 @@ RampOptionLabel.propTypes = {
 
 /**
  * One layer's legend in the global Legends panel: a collapsible card headed by the realization (if any) and the
- * dataset name, with the variable, the color scale (a glTF ramp selector and browser-drawn scale, or the legend
- * images written with the files), the units and the time step underneath.
+ * dataset name, with the variable, the color scale (a ramp selector and browser-drawn scale for glTF meshes and
+ * value layers, or the legend images written with the files), the units and the time step underneath.
  */
 const LegendCard = ({
   dataset,
@@ -53,15 +53,25 @@ const LegendCard = ({
   defaultOpen = true,
 }) => {
   const TETHYS_MEDIA_URL = process.env.TETHYS_MEDIA_URL;
-  const { colorRamps, setColorRamp } = useContext(GraphicsWindowVisualsContext);
+  const { colorRamps, setColorRamp, meshClockTime } = useContext(GraphicsWindowVisualsContext);
   const [open, setOpen] = useState(defaultOpen);
   const bodyId = `legend-card-body-${useId().replace(/:/g, "")}`;
 
-  // glTF meshes can be recolored in the browser with a user-selected ramp (see lib/colorRamps). The default ramp
-  // keeps the legend image drawn with the files; any other ramp draws its own legend from the variable's range.
+  // glTF meshes and value layers (node, outlet and basin output, see lib/layerValues) are colored in the browser
+  // with a user-selected ramp (see lib/colorRamps). The default glTF ramp keeps the legend image drawn with the
+  // files; every other ramp, and every ramp of a value layer, draws its own legend from the variable's range.
   const isGltf = dataset?.viz?.type === DATASET_VIZ_TYPES.GLTF;
-  const rampName = isGltf ? resolveRampName(dataset, colorRamps) : null;
-  const drawsOwnLegend = isGltf && !isDefaultRamp(rampName);
+  const isValueLayer = hasValues(dataset);
+  const picksRamp = isGltf || isValueLayer;
+  const rampName = picksRamp ? resolveRampName(dataset, colorRamps) : null;
+  const drawsOwnLegend = isValueLayer || (isGltf && !isDefaultRamp(rampName));
+  const options = useMemo(() => (picksRamp ? rampOptions(dataset) : []), [picksRamp, dataset]);
+
+  // A value layer shows, of the selected variable, the row of the last time at or before the clock time: the
+  // legend names the time of that row.
+  const valueVariable = isValueLayer ? findValueVariable(dataset, uniqueId) : null;
+  const layerValues = useLayerValues(valueVariable ? TETHYS_MEDIA_URL + valueVariable.values : null);
+  const valueTime = layerValues ? rowTime(layerValues, rowIndexForTime(layerValues, meshClockTime)) : null;
 
   const handleRampChange = (option) => {
     setColorRamp?.(dataset.id, option.value); // applied to the mesh right away
@@ -91,7 +101,8 @@ const LegendCard = ({
     variableName = uniqueId.split('_').slice(1).join("");
   }
   const unitsText = legendVariable ? variableUnits(legendVariable) : null;
-  const subtitleText = subtitle ? formatTimestepTime(subtitle) ?? subtitle : null;
+  const shownTime = subtitle ?? valueTime;
+  const subtitleText = shownTime ? formatTimestepTime(shownTime) ?? shownTime : null;
 
   return (
     <div data-testid="legend-card" style={{ borderBottom: "1px solid #dee2e6", padding: "0.5rem 0" }}>
@@ -120,14 +131,14 @@ const LegendCard = ({
       <Collapse in={open}>
         <div id={bodyId}>
           <div style={{ paddingLeft: "1.75rem" }}>
-            {isGltf && (
+            {picksRamp && (
               <div className="mb-2">
                 <label htmlFor={`color-ramp-${dataset.id}`} style={{ fontSize: "0.85em" }}>Color ramp</label>
                 <Select
                   inputId={`color-ramp-${dataset.id}`}
                   aria-label="Color ramp"
-                  options={RAMP_OPTIONS}
-                  value={RAMP_OPTIONS.find((option) => option.value === rampName)}
+                  options={options}
+                  value={options.find((option) => option.value === rampName)}
                   onChange={handleRampChange}
                   formatOptionLabel={RampOptionLabel}
                   isSearchable={false}
@@ -144,9 +155,9 @@ const LegendCard = ({
             {drawsOwnLegend && (
               <GltfLegend
                 rampName={rampName}
-                min={variable?.min}
-                max={variable?.max}
-                variableName={variable?.name}
+                min={legendVariable?.min ?? undefined}
+                max={legendVariable?.max ?? undefined}
+                variableName={legendVariable?.name}
               />
             )}
             {!drawsOwnLegend && legend_urls.map((legend_url, i) => {

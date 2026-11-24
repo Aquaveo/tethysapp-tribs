@@ -99,8 +99,10 @@ const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationInd
     const layerName = getLayerItems(dataset)[0]?.key ?? extractLayerName(dataset.viz.url[0], dataset.id);
     revealObject(dataset.id);
     setCZMLLayer(dataset.id, layerName);
-    if (variables && isTimeDynamic(variables[0])) {
-      setActiveTimeSeries?.(makeActiveTimeSeries(dataset, variables[0]));
+    // glTF output plays its first variable; a value layer (node, outlet, basin output) the first one listed
+    const seriesVariable = variables?.[0] ?? getLayerItems(dataset)[0]?.variable;
+    if (seriesVariable && isTimeDynamic(seriesVariable)) {
+      setActiveTimeSeries?.(makeActiveTimeSeries(dataset, seriesVariable));
     }
   };
 

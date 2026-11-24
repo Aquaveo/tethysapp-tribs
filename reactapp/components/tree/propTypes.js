@@ -67,7 +67,7 @@ const datasetProps = {
       PropTypes.string,
     ]),
     // One entry per variable/layer (see lib/outputVariables.js); glTF mesh output adds the time steps of each
-    // variable (see lib/meshTimeSeries.js)
+    // variable (see lib/meshTimeSeries.js), node/outlet/basin output the url of its values (lib/layerValues.js)
     variables: PropTypes.arrayOf(
       PropTypes.shape({
         name: PropTypes.string.isRequired, // raw layer key
@@ -89,6 +89,7 @@ const datasetProps = {
             legend: PropTypes.string,
           })
         ), // glTF only
+        values: PropTypes.string, // value layers only: url of the variable's values file (see lib/layerValues.js)
       })
     ),
   }),
