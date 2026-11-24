@@ -20,11 +20,12 @@ export default function useLayerValues(url) {
       })
       .catch((error) => {
         console.error(error);
+        if (!current) return; // the layer is no longer shown, or shows another variable
         // One message per file, however many components show it (the map layer and its legend)
         toast.error("Could not load the values of this layer. Its features are shown without colors.", {
           toastId: `layer-values-${url}`,
         });
-        if (current) setLoaded(null);
+        setLoaded(null);
       });
     return () => {
       current = false;

@@ -213,7 +213,7 @@ class DatasetBackendHandler(RBH):
         # and variable) is sent back so the frontend can tell which request a reply answers.
         await self.send_action(
             BackendActions.DATASET_GET_PIXEL_TIMESERIES, {
-                'x': time.to_list(),
+                'x': _plot_values(time),
                 'y': _plot_values(variable_data * info['factor']),
                 'dataset_id': str(dataset.id),
                 'point_id': point_id,
@@ -270,7 +270,7 @@ class DatasetBackendHandler(RBH):
         # variable) is sent back so the frontend can tell which request a reply answers.
         await self.send_action(
             BackendActions.DATASET_GET_MRF_OR_RFT_TIMESERIES, {
-                'x': time.to_list(),
+                'x': _plot_values(time),
                 'y': _plot_values(variable_data * info['factor']),
                 'dataset_id': str(dataset.id),
                 'name': variable,
