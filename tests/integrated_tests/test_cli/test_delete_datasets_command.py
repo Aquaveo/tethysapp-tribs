@@ -18,16 +18,17 @@ COLLECTION_ID = '33333333-3333-4333-8333-333333333333'
 
 @pytest.fixture
 def legacy_dataset(db_session, complete_project, test_files):
-    """A time-dynamic output dataset linked to a realization the way realizations created before 2026-10-30 were."""
+    """An output dataset of a type realizations do not get by themselves (so it is the only one of its type), linked
+    to a realization and referred to in its input file the way the app links output."""
     realization = complete_project.scenarios[0].realizations[0]
     voronoi_dir = test_files / 'models' / 'salas' / 'Output' / 'voronoi'
     dataset = Dataset.new(
         session=db_session,
-        name='Time-Dynamic Variable Output',
-        description='Time-Dynamic Variable Output for test_realization.',
+        name='Station Output',
+        description='Station Output for test_realization.',
         created_by='_staff',
         project=realization.project,
-        dataset_type=Dataset.DatasetTypes.TRIBS_OUT_TIME_DYNAMIC,
+        dataset_type=Dataset.DatasetTypes.TRIBS_OUT_STATIONS,
         srid=32613,
         link=realization,
         items=sorted(voronoi_dir.glob('salas.*_00d')),
@@ -128,13 +129,13 @@ def test_delete_datasets_is_registered_on_the_tribs_cli():
     cmd.add_delete_datasets_parser(parser.add_subparsers())
     args = parser.parse_args(
         [
-            'delete-datasets', 'postgresql://db', 'http://gs', '--dataset-type', 'TRIBS_OUT_TIME_DYNAMIC',
+            'delete-datasets', 'postgresql://db', 'http://gs', '--dataset-type', 'TRIBS_OUT_STATIONS',
             '--dataset-id', MISSING_ID, '--project-id', 'p1', '--dry-run'
         ]
     )
     assert args.func is cmd.main
     assert args.primary_db == 'postgresql://db' and args.gsurl == 'http://gs'
-    assert args.dataset_types == ['TRIBS_OUT_TIME_DYNAMIC']
+    assert args.dataset_types == ['TRIBS_OUT_STATIONS']
     assert args.dataset_ids == [MISSING_ID] and args.project_id == 'p1' and args.dry_run is True
     assert args.force is False
 
@@ -150,7 +151,7 @@ def test_deletes_the_legacy_datasets_of_a_type(db_session, legacy_dataset, mock_
     assert other_ids and str(dataset_id) in _output_resource_ids(realization)
     assert os.path.isdir(files_dir)
 
-    status, out = run(capsys, dataset_types=['tribs_out_time_dynamic'])
+    status, out = run(capsys, dataset_types=['tribs_out_stations'])
     assert status == 0
     assert '1 dataset(s) to delete:' in out and str(dataset_id) in out
     assert 'Successfully deleted 1 dataset(s).' in out
@@ -166,13 +167,13 @@ def test_deletes_the_legacy_datasets_of_a_type(db_session, legacy_dataset, mock_
 
 
 def test_dry_run_and_filters_leave_datasets_alone(db_session, legacy_dataset, mock_services, capsys):
-    status, out = run(capsys, dataset_types=['TRIBS_OUT_TIME_DYNAMIC'], dry_run=True)
+    status, out = run(capsys, dataset_types=['TRIBS_OUT_STATIONS'], dry_run=True)
     assert status == 0
     assert '1 dataset(s) to delete:' in out and str(legacy_dataset.id) in out
     assert 'Dry run: nothing deleted.' in out
 
     for options in [
-        dict(dataset_types=['TRIBS_OUT_TIME_DYNAMIC'], project_id=MISSING_ID),
+        dict(dataset_types=['TRIBS_OUT_STATIONS'], project_id=MISSING_ID),
         dict(dataset_ids=[MISSING_ID]),
     ]:
         status, out = run(capsys, **options)

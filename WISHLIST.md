@@ -121,10 +121,21 @@ variables under "More variables". Deferred:
 - **Extend the sheet to the other output files.** Pixel, `.rft` and SDF station variables are not in the sheet, so
   they keep their raw names (plus the header unit token where there is one) and all stay visible. Once the scientist
   adds them, extend `OUTPUT_VARIABLES` and `KIND_BY_DATASET_TYPE`, then `tribs regenerate-viz` those types.
-  (Time-dynamic `_d` output was dropped from realizations on 2026-10-30 at the scientist's request, as it is only an
-  instantaneous snapshot; the `TRIBS_OUT_TIME_DYNAMIC` enum member stays until every environment has run
-  `tribs delete-datasets --dataset-type TRIBS_OUT_TIME_DYNAMIC`, after which it and the `_d` branches of the mesh
-  writer tests can go.)
+- **Derived time-dynamic variables.** The `_d` sheet asks for snow water equivalent to be shown as one variable
+  (`IWE + LWE`) rather than its ice and liquid parts, and for the snow losses (`SnSub`, `SnEvap`, `IntSub`) to be
+  added into `ET`. Each column is offered by itself for now; a derived variable needs the mesh writer to combine
+  columns before it colours the cells.
+- **Time-dynamic columns outside the sheet.** tRIBS builds other than v5.3.1 also write `Z`, `S`, `CAr`, `SWE`, `DU`,
+  `SoilID` and `LUseID` in the `_d` files. They are offered under their column names, up front with the priority
+  variables (the panel only tucks away the secondary tier); ask the scientist which to hide and how to label `SWE`.
+- **Size of the time-dynamic visualization.** Every time step of every offered variable is a glTF file that repeats
+  the whole mesh geometry (about 5.5 MB for an 18,000 cell mesh), and the mesh writer reads every output file and
+  keeps every joined column in memory while it works. A run with many output times on a large mesh therefore
+  takes gigabytes of disk and memory. Storing the geometry once with one small value array per time step would
+  remove both costs.
+- **Time-dynamic output of realizations run while it was off.** Realizations run between 2026-10-30 and the
+  return of the dataset have no `_d` files in any collection and need to be run or uploaded again; there is no
+  backfill command.
 - **Snow variables when there is no snow.** `peakWE`, `cSnSub`, `cSnEvap` (priority) are all zero in snow-free
   runs; grey them out or drop to secondary when the range is 0..0 (the sheet asks for this).
 - **Plot conveniences from the sheet.** Inverted y-axis for `MDGW` (depth to groundwater), log colour scale for

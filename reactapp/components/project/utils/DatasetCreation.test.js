@@ -3,6 +3,22 @@ import { filterDatasets, shownLinkedDatasets } from "./DatasetCreation";
 import * as ProjectConstants from "constants/projectConstants";
 
 describe("filterDatasets", () => {
+  it("lists the time-dynamic spatial output with the other realization output", () => {
+    const timeDynamic = {
+      ...serialized_project.datasets.find((dataset) => dataset.dataset_type === "TRIBS_OUT_TIME_INTEGRATED"),
+      id: "5d0c3f0e-6a3b-4a0e-9d57-0c1f5f1c2b7a",
+      name: "Time-Dynamic Variable Output",
+      dataset_type: "TRIBS_OUT_TIME_DYNAMIC",
+    };
+    expect(ProjectConstants.DATASET_TYPE_MAPS.TRIBS_OUT_TIME_DYNAMIC).toBe(ProjectConstants.DATASET_GROUPS.OUTPUT);
+    expect(ProjectConstants.isHiddenDatasetType("TRIBS_OUT_TIME_DYNAMIC")).toBe(false);
+    // Output datasets travel in the same group as the time-integrated output, which the realization tree lists
+    const other = filterDatasets([...serialized_project.datasets, timeDynamic], ProjectConstants.DATASET_GROUPS.OTHER);
+    const names = other.map((dataset) => dataset.name);
+    expect(names).toContain("Time-Dynamic Variable Output");
+    expect(names).toContain("Time-Integrated Variable Output");
+  });
+
   it("should create a new mesh for MESH datasets", () => {
     const datasets = filterDatasets(serialized_project.datasets, ProjectConstants.DATASET_GROUPS.MESH).datasets;
     expect(datasets).toHaveLength(1);
