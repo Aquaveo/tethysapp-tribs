@@ -255,3 +255,10 @@ variables under "More variables". Deferred:
   To decide when it is built: the name of the second resource, what to do when the box is checked and the archive
   has no outputs (or no inputs), and whether the two Condor jobs (`upload_scenario_exe.py`,
   `upload_realization_exe.py`) are chained or merged into one.
+
+- **Show the time controls only when a shown layer varies in time** (requested by Nathan, 2026-11-24). The Cesium
+  animation widget and timeline are always visible and the clock always runs, also when nothing on the map has a
+  time axis (for example only the Time-Integrated layer, which is now a single time step). Hide or disable both,
+  and stop the clock, unless at least one visible layer has time-varying data: a glTF variable with more than one
+  time step (`isTimeDynamic` in `reactapp/lib/meshTimeSeries.js`) or a CZML layer with a clock (Basin Averaged,
+  Node Dynamic, Qout, station data). Bring them back when such a layer is shown.
