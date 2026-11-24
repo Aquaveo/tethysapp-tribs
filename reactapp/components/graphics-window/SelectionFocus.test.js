@@ -6,12 +6,14 @@ import {
 import { useCesium } from "resium";
 
 import { GraphicsWindowVisualsContext, SidePanelContext } from "react-tethys/context";
-import SelectionFocus, { coveredArea, shiftToReveal } from "./SelectionFocus";
+import SelectionFocus, { coveredArea, frameFromOverhead, revealAboveSheet, shiftToReveal } from "./SelectionFocus";
 
 jest.mock("resium", () => ({ useCesium: jest.fn() }));
 
 const ENTITY_POS = Cartesian3.fromDegrees(-111.0, 33.0, 500.0);
 const ENU = Transforms.eastNorthUpToFixedFrame(ENTITY_POS);
+const STRAIGHT_DOWN = -CesiumMath.PI_OVER_TWO;
+const TILTED = -CesiumMath.toRadians(45);
 const AREA = { top: 400, left: 320, right: 1180 }; // the sheet, in canvas px
 
 // World position / direction of a point / vector given in metres east, north and up of the entity.
@@ -21,9 +23,6 @@ const localDirection = (east, north, up) =>
     Matrix4.multiplyByPointAsVector(ENU, new Cartesian3(east, north, up), new Cartesian3()),
     new Cartesian3()
   );
-// Metres above the entity of a world position.
-const heightAboveEntity = (position) =>
-  Matrix4.multiplyByPoint(Matrix4.inverseTransformation(ENU, new Matrix4()), position, new Cartesian3()).z;
 const rayFrom = (origin, through) =>
   new Ray(origin, Cartesian3.normalize(Cartesian3.subtract(through, origin, new Cartesian3()), new Cartesian3()));
 
@@ -44,9 +43,11 @@ function makeViewer({
   direction = localDirection(0, 0, -1),
   ray = rayFrom(TOP_DOWN_POSITION, TOP_DOWN_TARGET),
   terrainHeight = undefined,
-  pitch = -1.2,
+  pitch = STRAIGHT_DOWN,
+  heading = 0.1,
+  radius = 1,
 } = {}) {
-  const canvas = { getBoundingClientRect: () => ({ top: 50, left: 0 }) };
+  const canvas = { getBoundingClientRect: () => ({ top: 50, left: 0 }), clientWidth: 1500, clientHeight: 850 };
   return {
     selectedEntity: entity,
     trackedEntity,
@@ -54,8 +55,8 @@ function makeViewer({
     camera: {
       positionWC: position,
       directionWC: direction,
-      rightWC: localDirection(1, 0, 0), // every view here looks north or straight down with north up
-      heading: 0.1, pitch, roll: 0,
+      heading, pitch, roll: 0,
+      frustum: { fovy: CesiumMath.toRadians(60) },
       getPickRay: jest.fn(() => ray),
       flyTo: jest.fn(),
     },
@@ -63,7 +64,7 @@ function makeViewer({
     dataSourceDisplay: {
       getBoundingSphere: jest.fn((e, allowPartial, result) => {
         Cartesian3.clone(ENTITY_POS, result.center);
-        result.radius = 1;
+        result.radius = radius;
         return sphereState;
       }),
     },
@@ -121,7 +122,7 @@ describe("shiftToReveal", () => {
     const { destination, orientation, duration } = flownTo(viewer);
     // position + (entity - target): looking straight down this is a level pan
     expect(Cartesian3.distance(destination, local(-100, -50, 10000))).toBeLessThan(0.01);
-    expect(orientation).toEqual({ heading: 0.1, pitch: -1.2, roll: 0 });
+    expect(orientation).toEqual({ heading: 0.1, pitch: STRAIGHT_DOWN, roll: 0 });
     expect(duration).toBeGreaterThan(0);
   });
 
@@ -136,65 +137,24 @@ describe("shiftToReveal", () => {
     const move = Cartesian3.subtract(destination, position, new Cartesian3());
     expect(Cartesian3.magnitude(move)).toBeGreaterThan(100); // it does move
     expect(Math.abs(Cartesian3.dot(move, direction))).toBeLessThan(0.01); // but not towards or away from the feature
-    expect(orientation).toEqual({ heading: 0.1, pitch: -1.2, roll: 0 });
+    expect(orientation).toEqual({ heading: 0.1, pitch: STRAIGHT_DOWN, roll: 0 });
   });
 
-  it("tilts a nearly level view towards overhead, just enough to make the move above the ground", () => {
-    // Nearly level with the entity: the target screen point shows sky, and bringing the entity up to it without
-    // tilting would lower the camera to 150 m below the entity.
+  it("leaves the camera alone when the move would take it to the feature's level or below", () => {
+    // Nearly level with the entity: the target screen point shows sky, and bringing the entity up to it would
+    // lower the camera by more than its height.
     const position = local(0, -5000, 300);
     const viewer = makeViewer({
       position,
       direction: localDirection(0, 5000, -300),
       ray: rayFrom(position, local(0, 5000, 600)),
-    });
-    expect(shiftToReveal(viewer, viewer.selectedEntity, AREA)).toBe(true);
-    const { destination, orientation } = flownTo(viewer);
-    const tilt = -1.2 - orientation.pitch;
-    expect(tilt).toBeGreaterThan(0); // looks further down than before
-    expect(tilt).toBeLessThan(CesiumMath.toRadians(5)); // but only slightly
-    expect(orientation).toEqual({ heading: 0.1, pitch: orientation.pitch, roll: 0 });
-    // The camera ends up above the entity, by less than one more degree of tilt would add...
-    const distance = Cartesian3.distance(destination, ENTITY_POS);
-    expect(heightAboveEntity(destination)).toBeGreaterThanOrEqual(10);
-    expect(heightAboveEntity(destination)).toBeLessThan(10 + distance * Math.sin(CesiumMath.toRadians(1)));
-    // ...and as far from it as it was.
-    expect(distance / Cartesian3.distance(position, ENTITY_POS)).toBeCloseTo(1, 2);
-  });
-
-  it("does not tilt a view that can make the move as it is", () => {
-    const position = local(0, -5000, 5000);
-    const viewer = makeViewer({
-      position,
-      direction: localDirection(0, 1, -1),
-      ray: rayFrom(position, local(0, 3000, 0)),
-    });
-    shiftToReveal(viewer, viewer.selectedEntity, AREA);
-    expect(flownTo(viewer).orientation.pitch).toBe(-1.2);
-  });
-
-  it("leaves the camera alone when no small tilt would lift it clear of the terrain at its destination", () => {
-    const position = local(0, -5000, 5000);
-    const viewer = makeViewer({
-      position,
-      direction: localDirection(0, 1, -1),
-      ray: rayFrom(position, local(0, 3000, 0)),
-      terrainHeight: 20000, // higher than the camera can get by tilting
     });
     expect(shiftToReveal(viewer, viewer.selectedEntity, AREA)).toBe(false);
     expect(viewer.camera.flyTo).not.toHaveBeenCalled();
   });
 
-  it("leaves a level view alone when the ground is higher than a 35 degree tilt would lift the camera", () => {
-    const position = local(0, -5000, 300);
-    const viewer = makeViewer({
-      position,
-      pitch: -0.06,
-      direction: localDirection(0, 5000, -300),
-      ray: rayFrom(position, local(0, 5000, 600)),
-      // 3500 m above the entity: about 44 degrees of tilt at this distance, which looking straight down would reach
-      terrainHeight: 4000,
-    });
+  it("leaves the camera alone when the move would take it below the terrain at its destination", () => {
+    const viewer = makeViewer({ terrainHeight: 20000 }); // the globe says the ground there is above the camera
     expect(shiftToReveal(viewer, viewer.selectedEntity, AREA)).toBe(false);
     expect(viewer.camera.flyTo).not.toHaveBeenCalled();
   });
@@ -255,6 +215,81 @@ describe("shiftToReveal", () => {
       expect(shiftToReveal(viewer, viewer.selectedEntity, AREA)).toBe(false);
       expect(viewer.dataSourceDisplay.getBoundingSphere).not.toHaveBeenCalled();
     }
+  });
+});
+
+describe("frameFromOverhead", () => {
+  // 45 degrees down towards the entity from the south, 7071 m away. From that far overhead a canvas pixel covers
+  // 2 * 7071 * tan(30 deg) / 850 = 9.606 m, and the middle of the strip (y = 200) is 225 px above the view centre.
+  const position = local(0, -5000, 5000);
+  const tilted = (options) => makeViewer({ position, pitch: TILTED, direction: localDirection(0, 1, -1), ...options });
+  const PX = (2 * Math.hypot(5000, 5000) * Math.tan(CesiumMath.toRadians(30))) / 850;
+
+  it("looks straight down from the same distance and heading, with the feature in the middle of the strip", () => {
+    const viewer = tilted({ heading: 0 });
+    expect(frameFromOverhead(viewer, viewer.selectedEntity, AREA)).toBe(true);
+    const { destination, orientation, duration } = flownTo(viewer);
+    // North is up: the camera sits south of the feature, which then shows above the view centre. The sheet's
+    // middle (x = 750) is the canvas middle, so there is no sideways offset.
+    expect(Cartesian3.distance(destination, local(0, -225 * PX, Math.hypot(5000, 5000)))).toBeLessThan(0.01);
+    expect(orientation).toEqual({ heading: 0, pitch: STRAIGHT_DOWN, roll: 0 });
+    expect(duration).toBeGreaterThan(0);
+  });
+
+  it("offsets the camera along the view's own up and right when the heading is not north", () => {
+    const viewer = tilted({ heading: CesiumMath.PI_OVER_TWO }); // east is up, south is right
+    const area = { top: 400, left: 520, right: 1180 }; // sheet middle at x = 850, 100 px right of the canvas middle
+    expect(frameFromOverhead(viewer, viewer.selectedEntity, area)).toBe(true);
+    const { destination, orientation } = flownTo(viewer);
+    // Feature above the centre: camera to the west. Feature right of the centre: camera to the north.
+    expect(Cartesian3.distance(destination, local(-225 * PX, 100 * PX, Math.hypot(5000, 5000)))).toBeLessThan(0.01);
+    expect(orientation.heading).toBe(CesiumMath.PI_OVER_TWO);
+  });
+
+  it("centres the feature across the canvas when the sheet's sides are not known", () => {
+    const viewer = tilted({ heading: 0 });
+    frameFromOverhead(viewer, viewer.selectedEntity, { top: 400, left: -Infinity, right: Infinity });
+    expect(Cartesian3.distance(flownTo(viewer).destination, local(0, -225 * PX, Math.hypot(5000, 5000))))
+      .toBeLessThan(0.01);
+  });
+
+  it("backs away just enough for a large feature to fit in the strip", () => {
+    const viewer = tilted({ heading: 0, radius: 5000 });
+    frameFromOverhead(viewer, viewer.selectedEntity, AREA);
+    // 10 km across in 80 % of the 400 px strip: 31.25 m per pixel
+    const range = (31.25 * 850) / (2 * Math.tan(CesiumMath.toRadians(30)));
+    expect(Cartesian3.distance(flownTo(viewer).destination, local(0, -225 * 31.25, range))).toBeLessThan(0.01);
+  });
+
+  it("does nothing when the view cannot be moved for the feature or the camera has no field of view", () => {
+    const orthographic = tilted();
+    orthographic.camera.frustum = {};
+    for (const viewer of [
+      tilted({ mode: SceneMode.SCENE2D }),
+      tilted({ trackedEntity: { id: "point_7 [ds]" } }),
+      tilted({ sphereState: BoundingSphereState.PENDING }),
+      orthographic,
+    ]) {
+      expect(frameFromOverhead(viewer, viewer.selectedEntity, AREA)).toBe(false);
+      expect(viewer.camera.flyTo).not.toHaveBeenCalled();
+    }
+  });
+});
+
+describe("revealAboveSheet", () => {
+  it("replaces a tilted view by one from overhead, even when the feature is not under the sheet", () => {
+    const viewer = makeViewer({ pitch: TILTED, screen: new Cartesian2(600, 100) });
+    expect(revealAboveSheet(viewer, viewer.selectedEntity, AREA)).toBe(true);
+    expect(flownTo(viewer).orientation.pitch).toBe(STRAIGHT_DOWN);
+  });
+
+  it("only pans a view that is overhead already, and only when the feature is under the sheet", () => {
+    const steep = -CesiumMath.toRadians(87);
+    const covered = makeViewer({ pitch: steep });
+    expect(revealAboveSheet(covered, covered.selectedEntity, AREA)).toBe(true);
+    expect(flownTo(covered).orientation.pitch).toBe(steep); // kept as it was
+    const visible = makeViewer({ pitch: steep, screen: new Cartesian2(600, 100) });
+    expect(revealAboveSheet(visible, visible.selectedEntity, AREA)).toBe(false);
   });
 });
 

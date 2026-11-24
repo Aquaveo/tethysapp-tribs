@@ -106,10 +106,10 @@ opening a plot in a tilted view no longer zooms out. Deferred:
   to generate the missing ones.
 - **Hidden types in the Model Control file selectors.** Unrestricted selectors in `TabContent.js` list every project
   dataset, including the hidden output types.
-- **Reveal in nearly level views.** `shiftToReveal` moves the camera across its view, which lowers it when the view
-  is tilted. Where that would put the camera under the ground it first tilts the view towards overhead, by up to
-  35 degrees. The terrain height it checks is the globe's coarse guess, so a ridge near the camera can still end up
-  in front of the feature; sampling the terrain at the destination would cover that.
+- **Plot opening in a tilted view.** Opening a plot from a tilted view replaces the view by one from overhead
+  that frames the feature above the sheet (`revealAboveSheet`), because moving a tilted camera sideways lowers it,
+  into the ground in a level view. Keeping the tilt would need the camera to be placed against real terrain
+  (sampled at its destination and along the line of sight), not the globe's coarse height guess.
 
 ## Output variable labels and priorities
 
