@@ -231,3 +231,27 @@ variables under "More variables". Deferred:
     `process.env.TETHYS_MEDIA_URL` without restoring it and never resets its module-level `mockModelProps`.
     `GraphicsWindow.test.js` still wraps assertions in `setTimeout`. `MeshClock.test.js` and
     `useLegendEntry.test.js` count calls to internal collaborators.
+
+- **Changing a scenario's project leaves its datasets in the old project** (reported by Nathan, 2026-11-24).
+  Editing a scenario and picking another project moves only the scenario: `ModifyTribsScenario` sets
+  `resource.project`, and the setter in `tribs_adapter/resources/mixins/project_child_mixin.py` swaps the
+  scenario's own parent. The datasets linked to it keep their old project, so they are missing from the new
+  project's tree and still listed in the old one, and `Scenario.link_dataset` would now refuse them ("Dataset must
+  belong to the same Project as the Scenario"). Realizations are probably affected the same way (read from the
+  code, not reproduced): a realization takes its project from its scenario, so it follows the scenario, but its
+  output datasets do not; and editing a realization to a scenario of another project (`ModifyTribsRealization`
+  sets only `resource.scenario`, the selected project is not used) leaves its datasets behind too. Fix in the
+  adapter: a move that takes the linked datasets (and the realizations' datasets) along, deciding first what to do
+  with a dataset that another scenario of the old project also links to (copy it, or refuse the move).
+
+- **Create the scenario and the realization from one upload** (requested by Nathan, 2026-11-24). A tRIBS archive
+  with inputs and an `Output/` folder has to be uploaded twice today: once on the new scenario page (inputs) and
+  once on the new realization page (outputs, with the scenario selected). Add a check box to each page that also
+  processes the other half of the same archive:
+  - *New scenario page:* "Also create a realization from the outputs in this archive". When checked, the
+    realization is created under the new scenario after the scenario upload finishes.
+  - *New realization page:* "Also create the scenario from the inputs in this archive". When checked, the scenario
+    selector is not needed: the scenario is created first and the realization is put under it.
+  To decide when it is built: the name of the second resource, what to do when the box is checked and the archive
+  has no outputs (or no inputs), and whether the two Condor jobs (`upload_scenario_exe.py`,
+  `upload_realization_exe.py`) are chained or merged into one.
