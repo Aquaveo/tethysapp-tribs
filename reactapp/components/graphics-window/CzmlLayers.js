@@ -2,7 +2,7 @@ import { useContext, useEffect, useState } from "react";
 import PropTypes from "prop-types";
 import { datasetPropTypes } from "components/tree/propTypes";
 import { CzmlDataSource } from "resium";
-import { Color } from "cesium";
+import { CallbackProperty, Color, ColorMaterialProperty } from "cesium";
 import { GraphicsWindowVisualsContext, ProjectContext } from "react-tethys/context";
 import { useLayerValuesState } from "hooks/useLayerValues";
 import { rampColor, resolveRampName } from "lib/colorRamps";
@@ -21,6 +21,25 @@ export function featureColor(rampName, value, variable, alpha = 255) {
   return Color.fromBytes(r, g, b, alpha);
 }
 
+// The color each value-layer polygon currently reads its fill from (see setPolygonColor)
+const polygonColors = new WeakMap();
+
+/**
+ * Give a polygon its fill color. The polygon gets one material, the first time, that reads its color from here:
+ * replacing the material at every time step makes Cesium rebuild the polygon, which leaves it undrawn for a moment
+ * (the layer flashes while the timeline plays).
+ */
+export function setPolygonColor(entity, color) {
+  const holder = polygonColors.get(entity);
+  if (holder) {
+    holder.color = color;
+    return;
+  }
+  const created = { color };
+  polygonColors.set(entity, created);
+  entity.polygon.material = new ColorMaterialProperty(new CallbackProperty(() => created.color, false));
+}
+
 /** Color the features of a loaded value layer with their values of one row. Returns how many were colored. */
 export function colorFeatures(dataSource, values, row, rampName, variable) {
   let colored = 0;
@@ -32,7 +51,7 @@ export function colorFeatures(dataSource, values, row, rampName, variable) {
       entity.point.color = featureColor(rampName, value, variable);
       colored += 1;
     } else if (entity.polygon) {
-      entity.polygon.material = featureColor(rampName, value, variable, POLYGON_ALPHA);
+      setPolygonColor(entity, featureColor(rampName, value, variable, POLYGON_ALPHA));
       colored += 1;
     }
   });
@@ -45,7 +64,7 @@ export function clearFeatureColors(dataSource) {
     if (entity.point) {
       entity.point.color = featureColor(null, null, null);
     } else if (entity.polygon) {
-      entity.polygon.material = featureColor(null, null, null, POLYGON_ALPHA);
+      setPolygonColor(entity, featureColor(null, null, null, POLYGON_ALPHA));
     }
   });
 }

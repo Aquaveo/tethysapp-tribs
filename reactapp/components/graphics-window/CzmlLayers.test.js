@@ -4,7 +4,7 @@ import { act, render, screen } from "@testing-library/react";
 import { GraphicsWindowVisualsContext, ProjectContext } from "react-tethys/context";
 import { makeLayerValues, makeMrfDataset, makeValueLayer } from "config/tests/mocks/meshMock";
 import { DO_NOT_SET_LAYER } from "constants/GraphicsWindowConstants";
-import CzmlLayer, { colorFeatures, featureColor } from "./CzmlLayers";
+import CzmlLayer, { colorFeatures, featureColor, setPolygonColor } from "./CzmlLayers";
 
 const mockSources = {};
 jest.mock("resium", () => ({
@@ -169,7 +169,7 @@ describe("value layers", () => {
     const polygon = { polygon: { material: null } };
     const dataSource = { entities: { getById: (id) => (id === polygonId ? polygon : undefined), values: [polygon] } };
     act(() => mockSources["/media/" + dataset.viz.url[0]].onLoad(dataSource));
-    expect(polygon.polygon.material.toBytes()).toEqual([0, 0, 255, 175]);
+    expect(polygon.polygon.material.color.getValue().toBytes()).toEqual([0, 0, 255, 175]);
   });
 });
 
@@ -181,6 +181,16 @@ describe("featureColor / colorFeatures", () => {
     expect(featureColor("white_blue", null, variable, 175).toBytes()).toEqual([160, 160, 160, 175]);
   });
 
+  it("keeps the one material of a polygon and changes the color it reads, so the polygon is not rebuilt", () => {
+    const polygon = { polygon: { material: null } };
+    setPolygonColor(polygon, featureColor("white_blue", 0, variable, 175));
+    const material = polygon.polygon.material;
+    expect(material.isConstant).toBe(false); // Cesium updates the color in place instead of rebuilding
+    setPolygonColor(polygon, featureColor("white_blue", 100, variable, 175));
+    expect(polygon.polygon.material).toBe(material);
+    expect(material.color.getValue().toBytes()).toEqual([0, 0, 255, 175]);
+  });
+
   it("colors points and polygons, and skips ids the document does not have", () => {
     const polygon = { polygon: { material: null } };
     const point = { point: { color: null } };
@@ -189,7 +199,7 @@ describe("featureColor / colorFeatures", () => {
 
     expect(colorFeatures(dataSource, values, 0, "white_blue", variable)).toBe(2);
 
-    expect(polygon.polygon.material.toBytes()).toEqual([0, 0, 255, 175]);
+    expect(polygon.polygon.material.color.getValue().toBytes()).toEqual([0, 0, 255, 175]);
     expect(point.point.color.toBytes()).toEqual(WHITE);
   });
 });
