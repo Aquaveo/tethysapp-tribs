@@ -7,7 +7,7 @@ import { makeMrfDataset, makeValueLayer } from "config/tests/mocks/meshMock";
 import { setClockTime } from "lib/clockTime";
 import { AppContext, GraphicsWindowVisualsContext, SidePanelContext } from "react-tethys/context";
 import newUUID from "lib/uuid";
-import PlotlyPanel, { plotAreaLeft, plotTimeBar, reframedLayout, seriesTitles, showLegend } from "./PlotlyPanel";
+import PlotlyPanel, { TIME_BAR_COLOR, plotAreaLeft, plotTimeBar, reframedLayout, seriesTitles, showLegend } from "./PlotlyPanel";
 
 // A plotted graph div as Plotly leaves it: the plot area starts 85px in (a long y-axis title, say)
 const FAKE_GRAPH_DIV = { _fullLayout: { _size: { l: 85 } } };
@@ -256,17 +256,27 @@ describe("PlotlyPanel", () => {
       });
     });
 
-    it("waits on the last time of the series while the clock shows that last step", () => {
-      expect(bar(Date.UTC(2004, 5, 1, 3)).x0).toBe("2004-06-01 03:00:00");
-      expect(bar(Date.UTC(2004, 5, 1, 3, 40)).x0).toBe("2004-06-01 03:00:00"); // the clock stops at 04:00
+    it("is drawn in the color of the timeline's marker", () => {
+      expect(bar(Date.UTC(2004, 5, 1, 2)).line.color).toBe(TIME_BAR_COLOR);
+      expect(TIME_BAR_COLOR).toBe("#ffc107");
     });
 
-    it("is not shown outside the series, without a clock time, or for a layer without a value variable", () => {
-      expect(bar(Date.UTC(2004, 5, 1, 0, 59))).toBeNull();
-      expect(bar(Date.UTC(2004, 5, 1, 4, 1))).toBeNull();
+    it("waits on the first and the last time of the series when the clock is outside it", () => {
+      // another layer may drive the clock from an earlier time; the map shows the first row there
+      expect(bar(Date.UTC(2004, 5, 1, 0, 3)).x0).toBe("2004-06-01 01:00:00");
+      expect(bar(Date.UTC(2004, 5, 1, 3)).x0).toBe("2004-06-01 03:00:00");
+      expect(bar(Date.UTC(2004, 5, 1, 3, 40)).x0).toBe("2004-06-01 03:00:00"); // the clock runs a step past the last row
+      expect(bar(Date.UTC(2004, 5, 2)).x0).toBe("2004-06-01 03:00:00");
+    });
+
+    it("is placed from the run's start date for a layer without a value variable", () => {
+      expect(bar(Date.UTC(2004, 5, 1, 2, 30), { variable: null }).x0).toBe("2004-06-01 02:30:00");
+    });
+
+    it("is not shown without a clock time or a series", () => {
       expect(bar(null)).toBeNull();
-      expect(bar(Date.UTC(2004, 5, 1, 2), { variable: null })).toBeNull();
       expect(bar(Date.UTC(2004, 5, 1, 2), { hours: null })).toBeNull();
+      expect(bar(Date.UTC(2004, 5, 1, 2), { hours: [] })).toBeNull();
     });
 
     it("is drawn on the plot of a value layer and follows the clock", async () => {

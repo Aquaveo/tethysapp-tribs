@@ -156,24 +156,37 @@ function hoursToDateConverter(date, h) {
 }
 
 const MS_PER_HOUR = 60 * 60 * 1000;
-const TIME_BAR_LINE = { color: "rgba(33, 37, 41, 0.85)", width: 2, dash: "dot" };
+// The color of the current-time marker on the timeline (graphics-window/timeline.css)
+export const TIME_BAR_COLOR = "#ffc107";
+const TIME_BAR_LINE = { color: TIME_BAR_COLOR, width: 3 };
+
+/** The run's start on the map's clock, which reads the run's dates as UTC: the start date's own date and time. */
+const runStartOnClock = (startDate) => Date.UTC(
+  startDate.getFullYear(), startDate.getMonth(), startDate.getDate(),
+  startDate.getHours(), startDate.getMinutes(), startDate.getSeconds()
+);
 
 /**
  * The time of the map's clock as a vertical line across the plot (a Plotly layout shape), or null when there is
- * nothing to show: no clock time, a layer without a value variable, or a time outside the series.
+ * no clock time (no layer drives the clock) or no series.
  *
- * The line is placed by hours since the start of the run, the unit the series arrives in: the first row of the
- * variable's values is at `variable.start` on the clock and at `hours[0]` in the series, so the two time axes are
- * tied together without assuming how the browser reads the run's start date.
+ * The line is placed by hours since the start of the run, the unit the series arrives in. For a value layer the
+ * first row of the variable's values is at `variable.start` on the clock and at `hours[0]` in the series, which
+ * ties the two time axes together without assuming how the browser reads the run's start date. Other layers fall
+ * back on that start date.
+ *
+ * Before the first time of the series and after the last the line waits on that time, as the map shows the first
+ * and the last row there (the clock may start earlier when another layer drives it, and runs one step past the
+ * last row).
  */
 export function plotTimeBar({ clockMs, variable, hours, startDate }) {
+  if (clockMs === null || clockMs === undefined || !hours?.length || !startDate) return null;
   const firstRowMs = isoToUtcMs(variable?.start ?? null);
-  if (clockMs === null || clockMs === undefined || firstRowMs === null || !hours?.length || !startDate) return null;
-  const lastHour = hours[hours.length - 1];
-  const hoursNow = hours[0] + (clockMs - firstRowMs) / MS_PER_HOUR;
-  // The clock runs one step past the last row, so that row is shown as long as the others: the line waits on it
-  if (hoursNow < hours[0] || hoursNow > lastHour + (variable.step_hours ?? 0)) return null;
-  const x = hoursToDateConverter(startDate, Math.min(hoursNow, lastHour));
+  const hoursNow = firstRowMs !== null
+    ? hours[0] + (clockMs - firstRowMs) / MS_PER_HOUR
+    : (clockMs - runStartOnClock(startDate)) / MS_PER_HOUR;
+  const shown = Math.min(Math.max(hoursNow, hours[0]), hours[hours.length - 1]);
+  const x = hoursToDateConverter(startDate, shown);
   return { type: "line", xref: "x", yref: "paper", x0: x, x1: x, y0: 0, y1: 1, line: TIME_BAR_LINE };
 }
 
