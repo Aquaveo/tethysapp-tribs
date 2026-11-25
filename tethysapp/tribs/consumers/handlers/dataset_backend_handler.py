@@ -1,11 +1,12 @@
 import logging
+import math
 import os
-import re
-import pandas as pd
 import aioshutil
 from pathlib import Path
 
 from tribs_adapter.resources import Dataset
+from tribs_adapter.common.node_timeseries import BASIN_TIME_COLUMN, NODE_TIME_COLUMN, pixel_files_by_node, \
+    qout_files_by_point, read_basin_file, read_node_file
 from tribs_adapter.common.output_variables import describe as describe_variable, kind_for_dataset_type, \
     split_unit_suffix
 from tribs_adapter.resources.dataset import DatasetTypes
@@ -14,6 +15,12 @@ from ..exc import LinkedDatasetError
 from .resource_backend_handler import ResourceBackendHandler as RBH
 
 log = logging.getLogger(__name__)
+
+
+def _plot_values(series):
+    """The values of a series for a plot: a list with None where the file has no number (nan, inf), which JSON cannot
+    carry."""
+    return [float(value) if math.isfinite(value) else None for value in series]
 
 
 class DatasetBackendHandler(RBH):
@@ -178,34 +185,26 @@ class DatasetBackendHandler(RBH):
             raise ValueError(f'Dataset with ID: "{dataset_id}" is not a TRIBS_OUT_PIXEL dataset.')
 
         def _get_czml_point_file_dataset(session, dataset, point_id, variable):
-            # Get pixel file from dataset file collection
-            files = os.listdir(dataset.file_collection_client.path)
+            # The file of the point: a pixel file by the node ID it holds, a qout file by its name
+            collection_path = dataset.file_collection_client.path
+            files = os.listdir(collection_path)
             if dataset.dataset_type == Dataset.DatasetTypes.TRIBS_OUT_PIXEL:
-                extension = '.pixel'
-            elif dataset.dataset_type == Dataset.DatasetTypes.TRIBS_OUT_QOUT:
-                extension = '.qout'
-            point_files = [os.path.join(dataset.file_collection_client.path, f) for f in files if f.endswith(extension)]
-            selected_point_file = None
-            for f in point_files:
-                if os.path.splitext(f)[0].endswith(str(point_id)):
-                    selected_point_file = f
-                    break
-
+                point_files = [os.path.join(collection_path, f) for f in files if f.endswith('.pixel')]
+                files_by_point = {str(node): path for node, path in pixel_files_by_node(point_files).items()}
+            else:
+                point_files = [os.path.join(collection_path, f) for f in files if f.endswith('.qout')]
+                files_by_point = qout_files_by_point(point_files)
+            selected_point_file = files_by_point.get(str(point_id))
             if not selected_point_file:
                 raise ValueError(f'Point file for point ID: "{point_id}" not found in dataset with ID: "{dataset_id}".')
 
-            # Read pixel file
-            df = {}
-            with open(selected_point_file, 'r') as f:
-                _data = f.readlines()
-                header, _data = _data[0], _data[1:]
-                headers = [x.strip().replace(',', '_').replace('/', '-') for x in re.split(r'\s*\d+-', header)[1:]]
-                _data = [tuple(map(float, d.strip().split())) for d in _data]
-                point_id = int(_data[0][0])
-                df = pd.DataFrame(_data, columns=headers)
-            time = df['Time_hr']
-            variable_data = df[variable]
-            return time, variable_data
+            df = read_node_file(selected_point_file)
+            if variable not in df.columns:
+                raise ValueError(
+                    f'Variable "{variable}" not found in {os.path.basename(selected_point_file)} of dataset with '
+                    f'ID: "{dataset_id}".'
+                )
+            return df[NODE_TIME_COLUMN], df[variable]
 
         time, variable_data = await session.run_sync(_get_czml_point_file_dataset, dataset, point_id, variable)
         info = self._describe_timeseries_variable(dataset, variable)
@@ -214,8 +213,8 @@ class DatasetBackendHandler(RBH):
         # and variable) is sent back so the frontend can tell which request a reply answers.
         await self.send_action(
             BackendActions.DATASET_GET_PIXEL_TIMESERIES, {
-                'x': time.to_list(),
-                'y': (variable_data * info['factor']).to_list(),
+                'x': _plot_values(time),
+                'y': _plot_values(variable_data * info['factor']),
                 'dataset_id': str(dataset.id),
                 'point_id': point_id,
                 'name': variable,
@@ -247,25 +246,22 @@ class DatasetBackendHandler(RBH):
             elif dataset.dataset_type == Dataset.DatasetTypes.TRIBS_OUT_RFT:
                 extension = '.rft'
 
-            out_files = [os.path.join(dataset.file_collection_client.path, f) for f in files if f.endswith(extension)]
+            # The first file by name, as the map layer uses
+            out_files = sorted(
+                os.path.join(dataset.file_collection_client.path, f) for f in files if f.endswith(extension)
+            )
             selected_out_file = out_files[0] if out_files else None
 
             if not selected_out_file:
                 raise ValueError(f'Output file not found in dataset with ID: "{dataset_id}".')
 
-            # Read the output file: a header line, a units line, then the data
-            df = {}
-            with open(selected_out_file, 'r') as f:
-                _data = f.readlines()
-                header, units_row, _data = _data[0], _data[1], _data[2:]
-                headers = [x.strip().replace(',', '_').replace('/', '-') for x in re.split(r'\t', header) if x != '']
-                units = [x.strip() for x in units_row.split('\t') if x.strip()]
-                _data = [tuple(map(float, d.strip().split())) for d in _data]
-                df = pd.DataFrame(_data, columns=headers)
-            time = df['Time']
-            variable_data = df[variable]
-            file_units = dict(zip(headers, units)).get(variable)
-            return time, variable_data, file_units
+            df, units = read_basin_file(selected_out_file)
+            if variable not in df.columns:
+                raise ValueError(
+                    f'Variable "{variable}" not found in {os.path.basename(selected_out_file)} of dataset with '
+                    f'ID: "{dataset_id}".'
+                )
+            return df[BASIN_TIME_COLUMN], df[variable], units.get(variable)
 
         time, variable_data, file_units = await session.run_sync(_get_mrf_or_rft_dataset, dataset, variable)
         info = self._describe_timeseries_variable(dataset, variable, file_units=file_units)
@@ -274,8 +270,8 @@ class DatasetBackendHandler(RBH):
         # variable) is sent back so the frontend can tell which request a reply answers.
         await self.send_action(
             BackendActions.DATASET_GET_MRF_OR_RFT_TIMESERIES, {
-                'x': time.to_list(),
-                'y': (variable_data * info['factor']).to_list(),
+                'x': _plot_values(time),
+                'y': _plot_values(variable_data * info['factor']),
                 'dataset_id': str(dataset.id),
                 'name': variable,
                 'label': info['label'],

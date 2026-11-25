@@ -3,7 +3,7 @@ import { ClockRange, ClockStep, JulianDate } from "cesium";
 import { useCesium } from "resium";
 
 import { GraphicsWindowVisualsContext } from "react-tethys/context";
-import { makeTimeSeriesMesh } from "config/tests/mocks/meshMock";
+import { makeTimeSeriesMesh, makeValueLayer } from "config/tests/mocks/meshMock";
 import { findVariable, makeActiveTimeSeries } from "lib/meshTimeSeries";
 import MeshClock from "./MeshClock";
 
@@ -63,6 +63,25 @@ describe("MeshClock", () => {
     expect(setMeshClockTime).toHaveBeenCalledWith(Date.UTC(2004, 5, 1, 10));
     onTick({ currentTime: JulianDate.fromIso8601("2004-06-01T00:00:00Z") }); // looped back to step 0
     expect(setMeshClockTime).toHaveBeenCalledTimes(2);
+  });
+
+  it("plays a value layer over the times of its rows and publishes the time once per clock step", () => {
+    const layer = makeValueLayer(); // rows at 01:00, 02:00, 03:00
+    const viewer = makeViewer();
+    const { setMeshClockTime } = renderClock(viewer, makeActiveTimeSeries(layer, layer.viz.variables[0]));
+    const clock = viewer.clock;
+    expect(JulianDate.equals(clock.startTime, JulianDate.fromIso8601("2004-06-01T01:00:00Z"))).toBe(true);
+    expect(JulianDate.equals(clock.stopTime, JulianDate.fromIso8601("2004-06-01T04:00:00Z"))).toBe(true);
+    expect(clock.multiplier).toBe(7200);
+    const onTick = clock.onTick.addEventListener.mock.calls[0][0];
+    setMeshClockTime.mockClear();
+
+    onTick({ currentTime: JulianDate.fromIso8601("2004-06-01T01:30:00Z") }); // still the first step
+    expect(setMeshClockTime).not.toHaveBeenCalled();
+    onTick({ currentTime: JulianDate.fromIso8601("2004-06-01T02:10:00Z") });
+    onTick({ currentTime: JulianDate.fromIso8601("2004-06-01T02:50:00Z") });
+    expect(setMeshClockTime).toHaveBeenCalledTimes(1);
+    expect(setMeshClockTime).toHaveBeenCalledWith(Date.UTC(2004, 5, 1, 2, 10));
   });
 
   it("stops animating when there is no active time series and removes its listener on unmount", () => {

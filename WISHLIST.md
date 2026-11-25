@@ -262,3 +262,27 @@ variables under "More variables". Deferred:
   and stop the clock, unless at least one visible layer has time-varying data: a glTF variable with more than one
   time step (`isTimeDynamic` in `reactapp/lib/meshTimeSeries.js`) or a CZML layer with a clock (Basin Averaged,
   Node Dynamic, Qout, station data). Bring them back when such a layer is shown.
+
+- **Value layer follow-ups** (node, outlet and basin output colored in the browser, 2026-11-24):
+  - *One owner for the Cesium clock.* Value layers and glTF meshes are played by `MeshClock` (the last selected
+    variable drives it). CZML written with its colors (station data, and node/outlet/basin output not yet
+    regenerated) still sets the viewer clock through Cesium's data source clock tracking when it loads, so the two
+    can fight over the clock range. Turn off `automaticallyTrackDataSourceClocks` and give station data a time axis
+    in `viz` like the others.
+  - *Unused legend drawing in `CZMLGenerator`.* Its PNG legend, legend factor and reversed-ramp code served the
+    baked-color pixel/qout/mrf layers. Only station (SDF) layers use the generator now, without a legend: remove
+    that code and its tests, or give station layers values files too.
+  - *Size of values files for long runs.* A values file holds every row of every feature for one variable (a qout
+    file every 3.75 minutes for a year is about 140,000 rows per point). They are fetched only for the selected
+    variable, but a decimated copy for the map (the plot reads the file itself) would keep them small.
+  - *Labels and priorities for Node Dynamic variables.* Still shown by header name, all 80 or so of them, until
+    the scientists' list covers pixel output. Odd header columns of current tRIBS (`LngRadOut_W_m2A`,
+    `VegFraction[]`) keep their raw names and get no units.
+  - *A value layer regenerated while the page is open keeps its old values.* The values files and the feature
+    document have the same urls after `tribs regenerate-viz`, and the browser caches them by url
+    (`lib/layerValues.js`), so the new range arrives with the old values until the page is reloaded. Put a
+    generation stamp in the urls.
+  - *Scrubbing the timeline inside one clock step does not move the layers.* `MeshClock` publishes the time once
+    per step of the variable that drives the clock; for long runs a value layer's clock step is its range divided
+    by 500 (`MAX_CLOCK_STEPS`), so a layer can lag the timeline by that much until the next step. The legend
+    always names the time of the row shown. The same holds for glTF meshes (see "Mesh time series follow-ups").

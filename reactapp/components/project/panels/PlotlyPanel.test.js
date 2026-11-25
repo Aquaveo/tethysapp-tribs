@@ -6,13 +6,17 @@ import { mockBackend, mockBackendAfterEach } from "config/tests/mocks/backend";
 import { makeMrfDataset } from "config/tests/mocks/meshMock";
 import { AppContext, GraphicsWindowVisualsContext, SidePanelContext } from "react-tethys/context";
 import newUUID from "lib/uuid";
-import PlotlyPanel, { plotAreaLeft, seriesTitles, showLegend } from "./PlotlyPanel";
+import PlotlyPanel, { plotAreaLeft, reframedLayout, seriesTitles, showLegend } from "./PlotlyPanel";
 
 // A plotted graph div as Plotly leaves it: the plot area starts 85px in (a long y-axis title, say)
 const FAKE_GRAPH_DIV = { _fullLayout: { _size: { l: 85 } } };
 
+let mockLastLayout = null; // the layout object the plot was last given (Plotly writes a zoom into it)
+
 jest.mock("react-plotly.js", () => function PlotMock(props) {
   const React = require("react");
+  // eslint-disable-next-line no-undef
+  mockLastLayout = props.layout;
   React.useEffect(() => {
     props.onInitialized?.({}, FAKE_GRAPH_DIV);
     props.onAfterPlot?.();
@@ -188,6 +192,49 @@ describe("PlotlyPanel", () => {
     expect(showLegend([])).toBe(false);
     expect(showLegend([{ name: "a" }])).toBe(false);
     expect(showLegend([{ name: "a" }, { name: "b" }])).toBe(true);
+  });
+
+  it("puts both axes back on autorange, without the range of a zoom", () => {
+    const layout = { autosize: true, xaxis: { type: "date", range: ["a", "b"], autorange: false }, yaxis: { type: "log", range: [0, 1], autorange: false } };
+    expect(reframedLayout(layout)).toEqual({ autosize: true, xaxis: { type: "date", autorange: true }, yaxis: { type: "log", autorange: true } });
+  });
+
+  it("frames the whole series of a newly selected variable, and keeps a zoom for another feature of the same one", async () => {
+    const mrf = makeMrfDataset();
+    const { server, backend } = await mockBackend();
+    const panelId = `plotly-panel-${mrf.id}`;
+    const tree = (layerName, selected) => (
+      <AppContext.Provider value={{ backend, csrf: "12345" }}>
+        <GraphicsWindowVisualsContext.Provider
+          value={{ visibleCZMLObject: { [mrf.id]: layerName }, selectedCZMLPoint: selected, setSelectedCZMLPoint: jest.fn(), startDates: [new Date(Date.UTC(2004, 5, 1))] }}
+        >
+          <SidePanelContext.Provider value={{ hideSidePanel: jest.fn(), showPanel: jest.fn(), visibleSidePanel: [panelId] }}>
+            <PlotlyPanel dataset={mrf} panelId={panelId} realizationIndex={0} />
+          </SidePanelContext.Provider>
+        </GraphicsWindowVisualsContext.Provider>
+      </AppContext.Provider>
+    );
+    const send = (payload) => act(async () => {
+      server.send(JSON.stringify({ action: { id: newUUID(), type: backend.actions.DATASET_GET_PIXEL_TIMESERIES }, payload }));
+    });
+    const zoom = () => { // as Plotly leaves the layout after the user zooms
+      Object.assign(mockLastLayout.xaxis, { range: ["2004-06-02", "2004-06-03"], autorange: false });
+      Object.assign(mockLastLayout.yaxis, { range: [1, 2], autorange: false });
+    };
+    const { rerender } = render(tree("MDGW", `point_1 [${mrf.id}]`));
+    await send({ x: [1, 2], y: [1, 2], name: "MDGW", point_id: "1" });
+    zoom();
+
+    rerender(tree("MDGW", `point_2 [${mrf.id}]`));
+    await send({ x: [1, 2], y: [3, 4], name: "MDGW", point_id: "2" });
+    expect(mockLastLayout.xaxis.range).toEqual(["2004-06-02", "2004-06-03"]); // same variable: the zoom stays
+
+    rerender(tree("MSM", `point_2 [${mrf.id}]`));
+    await send({ x: [1, 2], y: [30, 40], name: "MSM", point_id: "2" });
+    expect(mockLastLayout.xaxis).toMatchObject({ autorange: true, type: "date" });
+    expect(mockLastLayout.xaxis.range).toBeUndefined();
+    expect(mockLastLayout.yaxis).toMatchObject({ autorange: true, type: "linear" });
+    expect(mockLastLayout.yaxis.range).toBeUndefined();
   });
 
   it("ignores a series read from another dataset", async () => {

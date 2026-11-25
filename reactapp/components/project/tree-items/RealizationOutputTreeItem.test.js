@@ -6,7 +6,7 @@ import RealizationOutputTreeItem from "./RealizationOutputTreeItem";
 import { AppContext, GraphicsWindowVisualsContext, LegendsRegistryContext, ProjectContext, SidePanelContext } from "react-tethys/context";
 import { DO_NOT_SET_LAYER, FRAME_OBJECT } from "constants/GraphicsWindowConstants";
 import newUUID from "lib/uuid";
-import { makeTimeSeriesMesh } from "config/tests/mocks/meshMock";
+import { makeTimeSeriesMesh, makeValueLayer } from "config/tests/mocks/meshMock";
 
 const vizDataset = {
   "id": "ef458c1c-e390-4196-a152-405683d9b0c9",
@@ -372,9 +372,9 @@ it("Creates a tree item with details and download actions in options menu", asyn
 // `clockDatasetId` is the dataset whose variable drives the Cesium clock: "own" for the rendered dataset.
 async function renderGltfWithLegendRegistry({
   visible, selectedLayer = "Nwt", meshClockTime = null, updateCallback = jest.fn(), clockDatasetId = null,
+  dataset = makeTimeSeriesMesh(),
 }) {
   const { backend } = await mockBackend();
-  const dataset = makeTimeSeriesMesh();
   const projectId = newUUID();
   const registerLegend = jest.fn();
   const unregisterLegend = jest.fn();
@@ -485,3 +485,29 @@ it("Does not register a legend while the output has no layer selected", async ()
   const { registerLegend } = await renderGltfWithLegendRegistry({ visible: true, selectedLayer: DO_NOT_SET_LAYER });
   expect(registerLegend).not.toHaveBeenCalled();
 });
+
+it("Registers the browser-drawn legend of a value layer, and saves a ramp chosen there", async () => {
+  const updateCallback = jest.fn();
+  const { dataset, registerLegend } = await renderGltfWithLegendRegistry({
+    visible: true, selectedLayer: "Nwt_mm", updateCallback, dataset: makeValueLayer(),
+  });
+  expect(dataset.viz.legend).toEqual([]); // no legend images: the legend card draws the scale
+  expect(registerLegend).toHaveBeenCalledWith(
+    dataset.id,
+    expect.objectContaining({ id: dataset.id, uniqueId: "Nwt_mm", realizationName: "Run 1" })
+  );
+  registerLegend.mock.calls.at(-1)[1].onColorRampChange("plasma");
+  expect(updateCallback).toHaveBeenCalledWith({ id: dataset.id, attributes: { color_ramp: "plasma" } });
+});
+
+it("Hands the Cesium clock to a value layer when it is revealed", async () => {
+  const { dataset, setActiveTimeSeries } = await renderGltfWithLegendRegistry({
+    visible: false, selectedLayer: "Nwt_mm", dataset: makeValueLayer(),
+  });
+  setActiveTimeSeries.mockClear();
+  await userEvent.setup().click(screen.getByRole("button", { name: /Hidden/ }));
+  expect(setActiveTimeSeries).toHaveBeenCalledWith(
+    expect.objectContaining({ datasetId: dataset.id, variableName: "Nwt_mm", start: "2004-06-01T01:00:00Z" })
+  );
+});
+

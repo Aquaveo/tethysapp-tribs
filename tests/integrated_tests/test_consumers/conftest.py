@@ -473,6 +473,15 @@ async def a_mrf_dataset_with_files(a_session, a_empty_project, test_files):
 
 
 @pytest_asyncio.fixture
+async def a_qout_dataset_with_files(a_session, a_empty_project, test_files):
+    """An outlet hydrograph (.qout) dataset: three rows, every 0.0625 h, with no units row."""
+    async for dataset in _output_dataset_with_files(
+        a_session, a_empty_project, test_files, Dataset.DatasetTypes.TRIBS_OUT_QOUT, '*.qout'
+    ):
+        yield dataset
+
+
+@pytest_asyncio.fixture
 async def a_rft_dataset_with_files(a_session, a_empty_project, test_files):
     async for dataset in _output_dataset_with_files(
         a_session, a_empty_project, test_files, Dataset.DatasetTypes.TRIBS_OUT_RFT, '*.rft'

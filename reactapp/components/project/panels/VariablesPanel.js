@@ -6,7 +6,7 @@ import SlideSheet from "components/dialogs/SlideSheet";
 import { datasetPropTypes } from "components/tree/propTypes";
 import TreeItem from "components/tree/TreeItem";
 import { DATASET_VIZ_TYPES, DO_NOT_SET_LAYER } from "constants/GraphicsWindowConstants";
-import { isTimeDynamic, makeActiveTimeSeries } from "lib/meshTimeSeries";
+import { isTimeDynamic, isValueVariable, makeActiveTimeSeries } from "lib/meshTimeSeries";
 import { groupByTier, layerEntries, variableTitle } from "lib/outputVariables";
 
 /**
@@ -21,7 +21,8 @@ export function getLayerItems(dataset) {
     label: variableTitle(entry),
     tooltip: entry.description || variableTitle(entry),
     tier: entry.tier ?? null,
-    variable: isGltf ? entry : null,
+    // The time series the Cesium clock can play: glTF variables and the variables of value layers
+    variable: isGltf || isValueVariable(entry) ? entry : null,
   }));
 }
 

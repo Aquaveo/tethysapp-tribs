@@ -65,6 +65,18 @@ export function seriesTitles(dataset, layerName, plotData = {}) {
   return { label, units, title, yAxis: title };
 }
 
+/** An axis back on autorange: without the range a zoom or pan left on it (Plotly writes it into the layout). */
+function autorangedAxis(axis = {}) {
+  // eslint-disable-next-line no-unused-vars
+  const { range, ...rest } = axis;
+  return { ...rest, autorange: true };
+}
+
+/** The layout with both axes framing the whole series again. */
+export function reframedLayout(layout) {
+  return { ...layout, xaxis: autorangedAxis(layout.xaxis), yaxis: autorangedAxis(layout.yaxis) };
+}
+
 const DEFAULT_PLOT_CONFIG = { responsive: true, displayModeBar: true };
 
 // Plotly pads the first toolbar group by 8px and each button by 4px before its icon.
@@ -175,6 +187,7 @@ const PlotlyPanel = ({
     }
   }
   const [currentData, setCurrentData] = useState(null);
+  const plottedVariableRef = useRef(null); // the variable of the series on the plot
   const [plotLayout, setPlotLayout] = useState(layout);
   const yAxisScale = plotLayout.yaxis?.type ?? "linear"; // what the settings menu shows as current
 
@@ -250,11 +263,17 @@ const PlotlyPanel = ({
       mode: "lines+markers",
       marker: {color: 'red'},
     });
-    if (plotData.label !== undefined || plotData.units !== undefined) {
-      setPlotLayout((prevData) => ({
-        ...prevData,
-        yaxis: { ...prevData.yaxis, title: { ...prevData.yaxis.title, text: titles.yAxis } },
-      }));
+    // Another variable has another range: frame its whole series, whatever zoom was left from the previous one.
+    // Another feature of the same variable keeps the zoom, so features can be compared over the same window.
+    const reframe = plottedVariableRef.current !== null && plottedVariableRef.current !== layerName;
+    plottedVariableRef.current = layerName;
+    const retitle = plotData.label !== undefined || plotData.units !== undefined;
+    if (reframe || retitle) {
+      setPlotLayout((prevData) => {
+        const next = reframe ? reframedLayout(prevData) : prevData;
+        if (!retitle) return next;
+        return { ...next, yaxis: { ...next.yaxis, title: { ...next.yaxis.title, text: titles.yAxis } } };
+      });
     }
   };
 

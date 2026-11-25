@@ -3,14 +3,29 @@ import { render, screen } from "@testing-library/react";
 import { select } from "react-select-event";
 
 import { GraphicsWindowVisualsContext } from "react-tethys/context";
-import { makeMrfDataset, makeStaticMesh, makeTimeSeriesMesh } from "config/tests/mocks/meshMock";
+import {
+  makeLayerValues,
+  makeMrfDataset,
+  makeStaticMesh,
+  makeTimeSeriesMesh,
+  makeValueLayer,
+} from "config/tests/mocks/meshMock";
 import LegendCard from "./LegendCard";
 
-function renderCard({ dataset, colorRamps = {}, ...props }) {
+// The values of a value layer's variable, as the hook returns them once loaded (null: still loading). A plain
+// function, not jest.fn: the jest config resets mock implementations before every test.
+let mockLayerValues = null;
+jest.mock("hooks/useLayerValues", () => ({
+  __esModule: true,
+  // eslint-disable-next-line no-undef
+  default: (url) => (url ? mockLayerValues : null),
+}));
+
+function renderCard({ dataset, colorRamps = {}, meshClockTime = null, ...props }) {
   const setColorRamp = jest.fn();
   const onColorRampChange = jest.fn();
   const utils = render(
-    <GraphicsWindowVisualsContext.Provider value={{ colorRamps, setColorRamp }}>
+    <GraphicsWindowVisualsContext.Provider value={{ colorRamps, setColorRamp, meshClockTime }}>
       <LegendCard dataset={dataset} onColorRampChange={onColorRampChange} {...props} />
     </GraphicsWindowVisualsContext.Provider>
   );
@@ -19,6 +34,7 @@ function renderCard({ dataset, colorRamps = {}, ...props }) {
 
 beforeEach(() => {
   process.env.TETHYS_MEDIA_URL = "/media/";
+  mockLayerValues = null;
 });
 
 it("shows the legend image drawn with the files for the default ramp, with the time step subtitle", () => {
@@ -70,6 +86,59 @@ it("applies a newly chosen ramp right away and saves it on the dataset", async (
   await select(screen.getByLabelText("Color ramp"), "Plasma", { container: document.body });
   expect(setColorRamp).toHaveBeenCalledWith(dataset.id, "plasma");
   expect(onColorRampChange).toHaveBeenCalledWith("plasma");
+});
+
+describe("value layers (node, outlet and basin output)", () => {
+  it("offers the ramp selector with white-blue as the default and draws the legend over the variable's range", () => {
+    const dataset = makeValueLayer(); // Nwt_mm: 0 .. 100 mm
+    renderCard({ dataset, uniqueId: "Nwt_mm" });
+    expect(screen.getByLabelText("Color ramp")).toBeInTheDocument();
+    expect(screen.getByText("White-Blue (default)")).toBeInTheDocument();
+    expect(screen.queryByText("Topo Atlas (default)")).not.toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: /Legend$/ })).not.toBeInTheDocument(); // no PNG
+    expect(screen.getAllByTestId("gltf-legend-tick").map((el) => el.textContent)).toEqual([
+      "0.00", "25.00", "50.00", "75.00", "100.00",
+    ]);
+    expect(screen.getByTestId("legend-variable")).toHaveTextContent("Nwt");
+    expect(screen.getByTestId("legend-units")).toHaveTextContent("mm");
+  });
+
+  it("draws the legend with the ramp saved on the dataset", () => {
+    const dataset = { ...makeValueLayer(), attributes: { color_ramp: "viridis" } };
+    renderCard({ dataset, uniqueId: "Nwt_mm" });
+    expect(screen.getByText("Viridis")).toBeInTheDocument();
+    expect(screen.getByTestId("gltf-legend")).toBeInTheDocument();
+  });
+
+  it("applies a newly chosen ramp right away and saves it on the dataset", async () => {
+    const dataset = makeValueLayer();
+    const { setColorRamp, onColorRampChange } = renderCard({ dataset, uniqueId: "Nwt_mm" });
+    await select(screen.getByLabelText("Color ramp"), "Plasma", { container: document.body });
+    expect(setColorRamp).toHaveBeenCalledWith(dataset.id, "plasma");
+    expect(onColorRampChange).toHaveBeenCalledWith("plasma");
+  });
+
+  it("names the time of the row shown at the clock time", () => {
+    const dataset = makeValueLayer();
+    mockLayerValues = makeLayerValues(dataset.id); // rows at 01:00, 02:00 and 03:00
+    const { rerender } = renderCard({ dataset, uniqueId: "Nwt_mm", meshClockTime: Date.UTC(2004, 5, 1, 2, 30) });
+    expect(screen.getByTestId("legend-subtitle")).toHaveTextContent("2004-06-01 02:00 UTC");
+    rerender(
+      <GraphicsWindowVisualsContext.Provider value={{ colorRamps: {}, meshClockTime: null }}>
+        <LegendCard dataset={dataset} uniqueId="Nwt_mm" />
+      </GraphicsWindowVisualsContext.Provider>
+    );
+    expect(screen.getByTestId("legend-subtitle")).toHaveTextContent("2004-06-01 01:00 UTC"); // the first row
+  });
+
+  it("writes no time while the values are loading, and labels a variable without a range like the server did", () => {
+    const dataset = makeValueLayer();
+    renderCard({ dataset, uniqueId: "Srf_mm" }); // every value 0
+    expect(screen.queryByTestId("legend-subtitle")).not.toBeInTheDocument();
+    expect(screen.getAllByTestId("gltf-legend-tick").map((el) => el.textContent)).toEqual([
+      "0.00", "0.25", "0.50", "0.75", "1.00",
+    ]);
+  });
 });
 
 it("offers no ramp selector for other visualization types", () => {

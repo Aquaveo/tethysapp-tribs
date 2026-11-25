@@ -1,15 +1,20 @@
 // Helpers for the global Legends panel: which datasets have a legend, and how the registered legend entries
 // are ordered. Entries are registered by the project tree items (see hooks/useLegendEntry.js) and rendered by
 // components/project/panels/LegendsPanel.js.
+import { hasValues } from "lib/layerValues";
 import { getVariables } from "lib/meshTimeSeries";
 
 // Mirrors the folder order of the project tree in views/project/Project.js. Tabular and scenario data have no
 // legends.
 export const LEGEND_GROUPS = { MESH: 0, GIS: 1, RASTER: 2, REALIZATION: 3 };
 
-/** Whether a dataset has anything to show in a legend: legend images, or glTF time steps drawn with a legend. */
+/**
+ * Whether a dataset has anything to show in a legend: legend images, glTF time steps drawn with a legend, or a
+ * value layer (its legend is drawn in the browser).
+ */
 export function hasLegend(dataset) {
   if (dataset?.viz?.legend?.length > 0) return true;
+  if (hasValues(dataset)) return true;
   return Boolean(getVariables(dataset)?.some((variable) => variable.timesteps?.some((timestep) => timestep.legend)));
 }
 
