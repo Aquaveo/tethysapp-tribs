@@ -129,8 +129,8 @@ def test_delete_datasets_is_registered_on_the_tribs_cli():
     cmd.add_delete_datasets_parser(parser.add_subparsers())
     args = parser.parse_args(
         [
-            'delete-datasets', 'postgresql://db', 'http://gs', '--dataset-type', 'TRIBS_OUT_STATIONS',
-            '--dataset-id', MISSING_ID, '--project-id', 'p1', '--dry-run'
+            'delete-datasets', 'postgresql://db', 'http://gs', '--dataset-type', 'TRIBS_OUT_STATIONS', '--dataset-id',
+            MISSING_ID, '--project-id', 'p1', '--dry-run'
         ]
     )
     assert args.func is cmd.main
