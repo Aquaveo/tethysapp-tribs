@@ -309,18 +309,46 @@ from app_users_resources r
 where r._attributes::json->>'dataset_type' in ('TRIBS_OUT_TIME_INTEGRATED', 'TRIBS_OUT_MRF', 'TRIBS_OUT_QOUT');
 ```
 
-## Deleting Legacy Datasets
+## Time-Dynamic Spatial Output
 
-Since 2026-10-30 realizations no longer get a "Time-Dynamic Variable Output" dataset: the time-dynamic `_d` spatial
-output is an instantaneous snapshot of the state variables, and the scientist asked for only the time-integrated `_i`
-output to be offered. The `_d` files tRIBS writes stay in the model directory and are not copied into a dataset.
-Realizations created earlier still carry that dataset (type `TRIBS_OUT_TIME_DYNAMIC`); the frontend no longer lists
-it, and `tribs delete-datasets` removes it for good, with its visualization, file collection and the references in
+Realizations get a "Time-Dynamic Variable Output" dataset (type `TRIBS_OUT_TIME_DYNAMIC`) from the `_d` spatial output
+files tRIBS writes every `SPOPINTRVL`. It was not created between 2026-10-30 and its return in November 2026:
+
+- Realizations run or uploaded in that period have no such dataset, because the `_d` files were not copied into one.
+  Run or upload the realization again to get it.
+- Datasets of that type created before 2026-10-30 are listed again. Their visualization predates the variable
+  labels and priorities; rebuild it with
+
+  ```bash
+  tribs regenerate-viz <primary_db> <gsurl> --dataset-type TRIBS_OUT_TIME_DYNAMIC
+  ```
+
+The variables offered, their labels and display units come from the "Dynamic spatial (_d)" sheet of the scientists'
+output variable list (`tribs_adapter/common/output_variables.py`). Two of them are combined from several columns,
+as the sheet asks: snow water equivalent (snowpack ice plus liquid water) and evapotranspiration (ET plus snowpack
+sublimation, snowpack evaporation and canopy snow sublimation); the columns they are made of are not listed by
+themselves. A variable that does not change during the run
+(vegetation parameters, unless dynamic land use is on) is stored once and shown without a time axis.
+
+## Time-Integrated Spatial Output
+
+The "Time-Integrated Variable Output" layer (type `TRIBS_OUT_TIME_INTEGRATED`) shows the end of the run only. tRIBS
+writes an `_i` file at hour 0 and at the end of the run; the layer is built from the last one, has no time axis, and
+its legend shows the time of that file. Every `_i` file stays in the dataset and its download. Datasets visualized
+before this change still step through all their files; rebuild them with
+
+```bash
+tribs regenerate-viz <primary_db> <gsurl> --dataset-type TRIBS_OUT_TIME_INTEGRATED
+```
+
+## Deleting Datasets
+
+`tribs delete-datasets` removes datasets for good, with their visualization, file collection and the references in
 the realization's input file:
 
 ```bash
-tribs delete-datasets <primary_db> <gsurl> --dataset-type TRIBS_OUT_TIME_DYNAMIC --dry-run   # lists them
-tribs delete-datasets <primary_db> <gsurl> --dataset-type TRIBS_OUT_TIME_DYNAMIC
+tribs delete-datasets <primary_db> <gsurl> --dataset-type TRIBS_OUT_RFT --dry-run   # lists them
+tribs delete-datasets <primary_db> <gsurl> --dataset-type TRIBS_OUT_RFT
 tribs delete-datasets <primary_db> <gsurl> --dataset-id <dataset id>
 ```
 

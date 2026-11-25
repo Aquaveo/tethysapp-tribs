@@ -121,10 +121,23 @@ variables under "More variables". Deferred:
 - **Extend the sheet to the other output files.** Pixel, `.rft` and SDF station variables are not in the sheet, so
   they keep their raw names (plus the header unit token where there is one) and all stay visible. Once the scientist
   adds them, extend `OUTPUT_VARIABLES` and `KIND_BY_DATASET_TYPE`, then `tribs regenerate-viz` those types.
-  (Time-dynamic `_d` output was dropped from realizations on 2026-10-30 at the scientist's request, as it is only an
-  instantaneous snapshot; the `TRIBS_OUT_TIME_DYNAMIC` enum member stays until every environment has run
-  `tribs delete-datasets --dataset-type TRIBS_OUT_TIME_DYNAMIC`, after which it and the `_d` branches of the mesh
-  writer tests can go.)
+- **Confirm the combined time-dynamic variables with the scientist.** Snow water equivalent is shown as
+  `IWE + LWE` and evapotranspiration as `ET` plus the snow losses (`SnSub`, `SnEvap`, `IntSub`), as the `_d` sheet
+  asks (`DERIVED_VARIABLES` in `tribs_adapter/common/output_variables.py`). The snow losses are depths per met time
+  step and `ET` is a rate, so they are divided by `METSTEP` to add them as mm/hr; that conversion is ours, not the
+  sheet's (the input file template calls `ETISTEP` the snow time step; the two are both one hour by default). The other "do not display by itself" notes (heat fluxes under snow, canopy values per vegetated area)
+  are not acted on.
+- **Time-dynamic columns outside the sheet.** tRIBS builds other than v5.3.1 also write `Z`, `S`, `CAr`, `SWE`, `DU`,
+  `SoilID` and `LUseID` in the `_d` files. They are offered under their column names, up front with the priority
+  variables (the panel only tucks away the secondary tier); ask the scientist which to hide and how to label `SWE`.
+- **Size of the time-dynamic visualization.** Every time step of every offered variable is a glTF file that repeats
+  the whole mesh geometry (about 5.5 MB for an 18,000 cell mesh), and the mesh writer reads every output file and
+  keeps every joined column in memory while it works. A run with many output times on a large mesh therefore
+  takes gigabytes of disk and memory. Storing the geometry once with one small value array per time step would
+  remove both costs.
+- **Time-dynamic output of realizations run while it was off.** Realizations run between 2026-10-30 and the
+  return of the dataset have no `_d` files in any collection and need to be run or uploaded again; there is no
+  backfill command.
 - **Snow variables when there is no snow.** `peakWE`, `cSnSub`, `cSnEvap` (priority) are all zero in snow-free
   runs; grey them out or drop to secondary when the range is 0..0 (the sheet asks for this).
 - **Plot conveniences from the sheet.** Inverted y-axis for `MDGW` (depth to groundwater), log colour scale for
@@ -218,3 +231,34 @@ variables under "More variables". Deferred:
     `process.env.TETHYS_MEDIA_URL` without restoring it and never resets its module-level `mockModelProps`.
     `GraphicsWindow.test.js` still wraps assertions in `setTimeout`. `MeshClock.test.js` and
     `useLegendEntry.test.js` count calls to internal collaborators.
+
+- **Changing a scenario's project leaves its datasets in the old project** (reported by Nathan, 2026-11-24).
+  Editing a scenario and picking another project moves only the scenario: `ModifyTribsScenario` sets
+  `resource.project`, and the setter in `tribs_adapter/resources/mixins/project_child_mixin.py` swaps the
+  scenario's own parent. The datasets linked to it keep their old project, so they are missing from the new
+  project's tree and still listed in the old one, and `Scenario.link_dataset` would now refuse them ("Dataset must
+  belong to the same Project as the Scenario"). Realizations are probably affected the same way (read from the
+  code, not reproduced): a realization takes its project from its scenario, so it follows the scenario, but its
+  output datasets do not; and editing a realization to a scenario of another project (`ModifyTribsRealization`
+  sets only `resource.scenario`, the selected project is not used) leaves its datasets behind too. Fix in the
+  adapter: a move that takes the linked datasets (and the realizations' datasets) along, deciding first what to do
+  with a dataset that another scenario of the old project also links to (copy it, or refuse the move).
+
+- **Create the scenario and the realization from one upload** (requested by Nathan, 2026-11-24). A tRIBS archive
+  with inputs and an `Output/` folder has to be uploaded twice today: once on the new scenario page (inputs) and
+  once on the new realization page (outputs, with the scenario selected). Add a check box to each page that also
+  processes the other half of the same archive:
+  - *New scenario page:* "Also create a realization from the outputs in this archive". When checked, the
+    realization is created under the new scenario after the scenario upload finishes.
+  - *New realization page:* "Also create the scenario from the inputs in this archive". When checked, the scenario
+    selector is not needed: the scenario is created first and the realization is put under it.
+  To decide when it is built: the name of the second resource, what to do when the box is checked and the archive
+  has no outputs (or no inputs), and whether the two Condor jobs (`upload_scenario_exe.py`,
+  `upload_realization_exe.py`) are chained or merged into one.
+
+- **Show the time controls only when a shown layer varies in time** (requested by Nathan, 2026-11-24). The Cesium
+  animation widget and timeline are always visible and the clock always runs, also when nothing on the map has a
+  time axis (for example only the Time-Integrated layer, which is now a single time step). Hide or disable both,
+  and stop the clock, unless at least one visible layer has time-varying data: a glTF variable with more than one
+  time step (`isTimeDynamic` in `reactapp/lib/meshTimeSeries.js`) or a CZML layer with a clock (Basin Averaged,
+  Node Dynamic, Qout, station data). Bring them back when such a layer is shown.

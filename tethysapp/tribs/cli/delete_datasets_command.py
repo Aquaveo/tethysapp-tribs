@@ -1,7 +1,7 @@
 """``tribs delete-datasets``: delete existing datasets of a type, with their visualizations, files and links.
 
-For dataset types the app no longer creates, such as the time-dynamic spatial output (TRIBS_OUT_TIME_DYNAMIC) that
-was dropped from realizations on 2026-10-30. Deleting a dataset does what the app's delete action does (remove the
+For clearing out datasets in bulk, such as the output of a type that is no longer wanted or one that the app has
+stopped creating. Deleting a dataset does what the app's delete action does (remove the
 visualization, delete the file collection, delete the resource) and also drops the dataset from the output file
 paths recorded in the input file of the realizations it was linked to.
 
@@ -30,8 +30,8 @@ def add_delete_datasets_parser(subparsers):
         help='Delete existing datasets (visualization, files and resource) by type or id.',
         description='Delete existing datasets by type or id: their visualization, file collection and resource, and '
         'the references to them in the input files of linked realizations. At least one of --dataset-type or '
-        '--dataset-id is required; --project-id narrows the selection further. Meant for dataset types the app no '
-        'longer creates, e.g. --dataset-type TRIBS_OUT_TIME_DYNAMIC. Datasets that are linked to a scenario or used '
+        '--dataset-id is required; --project-id narrows the selection further. Meant for clearing out a whole dataset '
+        'type, e.g. --dataset-type TRIBS_OUT_RFT. Datasets that are linked to a scenario or used '
         'as model input by a realization are skipped unless --force is given.',
     )
     parser.add_argument(
