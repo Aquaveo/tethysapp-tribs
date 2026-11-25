@@ -17,10 +17,11 @@ jest.mock("resium", () => ({
 // The values of the selected variable, as the hook returns them once loaded (null while loading). A plain
 // function, not jest.fn: the jest config resets mock implementations before every test.
 let mockValuesByUrl = {};
+let mockLoadingUrls = [];
 jest.mock("hooks/useLayerValues", () => ({
   __esModule: true,
   // eslint-disable-next-line no-undef
-  default: (url) => mockValuesByUrl[url] ?? null,
+  useLayerValuesState: (url) => ({ values: mockValuesByUrl[url] ?? null, loading: mockLoadingUrls.includes(url) }),
 }));
 
 const T0 = Date.UTC(2004, 5, 1, 0);
@@ -69,6 +70,7 @@ beforeEach(() => {
   process.env.TETHYS_MEDIA_URL = "/media/";
   Object.keys(mockSources).forEach((key) => delete mockSources[key]);
   const dataset = makeValueLayer();
+  mockLoadingUrls = [];
   mockValuesByUrl = {
     ["/media/" + dataset.viz.variables[0].values]: makeLayerValues(dataset.id, "Nwt_mm"),
     ["/media/" + dataset.viz.variables[1].values]: { ...makeLayerValues(dataset.id, "Srf_mm"), values: [[0, 0, 0], [0, 0, 0]] },
@@ -124,18 +126,34 @@ describe("value layers", () => {
     expect(mockSources["/media/" + dataset.viz.url[0]].data).toBe(loaded.data);
   });
 
-  it("shows the features without colors while the values are still loading", () => {
+  it("shows the features without colors when there are no values for the selected variable", () => {
     const dataset = makeValueLayer();
     mockValuesByUrl = {};
     const { dataSource } = renderLoaded(dataset);
     expect(bytes(dataSource, 42, dataset)).toEqual(GRAY);
   });
 
-  it("drops the colors of the previous variable when the values of the new one are not there", () => {
+  it("keeps the colors it has while the values of a newly selected variable load, then recolors", () => {
+    const dataset = makeValueLayer();
+    const srfUrl = "/media/" + dataset.viz.variables[1].values;
+    const srfValues = mockValuesByUrl[srfUrl];
+    const { dataSource, rerenderWith } = renderLoaded(dataset);
+    expect(bytes(dataSource, 1656, dataset)).toEqual(BLUE); // Nwt_mm
+    delete mockValuesByUrl[srfUrl];
+    mockLoadingUrls = [srfUrl];
+    rerenderWith({ selected: "Srf_mm" });
+    expect(bytes(dataSource, 1656, dataset)).toEqual(BLUE); // no gray flash
+    mockValuesByUrl[srfUrl] = srfValues;
+    mockLoadingUrls = [];
+    rerenderWith({ selected: "Srf_mm" }); // the loaded values arrive with a render
+    expect(bytes(dataSource, 1656, dataset)).toEqual(WHITE);
+  });
+
+  it("drops the colors of the previous variable when the values of the new one could not be loaded", () => {
     const dataset = makeValueLayer();
     const { dataSource, rerenderWith } = renderLoaded(dataset);
     expect(bytes(dataSource, 1656, dataset)).toEqual(BLUE); // Nwt_mm
-    delete mockValuesByUrl["/media/" + dataset.viz.variables[1].values]; // Srf_mm is loading, or failed to load
+    delete mockValuesByUrl["/media/" + dataset.viz.variables[1].values]; // Srf_mm failed to load
     rerenderWith({ selected: "Srf_mm" });
     expect(bytes(dataSource, 1656, dataset)).toEqual(GRAY);
     expect(bytes(dataSource, 42, dataset)).toEqual(GRAY);

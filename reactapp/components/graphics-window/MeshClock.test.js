@@ -84,6 +84,84 @@ describe("MeshClock", () => {
     expect(setMeshClockTime).toHaveBeenCalledWith(Date.UTC(2004, 5, 1, 2, 10));
   });
 
+  it("keeps the clock time when another variable takes over the clock and the time is in its range", () => {
+    const layer = makeValueLayer(); // rows at 01:00, 02:00, 03:00; the clock runs to 04:00
+    const viewer = makeViewer();
+    const setMeshClockTime = jest.fn();
+    const { rerender } = renderClock(viewer, series, setMeshClockTime);
+    const kept = JulianDate.fromIso8601("2004-06-01T02:30:00Z");
+    viewer.clock.currentTime = kept; // the user moved the time
+    setMeshClockTime.mockClear();
+    const next = makeActiveTimeSeries(layer, layer.viz.variables[0]);
+    rerender(
+      <GraphicsWindowVisualsContext.Provider value={{ activeTimeSeries: next, setMeshClockTime }}>
+        <MeshClock />
+      </GraphicsWindowVisualsContext.Provider>
+    );
+    const clock = viewer.clock;
+    expect(JulianDate.equals(clock.currentTime, kept)).toBe(true);
+    expect(JulianDate.equals(clock.startTime, JulianDate.fromIso8601(next.start))).toBe(true);
+    expect(setMeshClockTime).toHaveBeenCalledWith(Date.UTC(2004, 5, 1, 2, 30));
+    // The step of the kept time is the current one: a tick within it publishes nothing
+    const onTick = clock.onTick.addEventListener.mock.calls[0][0];
+    setMeshClockTime.mockClear();
+    onTick({ currentTime: JulianDate.fromIso8601("2004-06-01T02:40:00Z") });
+    expect(setMeshClockTime).not.toHaveBeenCalled();
+  });
+
+  it("rewinds to the start of the new range when the clock time lies outside it", () => {
+    const layer = makeValueLayer();
+    const viewer = makeViewer();
+    const setMeshClockTime = jest.fn();
+    const { rerender } = renderClock(viewer, series, setMeshClockTime);
+    viewer.clock.currentTime = JulianDate.fromIso8601("2004-06-02T12:00:00Z"); // after the value layer's last row
+    const next = makeActiveTimeSeries(layer, layer.viz.variables[0]);
+    rerender(
+      <GraphicsWindowVisualsContext.Provider value={{ activeTimeSeries: next, setMeshClockTime }}>
+        <MeshClock />
+      </GraphicsWindowVisualsContext.Provider>
+    );
+    expect(JulianDate.equals(viewer.clock.currentTime, JulianDate.fromIso8601(next.start))).toBe(true);
+    expect(setMeshClockTime).toHaveBeenLastCalledWith(Date.UTC(2004, 5, 1, 1));
+  });
+
+  it("starts at the start of the range the first time, whatever time the viewer's clock has", () => {
+    const viewer = makeViewer();
+    viewer.clock.currentTime = JulianDate.fromIso8601("2004-06-01T10:00:00Z"); // inside the range, by chance
+    renderClock(viewer, series);
+    expect(JulianDate.equals(viewer.clock.currentTime, viewer.clock.startTime)).toBe(true);
+  });
+
+  it("keeps the clock time when the series is removed and then set again", () => {
+    const viewer = makeViewer();
+    const setMeshClockTime = jest.fn();
+    const tree = (activeTimeSeries) => (
+      <GraphicsWindowVisualsContext.Provider value={{ activeTimeSeries, setMeshClockTime }}>
+        <MeshClock />
+      </GraphicsWindowVisualsContext.Provider>
+    );
+    const { rerender } = renderClock(viewer, series, setMeshClockTime);
+    const kept = JulianDate.fromIso8601("2004-06-01T10:00:00Z");
+    viewer.clock.currentTime = kept;
+    rerender(tree(null)); // the layer is hidden
+    rerender(tree({ ...series })); // and shown again
+    expect(JulianDate.equals(viewer.clock.currentTime, kept)).toBe(true);
+  });
+
+  it("starts at the start of the range on the clock of another viewer", () => {
+    const setMeshClockTime = jest.fn();
+    const { rerender } = renderClock(makeViewer(), series, setMeshClockTime);
+    const other = makeViewer();
+    other.clock.currentTime = JulianDate.fromIso8601("2004-06-01T10:00:00Z"); // not a time the user chose
+    useCesium.mockReturnValue({ viewer: other });
+    rerender(
+      <GraphicsWindowVisualsContext.Provider value={{ activeTimeSeries: series, setMeshClockTime }}>
+        <MeshClock />
+      </GraphicsWindowVisualsContext.Provider>
+    );
+    expect(JulianDate.equals(other.clock.currentTime, other.clock.startTime)).toBe(true);
+  });
+
   it("stops animating when there is no active time series and removes its listener on unmount", () => {
     const viewer = makeViewer();
     viewer.clock.shouldAnimate = true;

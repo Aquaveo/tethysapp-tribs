@@ -3,7 +3,7 @@ import { toast } from "react-toastify";
 
 import { makeLayerValues } from "config/tests/mocks/meshMock";
 import { clearValuesCache } from "lib/layerValues";
-import useLayerValues from "./useLayerValues";
+import useLayerValues, { useLayerValuesState } from "./useLayerValues";
 
 const respond = (body, ok = true, status = 200) => Promise.resolve({ ok, status, json: () => Promise.resolve(body) });
 
@@ -51,4 +51,32 @@ it("logs a file that cannot be loaded, tells the user once and returns null", as
   expect(result.current).toBeNull();
   consoleError.mockRestore();
   toastError.mockRestore();
+});
+
+describe("useLayerValuesState", () => {
+  it("is loading until the file of the url is there, and again for a newly selected url", async () => {
+    global.fetch = jest.fn((url) => respond(makeLayerValues("d", url.includes("Srf") ? "Srf_mm" : "Nwt_mm")));
+    const { result, rerender } = renderHook(({ url }) => useLayerValuesState(url), {
+      initialProps: { url: "/media/values/000_Nwt_mm.json" },
+    });
+    expect(result.current).toEqual({ values: null, loading: true });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.values.variable).toBe("Nwt_mm");
+    rerender({ url: "/media/values/001_Srf_mm.json" });
+    expect(result.current).toEqual({ values: null, loading: true });
+    await waitFor(() => expect(result.current.values?.variable).toBe("Srf_mm"));
+  });
+
+  it("is not loading without a url, nor after a file could not be loaded", async () => {
+    const consoleError = jest.spyOn(console, "error").mockImplementation(() => {});
+    const toastError = jest.spyOn(toast, "error").mockImplementation(() => {});
+    global.fetch = jest.fn(() => respond(null, false, 404));
+    const { result, rerender } = renderHook(({ url }) => useLayerValuesState(url), { initialProps: { url: null } });
+    expect(result.current).toEqual({ values: null, loading: false });
+    rerender({ url: "/media/values/missing.json" });
+    await waitFor(() => expect(toastError).toHaveBeenCalled());
+    await waitFor(() => expect(result.current).toEqual({ values: null, loading: false }));
+    consoleError.mockRestore();
+    toastError.mockRestore();
+  });
 });

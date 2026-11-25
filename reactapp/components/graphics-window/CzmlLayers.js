@@ -4,7 +4,7 @@ import { datasetPropTypes } from "components/tree/propTypes";
 import { CzmlDataSource } from "resium";
 import { Color } from "cesium";
 import { GraphicsWindowVisualsContext, ProjectContext } from "react-tethys/context";
-import useLayerValues from "hooks/useLayerValues";
+import { useLayerValuesState } from "hooks/useLayerValues";
 import { rampColor, resolveRampName } from "lib/colorRamps";
 import extractLayerName from "lib/extractLayerName";
 import { findValueVariable, hasValues, normalize, rowIndexForTime } from "lib/layerValues";
@@ -62,18 +62,21 @@ const CzmlValueLayer = ({ dataset }) => {
   const [dataSource, setDataSource] = useState(null);
 
   const variable = findValueVariable(dataset, visibleCZMLObject?.[dataset.id]);
-  const values = useLayerValues(variable ? TETHYS_MEDIA_URL + variable.values : null);
+  const { values, loading } = useLayerValuesState(variable ? TETHYS_MEDIA_URL + variable.values : null);
   const rampName = resolveRampName(dataset, colorRamps);
 
   useEffect(() => {
     if (!dataSource) return;
+    // While the values of a newly selected variable load, the features keep the colors they have: clearing them
+    // for that moment makes the layer (and what lies under a basin polygon) flash
+    if (loading) return;
     if (!values || !variable || values.variable !== variable.name) {
-      // No values (yet) for the selected variable: never leave the colors of the previous one under its legend
+      // No values for the selected variable: never leave the colors of the previous one under its legend
       clearFeatureColors(dataSource);
       return;
     }
     colorFeatures(dataSource, values, rowIndexForTime(values, meshClockTime), rampName, variable);
-  }, [dataSource, values, variable, rampName, meshClockTime]);
+  }, [dataSource, values, loading, variable, rampName, meshClockTime]);
 
   const url = dataset.viz.url?.[0];
   if (!url) return null;
