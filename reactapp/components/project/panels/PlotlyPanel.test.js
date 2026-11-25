@@ -3,20 +3,24 @@ import userEvent from "@testing-library/user-event";
 import { act, render, screen } from "@testing-library/react";
 
 import { mockBackend, mockBackendAfterEach } from "config/tests/mocks/backend";
-import { makeMrfDataset } from "config/tests/mocks/meshMock";
+import { makeMrfDataset, makeValueLayer } from "config/tests/mocks/meshMock";
+import { setClockTime } from "lib/clockTime";
 import { AppContext, GraphicsWindowVisualsContext, SidePanelContext } from "react-tethys/context";
 import newUUID from "lib/uuid";
-import PlotlyPanel, { plotAreaLeft, reframedLayout, seriesTitles, showLegend } from "./PlotlyPanel";
+import PlotlyPanel, { plotAreaLeft, plotTimeBar, reframedLayout, seriesTitles, showLegend } from "./PlotlyPanel";
 
 // A plotted graph div as Plotly leaves it: the plot area starts 85px in (a long y-axis title, say)
 const FAKE_GRAPH_DIV = { _fullLayout: { _size: { l: 85 } } };
 
+let mockLastData = null; // the traces the plot was last given
 let mockLastLayout = null; // the layout object the plot was last given (Plotly writes a zoom into it)
 
 jest.mock("react-plotly.js", () => function PlotMock(props) {
   const React = require("react");
   // eslint-disable-next-line no-undef
   mockLastLayout = props.layout;
+  // eslint-disable-next-line no-undef
+  mockLastData = props.data;
   React.useEffect(() => {
     props.onInitialized?.({}, FAKE_GRAPH_DIV);
     props.onAfterPlot?.();
@@ -33,6 +37,7 @@ jest.mock("react-plotly.js", () => function PlotMock(props) {
     data-xaxis={props.layout?.xaxis?.title?.text}
     data-autosize={String(props.layout?.autosize)}
     data-trace={props.data?.[0]?.name ?? ""}
+    data-mode={props.data?.[0]?.mode ?? ""}
     data-y={JSON.stringify(props.data?.[0]?.y ?? null)}
   />
   );
@@ -40,6 +45,7 @@ jest.mock("react-plotly.js", () => function PlotMock(props) {
 
 afterEach(() => {
   mockBackendAfterEach();
+  act(() => setClockTime(null));
 });
 
 async function renderPanel(dataset, layerName, selectedCZMLPoint, { otherPanels = [] } = {}) {
@@ -116,6 +122,7 @@ describe("PlotlyPanel", () => {
     const plot = screen.getByTestId("plot");
     expect(plot).toHaveAttribute("data-trace", "Depth to Groundwater");
     expect(plot).toHaveAttribute("data-y", "[1.9,2]");
+    expect(plot).toHaveAttribute("data-mode", "lines"); // the line only, no markers
     expect(plot).toHaveAttribute("data-yaxis", "Depth to Groundwater (m)");
     expect(plot).toHaveAttribute("data-title", "undefined");
     expect(plot).toHaveAttribute("data-showlegend", "false"); // one series: the header names it
@@ -235,6 +242,52 @@ describe("PlotlyPanel", () => {
     expect(mockLastLayout.xaxis.range).toBeUndefined();
     expect(mockLastLayout.yaxis).toMatchObject({ autorange: true, type: "linear" });
     expect(mockLastLayout.yaxis.range).toBeUndefined();
+  });
+
+  describe("the time shown on the map", () => {
+    const variable = { start: "2004-06-01T01:00:00Z", step_hours: 1 }; // the first row of the values, at hour 1 of the run
+    const startDate = new Date(2004, 5, 1);
+    const bar = (clockMs, overrides = {}) => plotTimeBar({ clockMs, variable, hours: [1, 2, 3], startDate, ...overrides });
+
+    it("is a vertical line over the whole plot at the clock time, placed by hours since the run start", () => {
+      expect(bar(Date.UTC(2004, 5, 1, 2, 30))).toMatchObject({
+        type: "line", xref: "x", yref: "paper", y0: 0, y1: 1,
+        x0: "2004-06-01 02:30:00", x1: "2004-06-01 02:30:00", // local time, like the series' own x values
+      });
+    });
+
+    it("waits on the last time of the series while the clock shows that last step", () => {
+      expect(bar(Date.UTC(2004, 5, 1, 3)).x0).toBe("2004-06-01 03:00:00");
+      expect(bar(Date.UTC(2004, 5, 1, 3, 40)).x0).toBe("2004-06-01 03:00:00"); // the clock stops at 04:00
+    });
+
+    it("is not shown outside the series, without a clock time, or for a layer without a value variable", () => {
+      expect(bar(Date.UTC(2004, 5, 1, 0, 59))).toBeNull();
+      expect(bar(Date.UTC(2004, 5, 1, 4, 1))).toBeNull();
+      expect(bar(null)).toBeNull();
+      expect(bar(Date.UTC(2004, 5, 1, 2), { variable: null })).toBeNull();
+      expect(bar(Date.UTC(2004, 5, 1, 2), { hours: null })).toBeNull();
+    });
+
+    it("is drawn on the plot of a value layer and follows the clock", async () => {
+      const layer = makeValueLayer();
+      const { server, backend } = await renderPanel(layer, "Nwt_mm", `point_42 [${layer.id}]`);
+      await server.nextMessage;
+      act(() => setClockTime(Date.UTC(2004, 5, 1, 2)));
+      expect(mockLastLayout.shapes).toEqual([]); // nothing plotted yet
+      await act(async () => {
+        server.send(JSON.stringify({
+          action: { id: newUUID(), type: backend.actions.DATASET_GET_PIXEL_TIMESERIES },
+          payload: { x: [1, 2, 3], y: [0, 50, 100], name: "Nwt_mm", point_id: "42" },
+        }));
+      });
+      expect(mockLastLayout.shapes).toHaveLength(1);
+      expect(mockLastLayout.shapes[0].x0).toBe(mockLastData[0].x[1]); // on the series' point of hour 2
+      act(() => setClockTime(Date.UTC(2004, 5, 1, 3)));
+      expect(mockLastLayout.shapes[0].x0).toBe(mockLastData[0].x[2]);
+      act(() => setClockTime(null)); // no layer drives the clock
+      expect(mockLastLayout.shapes).toEqual([]);
+    });
   });
 
   it("ignores a series read from another dataset", async () => {

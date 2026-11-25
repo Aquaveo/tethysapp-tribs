@@ -8,6 +8,7 @@ import {
   createWorldTerrainAsync,
 } from "cesium";
 import "cesium/Source/Widgets/widgets.css";
+import "./timeline.css"; // after Cesium's own: a current-time marker that is easier to see and grab
 import { toast } from "react-toastify";
 
 import {

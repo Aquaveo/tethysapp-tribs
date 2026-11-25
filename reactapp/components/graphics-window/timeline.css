@@ -1,0 +1,57 @@
+/* The Cesium timeline, made easier to read and to grab (imported after Cesium's widgets.css).
+   Stock Cesium marks the current time with a 16px sprite at the foot of a 27px bar. Here the bar is taller and
+   the marker is a bright line over the bar's full height with a handle on top. Cesium moves the time to wherever
+   the bar is pressed or dragged, so a taller bar is also a larger target. */
+
+.cesium-viewer .cesium-viewer-timelineContainer {
+  height: 38px;
+}
+
+.cesium-viewer .cesium-timeline-bar {
+  height: 36px;
+  cursor: ew-resize;
+}
+
+/* The current-time marker. Cesium positions it (left: time - 8px) and keeps it 16px wide. */
+.cesium-viewer .cesium-timeline-icon16 {
+  top: 0;
+  bottom: 0;
+  height: auto;
+  background-image: none;
+  cursor: grab;
+}
+
+.cesium-viewer .cesium-timeline-icon16::before,
+.cesium-viewer .cesium-timeline-icon16::after {
+  content: "";
+  position: absolute;
+  background: #ffc107;
+  border: 1px solid #212529;
+  box-sizing: border-box;
+}
+
+/* the line */
+.cesium-viewer .cesium-timeline-icon16::before {
+  top: 0;
+  bottom: 0;
+  left: 6px;
+  width: 4px;
+}
+
+/* the handle */
+.cesium-viewer .cesium-timeline-icon16::after {
+  top: 0;
+  left: 0;
+  width: 16px;
+  height: 12px;
+  border-radius: 2px 2px 8px 8px;
+}
+
+.cesium-viewer .cesium-timeline-main:active .cesium-timeline-icon16 {
+  cursor: grabbing;
+}
+
+/* Cesium's own 1px needle marks the same time under the bar; with the marker above it only adds a red stub. */
+.cesium-viewer .cesium-timeline-needle {
+  display: none;
+}
