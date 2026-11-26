@@ -82,6 +82,14 @@ const LegendCard = ({
   // of the layer (the basin of basin averaged output), selected or not.
   const markedFeature = layerValues?.ids?.length === 1 ? layerValues.ids[0] : selectedCZMLPoint;
   const markedValue = layerValues ? featureValue(layerValues, markedFeature, valueRow) : null;
+  // A layer with several features (nodes, outlets) also gets a tick for the value of each of the others, so the
+  // legend shows where they all are in the range at the time shown.
+  const otherValues = layerValues && layerValues.ids.length > 1
+    ? layerValues.ids
+      .filter((id) => id !== markedFeature)
+      .map((id) => featureValue(layerValues, id, valueRow))
+      .filter((value) => value !== null)
+    : [];
 
   const handleRampChange = (option) => {
     setColorRamp?.(dataset.id, option.value); // applied to the mesh right away
@@ -169,6 +177,7 @@ const LegendCard = ({
                 max={legendVariable?.max ?? undefined}
                 variableName={legendVariable?.name}
                 marker={markedValue ?? undefined}
+                ticks={otherValues}
               />
             )}
             {!drawsOwnLegend && legend_urls.map((legend_url, i) => {

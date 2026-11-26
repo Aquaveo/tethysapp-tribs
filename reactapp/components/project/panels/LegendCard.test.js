@@ -141,6 +141,20 @@ describe("value layers (node, outlet and basin output)", () => {
     expect(screen.getByTestId("legend-marked-value")).toHaveTextContent("Selected feature: 50.00 mm");
   });
 
+  it("ticks the values of the layer's other features at the time shown, with or without a selection", () => {
+    const dataset = makeValueLayer(); // node 42 = 0, 50, 100; node 1656 = 100, null, 0
+    mockLayerValues = makeLayerValues(dataset.id);
+    const xs = () => screen.queryAllByTestId("gltf-legend-value-tick").map((el) => el.getAttribute("data-x"));
+    const { unmount } = renderCard({ dataset, uniqueId: "Nwt_mm" }); // nothing selected: a tick per node
+    expect(xs()).toEqual(["10", "310"]);
+    unmount();
+    renderCard({
+      dataset, uniqueId: "Nwt_mm", meshClockTime: Date.UTC(2004, 5, 1, 3), selectedCZMLPoint: `point_42 [${dataset.id}]`,
+    });
+    expect(xs()).toEqual(["10"]); // node 1656 at 03:00; node 42 is the marker
+    expect(screen.getByTestId("gltf-legend-marker")).toHaveAttribute("data-x", "310");
+  });
+
   it("points nothing out without a selected feature of the layer, or where the feature has no value", () => {
     const dataset = makeValueLayer();
     mockLayerValues = makeLayerValues(dataset.id);

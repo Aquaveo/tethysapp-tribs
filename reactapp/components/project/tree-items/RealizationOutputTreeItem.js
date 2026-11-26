@@ -22,6 +22,7 @@ import { findVariable, getVariables, isTimeDynamic, makeActiveTimeSeries, timest
 import { describeLayer, variableTitle } from "lib/outputVariables";
 import { getLayerItems } from "components/project/panels/VariablesPanel";
 import { LEGEND_GROUPS, hasLegend } from "lib/legends";
+import { findValueVariable } from "lib/layerValues";
 import useLegendEntry from "hooks/useLegendEntry";
 
 const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationIndex, realizationName, outputIndex }) => {
@@ -144,6 +145,18 @@ const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationInd
     realizationName,
     onColorRampChange: handleColorRampChange,
   });
+
+  // A shown layer whose variable varies in time takes the Cesium clock when no layer drives it: a layer that is
+  // already shown when the project loads was never revealed by hand, and the layer that drove the clock may have
+  // been hidden. Without a clock owner the timeline does not cover the run and the plots have no time to mark.
+  const clockVariable = activeVariable ?? findValueVariable(dataset, selectedLayer);
+  const takesClock = shown && !activeTimeSeries && Boolean(clockVariable) && isTimeDynamic(clockVariable);
+  useEffect(() => {
+    if (takesClock) {
+      setActiveTimeSeries?.(makeActiveTimeSeries(dataset, clockVariable));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the layer starts to qualify
+  }, [takesClock]);
 
   const toggleVisibility = (event, visibility) => {
     if (!visibility) {

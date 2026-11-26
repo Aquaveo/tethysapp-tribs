@@ -119,6 +119,29 @@ describe("MeshClock", () => {
     expect(getClockTime()).toBeNull();
   });
 
+  it("takes the clock back when something else changed its range (a CZML document with a clock was loaded)", () => {
+    const viewer = makeViewer();
+    const { setMeshClockTime } = renderClock(viewer, series);
+    const clock = viewer.clock;
+    const onTick = clock.onTick.addEventListener.mock.calls[0][0];
+    // as Cesium does for a loaded document that carries a clock
+    clock.startTime = JulianDate.fromIso8601("2004-06-01T00:00:00Z");
+    clock.stopTime = JulianDate.fromIso8601("2004-07-01T00:00:00Z");
+    clock.currentTime = JulianDate.fromIso8601("2004-06-20T00:00:00Z");
+    clock.multiplier = 1;
+    setMeshClockTime.mockClear();
+    viewer.timeline.zoomTo.mockClear();
+
+    onTick(clock);
+
+    expect(JulianDate.equals(clock.startTime, JulianDate.fromIso8601(series.start))).toBe(true);
+    expect(JulianDate.equals(clock.stopTime, JulianDate.fromIso8601(series.stop))).toBe(true);
+    expect(JulianDate.equals(clock.currentTime, clock.startTime)).toBe(true);
+    expect(clock.multiplier).toBe(72000);
+    expect(viewer.timeline.zoomTo).toHaveBeenCalledWith(clock.startTime, clock.stopTime);
+    expect(setMeshClockTime).toHaveBeenCalledWith(Date.UTC(2004, 5, 1, 0));
+  });
+
   it("stops animating when there is no active time series and removes its listener on unmount", () => {
     const viewer = makeViewer();
     viewer.clock.shouldAnimate = true;
