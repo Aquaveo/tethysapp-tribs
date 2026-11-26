@@ -23,13 +23,15 @@ jest.mock("hooks/useLayerValues", () => ({
 
 function renderCard({ dataset, colorRamps = {}, meshClockTime = null, selectedCZMLPoint = null, ...props }) {
   const setColorRamp = jest.fn();
+  const setCZMLLayer = jest.fn();
+  const setActiveTimeSeries = jest.fn();
   const onColorRampChange = jest.fn();
   const utils = render(
-    <GraphicsWindowVisualsContext.Provider value={{ colorRamps, setColorRamp, meshClockTime, selectedCZMLPoint }}>
+    <GraphicsWindowVisualsContext.Provider value={{ colorRamps, setColorRamp, meshClockTime, selectedCZMLPoint, setCZMLLayer, setActiveTimeSeries }}>
       <LegendCard dataset={dataset} onColorRampChange={onColorRampChange} {...props} />
     </GraphicsWindowVisualsContext.Provider>
   );
-  return { ...utils, setColorRamp, onColorRampChange };
+  return { ...utils, setColorRamp, onColorRampChange, setCZMLLayer, setActiveTimeSeries };
 }
 
 beforeEach(() => {
@@ -285,5 +287,40 @@ describe("legend layout", () => {
     renderCard({ dataset: { ...mesh, viz: { ...mesh.viz, type: "czml", variables: undefined } }, uniqueId: mesh.id });
     expect(screen.getByTestId("legend-owner")).toHaveTextContent("Mesh");
     expect(screen.queryByTestId("legend-variable")).not.toBeInTheDocument();
+  });
+});
+
+describe("picking the variable on the legend", () => {
+  it("shows the variable the legend is for in a picker of the layer's variables", () => {
+    const dataset = makeValueLayer(); // Nwt_mm and Srf_mm
+    renderCard({ dataset, uniqueId: "Nwt_mm" });
+    expect(screen.getByLabelText("Variable")).toBeInTheDocument();
+    expect(screen.getByTestId("legend-variable")).toHaveTextContent("Nwt");
+  });
+
+  it("selects the picked variable on the map and hands it the clock when it varies in time", async () => {
+    const dataset = makeValueLayer();
+    const { setCZMLLayer, setActiveTimeSeries } = renderCard({ dataset, uniqueId: "Nwt_mm" });
+    await select(screen.getByLabelText("Variable"), /Srf/, { container: document.body });
+    expect(setCZMLLayer).toHaveBeenCalledWith(dataset.id, "Srf_mm");
+    expect(setActiveTimeSeries).toHaveBeenCalledWith(
+      expect.objectContaining({ datasetId: dataset.id, variableName: "Srf_mm" })
+    );
+  });
+
+  it("picks a variable of a glTF mesh too", async () => {
+    const dataset = makeTimeSeriesMesh(); // Mu and Nwt
+    const { setCZMLLayer, setActiveTimeSeries } = renderCard({ dataset, uniqueId: "Mu", variable: dataset.viz.variables[0] });
+    await select(screen.getByLabelText("Variable"), /Nwt/, { container: document.body });
+    expect(setCZMLLayer).toHaveBeenCalledWith(dataset.id, "Nwt");
+    expect(setActiveTimeSeries).toHaveBeenCalledWith(expect.objectContaining({ datasetId: dataset.id, variableName: "Nwt" }));
+  });
+
+  it("writes the variable's name without a picker when there is nothing to choose from", () => {
+    const base = makeValueLayer();
+    const dataset = { ...base, viz: { ...base.viz, variables: [base.viz.variables[0]] } };
+    renderCard({ dataset, uniqueId: "Nwt_mm" });
+    expect(screen.queryByLabelText("Variable")).not.toBeInTheDocument();
+    expect(screen.getByTestId("legend-variable")).toHaveTextContent("Nwt");
   });
 });
