@@ -131,9 +131,10 @@ const setupPanel = (show = false, disabled = false, panelDataset = dataset, { on
     </ProjectContext.Provider>
   );
 
-  const { rerender } = render(panelRender);
+  const { rerender, unmount } = render(panelRender);
   return {
     user,
+    unmount,
     panelRender,
     rerender,
     mockGraphicsWindowVisualsContextValue,
@@ -160,6 +161,13 @@ describe('VariablesPanel', () => {
     const { user, mockSidePanelContextValue } = setupPanel(true);
     await user.click(screen.getByRole('button', { name: /close/i }));
     expect(mockSidePanelContextValue.hideSidePanel).toHaveBeenCalled();
+  });
+
+  it('should close its pane when the dataset leaves the tree, and not before', () => {
+    const { unmount, mockSidePanelContextValue } = setupPanel(true);
+    expect(mockSidePanelContextValue.hideSidePanel).not.toHaveBeenCalled();
+    unmount();
+    expect(mockSidePanelContextValue.hideSidePanel).toHaveBeenCalledWith('testPanelId');
   });
 
   it('should render TreeItem components for each URL in the dataset, named by variable and units', () => {

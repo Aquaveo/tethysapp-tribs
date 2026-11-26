@@ -22,6 +22,7 @@ import PropertiesAction from "../actions/PropertiesAction";
 import VariablesPanel from "../panels/VariablesPanel";
 import extractLayerName from "lib/extractLayerName";
 import { LEGEND_GROUPS, hasLegend } from "lib/legends";
+import { variablesPanelId } from "lib/sidePanels";
 import useLegendEntry from "hooks/useLegendEntry";
 import { plotPanelId } from "constants/PlotConstants";
 
@@ -157,7 +158,7 @@ const GISTreeItem = ({
   };
 
   const handleShowProperties = () => {
-    showPanel(`slide-panel-${gis.id}`);
+    showPanel(variablesPanelId(gis.id));
   };
 
   const handleOpenDatasetDetails = () => {
@@ -221,7 +222,7 @@ const GISTreeItem = ({
       {gis?.viz?.type === DATASET_VIZ_TYPES.CZML && (
         <VariablesPanel
           dataset={gis}
-          panelId={`slide-panel-${gis.id}`}
+          panelId={variablesPanelId(gis.id)}
         />
       )}
     </>

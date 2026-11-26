@@ -23,6 +23,7 @@ import { describeLayer, variableTitle } from "lib/outputVariables";
 import { getLayerItems } from "components/project/panels/VariablesPanel";
 import { LEGEND_GROUPS, hasLegend } from "lib/legends";
 import { findValueVariable } from "lib/layerValues";
+import { variablesPanelId } from "lib/sidePanels";
 import useLegendEntry from "hooks/useLegendEntry";
 
 const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationIndex, realizationName, outputIndex }) => {
@@ -173,7 +174,7 @@ const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationInd
   };
 
   const handleShowProperties = () => {
-    showPanel(`slide-panel-${dataset.id}`);
+    showPanel(variablesPanelId(dataset.id));
   };
 
   const handleShowPlotPanel = () => {
@@ -253,7 +254,7 @@ const RealizationOutputTreeItem = ({ dataset, onDelete, onUpdate, realizationInd
         <>
           <VariablesPanel
             dataset={dataset}
-            panelId={`slide-panel-${dataset.id}`}
+            panelId={variablesPanelId(dataset.id)}
           />
           <PlotlyPanel
             dataset={dataset}

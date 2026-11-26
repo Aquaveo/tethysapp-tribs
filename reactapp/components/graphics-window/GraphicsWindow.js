@@ -24,6 +24,7 @@ import {
   HOME,
 } from "constants/GraphicsWindowConstants";
 import { isPlotPanelId, plotPanelId, selectionDatasetId } from "constants/PlotConstants";
+import { isVariablesPanelId, variablesPanelId } from "lib/sidePanels";
 import CompoundWmsLayer from "./CompoundWmsLayers";
 import GltfLayer from "./GltfLayers";
 import MeshClock from "./MeshClock";
@@ -34,17 +35,20 @@ const PLACEHOLDER_ENTITY_IDS = ["None", "Loading..."]; // CZML placeholders, not
 
 /**
  * What a change of the globe's selected entity means for the app: the new selection (null when cleared), the
- * plot sheets to close, and the one to open. Any change closes the open plot sheets except the selected dataset's,
- * which is opened (or kept open, so a new feature of the same dataset only refreshes the plot).
+ * panels to close, and the ones to open. Any change closes the open plot sheets except the selected dataset's,
+ * which is opened (or kept open, so a new feature of the same dataset only refreshes the plot). An open Variables
+ * pane follows the selection to another dataset: it is closed and the selected dataset's is opened in its place.
  */
 export function planSelectionChange(entityId, visibleSidePanel = []) {
   const cleared = entityId === undefined || entityId === null || PLACEHOLDER_ENTITY_IDS.includes(entityId);
   const datasetId = cleared ? null : selectionDatasetId(entityId);
   const keep = datasetId ? plotPanelId(datasetId) : null;
+  const variables = datasetId ? variablesPanelId(datasetId) : null;
+  const otherVariables = variables ? visibleSidePanel.filter((id) => isVariablesPanelId(id) && id !== variables) : [];
   return {
     selection: cleared ? null : entityId,
-    hide: visibleSidePanel.filter((id) => isPlotPanelId(id) && id !== keep),
-    show: keep,
+    hide: [...visibleSidePanel.filter((id) => isPlotPanelId(id) && id !== keep), ...otherVariables],
+    show: [...(keep ? [keep] : []), ...(otherVariables.length > 0 ? [variables] : [])],
   };
 }
 
@@ -77,9 +81,7 @@ const GraphicsWindow = ({ datasets }) => {
     const { selection, hide, show } = planSelectionChange(entity?.id, visibleSidePanel);
     setSelectedCZMLPoint(selection);
     hide.forEach(hideSidePanel);
-    if (show) {
-      showPanel(show);
-    }
+    show.forEach(showPanel);
   };
 
   return (

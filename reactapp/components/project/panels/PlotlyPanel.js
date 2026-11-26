@@ -11,6 +11,7 @@ import { PLOT_SHEET_HEIGHT_FRACTION, VARIABLE_SEPARATOR, isSelectionOf, selectio
 import { DO_NOT_SET_LAYER } from "constants/GraphicsWindowConstants";
 import { useClockTime } from "lib/clockTime";
 import { findValueVariable } from "lib/layerValues";
+import { variablesPanelId as variablesPanelIdOf } from "lib/sidePanels";
 import { isoToUtcMs } from "lib/meshTimeSeries";
 import { describeLayer, variableTitle, variableLabel, variableUnits } from "lib/outputVariables";
 
@@ -340,7 +341,7 @@ const PlotlyPanel = ({
     }));
   };
 
-  const variablesPanelId = `slide-panel-${dataset.id}`;
+  const variablesPanelId = variablesPanelIdOf(dataset.id);
   const variablesPanelOpen = visibleSidePanel.includes(variablesPanelId);
   const handleToggleVariablesPanel = () => {
     if (variablesPanelOpen) {
