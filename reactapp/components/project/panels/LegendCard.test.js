@@ -170,18 +170,27 @@ describe("value layers (node, outlet and basin output)", () => {
     expect(screen.queryByTestId("gltf-legend-marker")).not.toBeInTheDocument(); // no value at 02:00
   });
 
-  it("points out the value of a layer's only feature (the basin) whether or not it is selected", () => {
+  it("ticks the value of a layer's only feature (the basin) and points it out only once it is selected", () => {
     const dataset = makeValueLayer();
-    mockLayerValues = { ...makeLayerValues(dataset.id), ids: [`polygon [${dataset.id}]`], values: [[25, 0.004, 100]] };
-    const { rerender } = renderCard({ dataset, uniqueId: "Nwt_mm" });
+    const basin = `polygon [${dataset.id}]`;
+    mockLayerValues = { ...makeLayerValues(dataset.id), ids: [basin], values: [[25, 0.004, 100]] };
+    const { unmount } = renderCard({ dataset, uniqueId: "Nwt_mm" });
+    expect(screen.getAllByTestId("gltf-legend-value-tick").map((el) => el.getAttribute("data-x"))).toEqual(["85"]);
+    expect(screen.queryByTestId("gltf-legend-marker")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("legend-marked-value")).not.toBeInTheDocument();
+    unmount();
+    const { rerender } = renderCard({ dataset, uniqueId: "Nwt_mm", selectedCZMLPoint: basin });
     expect(screen.getByTestId("gltf-legend-marker")).toHaveAttribute("data-x", "85"); // a quarter along, first row
-    expect(screen.getByTestId("legend-marked-value")).toHaveTextContent("Value: 25.00 mm");
+    expect(screen.queryByTestId("gltf-legend-value-tick")).not.toBeInTheDocument();
+    expect(screen.getByTestId("legend-marked-value")).toHaveTextContent("Selected feature: 25.00 mm");
     rerender(
-      <GraphicsWindowVisualsContext.Provider value={{ colorRamps: {}, meshClockTime: Date.UTC(2004, 5, 1, 2) }}>
+      <GraphicsWindowVisualsContext.Provider
+        value={{ colorRamps: {}, meshClockTime: Date.UTC(2004, 5, 1, 2), selectedCZMLPoint: basin }}
+      >
         <LegendCard dataset={dataset} uniqueId="Nwt_mm" />
       </GraphicsWindowVisualsContext.Provider>
     );
-    expect(screen.getByTestId("legend-marked-value")).toHaveTextContent("Value: 0.0040 mm"); // not "0.00"
+    expect(screen.getByTestId("legend-marked-value")).toHaveTextContent("Selected feature: 0.0040 mm"); // not "0.00"
   });
 
   it("writes no time while the values are loading, and labels a variable without a range like the server did", () => {
