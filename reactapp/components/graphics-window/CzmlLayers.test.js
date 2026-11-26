@@ -7,7 +7,13 @@ import { DO_NOT_SET_LAYER } from "constants/GraphicsWindowConstants";
 import CzmlLayer, { colorFeatures, featureColor, setPolygonColor } from "./CzmlLayers";
 
 const mockSources = {};
+let mockModel = null; // the props of the mesh surface model, when one is drawn
 jest.mock("resium", () => ({
+  Model: (props) => {
+    // eslint-disable-next-line no-undef
+    mockModel = props;
+    return <div data-testid="surface" data-url={props.url} data-show={String(props.show)} />;
+  },
   CzmlDataSource: (props) => {
     // eslint-disable-next-line no-undef
     mockSources[props.data] = props;
@@ -69,6 +75,7 @@ function renderLoaded(dataset, options) {
 beforeEach(() => {
   process.env.TETHYS_MEDIA_URL = "/media/";
   Object.keys(mockSources).forEach((key) => delete mockSources[key]);
+  mockModel = null;
   const dataset = makeValueLayer();
   mockLoadingUrls = [];
   mockValuesByUrl = {
@@ -170,6 +177,82 @@ describe("value layers", () => {
     const dataSource = { entities: { getById: (id) => (id === polygonId ? polygon : undefined), values: [polygon] } };
     act(() => mockSources["/media/" + dataset.viz.url[0]].onLoad(dataSource));
     expect(polygon.polygon.material.color.getValue().toBytes()).toEqual([0, 0, 255, 175]);
+  });
+});
+
+describe("basin output on the surface of the mesh", () => {
+  const surface = { url: "fdb/fc/czml/surface.glb", origin: [-106.58, 34.31, 1960] };
+
+  /** A basin layer written with the mesh surface, its document loaded: one polygon, values 100, 0, 50 of 0..100. */
+  function renderBasin(options, { ready = true } = {}) {
+    const base = makeValueLayer();
+    const dataset = { ...base, viz: { ...base.viz, surface } };
+    const polygonId = `polygon [${dataset.id}]`;
+    mockValuesByUrl = {
+      ["/media/" + dataset.viz.variables[0].values]: { ...makeLayerValues(dataset.id), ids: [polygonId], values: [[100, 0, 50]] },
+    };
+    const utils = render(layerTree(dataset, options));
+    const polygon = { id: polygonId, polygon: { material: null } };
+    const dataSource = { entities: { getById: (id) => (id === polygonId ? polygon : undefined), values: [polygon] } };
+    act(() => mockSources["/media/" + dataset.viz.url[0]].onLoad(dataSource));
+    if (ready) act(() => mockModel.onReady());
+    return { ...utils, dataset, polygon, rerenderWith: (next) => utils.rerender(layerTree(dataset, next)) };
+  }
+
+  const surfaceBytes = () => {
+    const { x, y, z } = mockModel.customShader.uniforms.u_color.value;
+    return [x, y, z].map((channel) => Math.round(channel * 255));
+  };
+
+  it("draws the surface in the color of the basin's value, picked as the basin's feature", () => {
+    const { polygon } = renderBasin();
+    expect(screen.getByTestId("surface")).toHaveAttribute("data-url", "/media/" + surface.url);
+    expect(screen.getByTestId("surface")).toHaveAttribute("data-show", "true");
+    expect(mockModel.id).toBe(polygon); // a click on the surface selects the basin
+    expect(surfaceBytes()).toEqual([0, 0, 255]); // 100 of 0..100 on white to blue
+    // the polygon under it is all but transparent
+    expect(polygon.polygon.material.color.getValue().toBytes()).toEqual([0, 0, 255, 1]);
+  });
+
+  it("recolors the surface with the time and the ramp without building the model again", () => {
+    const { rerenderWith, dataset } = renderBasin();
+    const shader = mockModel.customShader;
+    rerenderWith({ meshClockTime: T0 + 2 * HOUR }); // the row of hour 2: 0
+    expect(surfaceBytes()).toEqual([255, 255, 255]);
+    rerenderWith({ meshClockTime: T0 + 2 * HOUR, colorRamps: { [dataset.id]: "viridis" } });
+    expect(surfaceBytes()).toEqual([68, 1, 84]);
+    expect(mockModel.customShader).toBe(shader);
+  });
+
+  it("is gray without values for the selected variable and hidden with the layer", () => {
+    const { rerenderWith } = renderBasin();
+    mockValuesByUrl = {};
+    rerenderWith({});
+    expect(surfaceBytes()).toEqual([160, 160, 160]);
+    rerenderWith({ visible: false });
+    expect(screen.getByTestId("surface")).toHaveAttribute("data-show", "false");
+  });
+
+  it("keeps the flat polygon until the surface is on the map", () => {
+    const { polygon } = renderBasin({}, { ready: false });
+    expect(polygon.polygon.material.color.getValue().toBytes()).toEqual([0, 0, 255, 175]);
+    act(() => mockModel.onReady());
+    expect(polygon.polygon.material.color.getValue().toBytes()).toEqual([0, 0, 255, 1]);
+  });
+
+  it("keeps the flat polygon and logs the error when the surface cannot be loaded", () => {
+    const consoleError = jest.spyOn(console, "error").mockImplementation(() => {});
+    const { polygon } = renderBasin({}, { ready: false });
+    act(() => mockModel.onError(new Error("404")));
+    expect(polygon.polygon.material.color.getValue().toBytes()).toEqual([0, 0, 255, 175]);
+    expect(consoleError).toHaveBeenCalledWith(expect.stringMatching(/Failed to load the mesh surface/), expect.any(Error));
+    consoleError.mockRestore();
+  });
+
+  it("is not drawn for a layer written without it: the basin is the flat polygon", () => {
+    const dataset = makeValueLayer();
+    renderLoaded(dataset);
+    expect(screen.queryByTestId("surface")).not.toBeInTheDocument();
   });
 });
 

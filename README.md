@@ -308,6 +308,11 @@ tribs regenerate-viz <primary_db> <gsurl> --dataset-type TRIBS_OUT_PIXEL --datas
     --dataset-type TRIBS_OUT_MRF --dataset-type TRIBS_OUT_RFT --dry-run   # then without --dry-run
 ```
 
+Basin Averaged output is drawn on the surface of the mesh, in one color, instead of as a flat outline of the basin.
+The surface is written with the visualization (`viz.surface`, a glTF file next to the values files), so a Basin
+Averaged dataset visualized before that keeps the flat outline until it is regenerated with
+`--dataset-type TRIBS_OUT_MRF`.
+
 Each dataset is briefly without files while it is rebuilt (status `Processing`), so run it during low usage, per
 project with `--project-id` for large tables. Verify afterwards that every variable carries a label:
 
