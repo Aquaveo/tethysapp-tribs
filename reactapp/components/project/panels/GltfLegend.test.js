@@ -36,3 +36,12 @@ it("shows the variable title above the bar when given", () => {
     "0.00", "25.00", "50.00", "75.00", "100.00",
   ]);
 });
+
+it("marks a value on the bar at its place in the range, clamped to the bar", () => {
+  const { rerender } = render(<GltfLegend rampName="viridis" min={0} max={10} marker={2.5} />);
+  expect(screen.getByTestId("gltf-legend-marker")).toHaveAttribute("data-x", "85"); // 10 + 300 * 0.25
+  rerender(<GltfLegend rampName="viridis" min={0} max={10} marker={12} />);
+  expect(screen.getByTestId("gltf-legend-marker")).toHaveAttribute("data-x", "310");
+  rerender(<GltfLegend rampName="viridis" min={0} max={10} />);
+  expect(screen.queryByTestId("gltf-legend-marker")).not.toBeInTheDocument();
+});

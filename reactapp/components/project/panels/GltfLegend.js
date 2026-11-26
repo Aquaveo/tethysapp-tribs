@@ -2,6 +2,7 @@ import PropTypes from "prop-types";
 import { useId } from "react";
 
 import { legendTicks, rampStops } from "lib/colorRamps";
+import { normalize } from "lib/layerValues";
 
 const BAR_X = 10;
 const BAR_WIDTH = 300;
@@ -10,10 +11,15 @@ const BAR_WIDTH = 300;
  * Legend for a glTF mesh variable drawn with a user-selected color ramp (see lib/colorRamps): a gradient bar of
  * the ramp labelled from the variable's minimum to its maximum, like the server-drawn PNG of the default ramp.
  * Datasets generated before the value range was recorded get the bar without labels and a note.
+ *
+ * `marker` is a value to point out on the bar (the value a selected feature has at the time shown): a line across
+ * the bar at its place in the range, dark on a light outline so it shows on every ramp.
  */
-const GltfLegend = ({ rampName, min, max, variableName, title }) => {
+const GltfLegend = ({ rampName, min, max, variableName, title, marker }) => {
   const gradientId = `gltf-legend-gradient-${useId().replace(/:/g, "")}`;
   const ticks = legendTicks(min, max);
+  const markerAt = normalize(marker, min, max); // null without a value
+  const markerX = markerAt === null ? null : BAR_X + BAR_WIDTH * markerAt;
   const anchor = (i) => (i === 0 ? "start" : i === ticks.length - 1 ? "end" : "middle");
 
   return (
@@ -32,6 +38,12 @@ const GltfLegend = ({ rampName, min, max, variableName, title }) => {
           </linearGradient>
         </defs>
         <rect x={BAR_X} y="5" width={BAR_WIDTH} height="25" fill={`url(#${gradientId})`} stroke="#999" strokeWidth="0.5" />
+        {markerX !== null && (
+          <g data-testid="gltf-legend-marker" data-x={markerX}>
+            <line x1={markerX} x2={markerX} y1="1" y2="34" stroke="#fff" strokeWidth="5" />
+            <line x1={markerX} x2={markerX} y1="1" y2="34" stroke="#212529" strokeWidth="2" />
+          </g>
+        )}
         {ticks.map((value, i) => (
           <text
             key={i}
@@ -60,6 +72,7 @@ GltfLegend.propTypes = {
   max: PropTypes.number,
   variableName: PropTypes.string,
   title: PropTypes.string, // "Root-Zone Soil Moisture (% saturation)"
+  marker: PropTypes.number, // a value to point out on the bar
 };
 
 export default GltfLegend;

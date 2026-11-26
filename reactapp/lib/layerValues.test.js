@@ -1,6 +1,7 @@
 import { makeLayerValues, makeMrfDataset, makeTimeSeriesMesh, makeValueLayer } from "config/tests/mocks/meshMock";
 import {
   clearValuesCache,
+  featureValue,
   fetchValues,
   findValueVariable,
   hasValues,
@@ -128,5 +129,21 @@ describe("fetchValues", () => {
     await expect(fetchValues("/media/values/x.json", fetcher)).rejects.toThrow(/404/);
     await expect(fetchValues("/media/values/x.json", fetcher)).resolves.toMatchObject({ variable: "Nwt_mm" });
     expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("featureValue", () => {
+  const values = makeLayerValues("d"); // node 42 = 0, 50, 100; node 1656 = 100, null, 0
+
+  it("is the value of the feature in the row", () => {
+    expect(featureValue(values, "point_42 [d]", 1)).toBe(50);
+    expect(featureValue(values, "point_1656 [d]", 0)).toBe(100);
+  });
+
+  it("is null for a feature the file does not have, a missing value, no feature or no file", () => {
+    expect(featureValue(values, "point_7 [d]", 0)).toBeNull();
+    expect(featureValue(values, "point_1656 [d]", 1)).toBeNull();
+    expect(featureValue(values, null, 0)).toBeNull();
+    expect(featureValue(null, "point_42 [d]", 0)).toBeNull();
   });
 });
