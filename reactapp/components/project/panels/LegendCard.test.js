@@ -21,15 +21,17 @@ jest.mock("hooks/useLayerValues", () => ({
   default: (url) => (url ? mockLayerValues : null),
 }));
 
-function renderCard({ dataset, colorRamps = {}, meshClockTime = null, ...props }) {
+function renderCard({ dataset, colorRamps = {}, meshClockTime = null, selectedCZMLPoint = null, ...props }) {
   const setColorRamp = jest.fn();
+  const setCZMLLayer = jest.fn();
+  const setActiveTimeSeries = jest.fn();
   const onColorRampChange = jest.fn();
   const utils = render(
-    <GraphicsWindowVisualsContext.Provider value={{ colorRamps, setColorRamp, meshClockTime }}>
+    <GraphicsWindowVisualsContext.Provider value={{ colorRamps, setColorRamp, meshClockTime, selectedCZMLPoint, setCZMLLayer, setActiveTimeSeries }}>
       <LegendCard dataset={dataset} onColorRampChange={onColorRampChange} {...props} />
     </GraphicsWindowVisualsContext.Provider>
   );
-  return { ...utils, setColorRamp, onColorRampChange };
+  return { ...utils, setColorRamp, onColorRampChange, setCZMLLayer, setActiveTimeSeries };
 }
 
 beforeEach(() => {
@@ -129,6 +131,66 @@ describe("value layers (node, outlet and basin output)", () => {
       </GraphicsWindowVisualsContext.Provider>
     );
     expect(screen.getByTestId("legend-subtitle")).toHaveTextContent("2004-06-01 01:00 UTC"); // the first row
+  });
+
+  it("points out the selected feature's value at the time shown, on the bar and in words", () => {
+    const dataset = makeValueLayer(); // Nwt_mm: 0 .. 100 mm; node 42 = 0, 50, 100; node 1656 = 100, null, 0
+    mockLayerValues = makeLayerValues(dataset.id);
+    renderCard({
+      dataset, uniqueId: "Nwt_mm", meshClockTime: Date.UTC(2004, 5, 1, 2, 30), selectedCZMLPoint: `point_42 [${dataset.id}]`,
+    });
+    expect(screen.getByTestId("gltf-legend-marker")).toHaveAttribute("data-x", "160"); // half way along the bar
+    expect(screen.getByTestId("legend-marked-value")).toHaveTextContent("Selected feature: 50.00 mm");
+  });
+
+  it("ticks the values of the layer's other features at the time shown, with or without a selection", () => {
+    const dataset = makeValueLayer(); // node 42 = 0, 50, 100; node 1656 = 100, null, 0
+    mockLayerValues = makeLayerValues(dataset.id);
+    const xs = () => screen.queryAllByTestId("gltf-legend-value-tick").map((el) => el.getAttribute("data-x"));
+    const { unmount } = renderCard({ dataset, uniqueId: "Nwt_mm" }); // nothing selected: a tick per node
+    expect(xs()).toEqual(["10", "310"]);
+    unmount();
+    renderCard({
+      dataset, uniqueId: "Nwt_mm", meshClockTime: Date.UTC(2004, 5, 1, 3), selectedCZMLPoint: `point_42 [${dataset.id}]`,
+    });
+    expect(xs()).toEqual(["10"]); // node 1656 at 03:00; node 42 is the marker
+    expect(screen.getByTestId("gltf-legend-marker")).toHaveAttribute("data-x", "310");
+  });
+
+  it("points nothing out without a selected feature of the layer, or where the feature has no value", () => {
+    const dataset = makeValueLayer();
+    mockLayerValues = makeLayerValues(dataset.id);
+    const { unmount } = renderCard({ dataset, uniqueId: "Nwt_mm", selectedCZMLPoint: "point_42 [another-dataset]" });
+    expect(screen.queryByTestId("gltf-legend-marker")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("legend-marked-value")).not.toBeInTheDocument();
+    unmount();
+    renderCard({
+      dataset, uniqueId: "Nwt_mm", meshClockTime: Date.UTC(2004, 5, 1, 2), selectedCZMLPoint: `point_1656 [${dataset.id}]`,
+    });
+    expect(screen.queryByTestId("gltf-legend-marker")).not.toBeInTheDocument(); // no value at 02:00
+  });
+
+  it("ticks the value of a layer's only feature (the basin) and points it out only once it is selected", () => {
+    const dataset = makeValueLayer();
+    const basin = `polygon [${dataset.id}]`;
+    mockLayerValues = { ...makeLayerValues(dataset.id), ids: [basin], values: [[25, 0.004, 100]] };
+    const { unmount } = renderCard({ dataset, uniqueId: "Nwt_mm" });
+    expect(screen.getAllByTestId("gltf-legend-value-tick").map((el) => el.getAttribute("data-x"))).toEqual(["85"]);
+    expect(screen.queryByTestId("gltf-legend-marker")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("legend-marked-value")).not.toBeInTheDocument();
+    unmount();
+    const { rerender } = renderCard({ dataset, uniqueId: "Nwt_mm", selectedCZMLPoint: basin });
+    expect(screen.getByTestId("gltf-legend-marker")).toHaveAttribute("data-x", "85"); // a quarter along, first row
+    expect(screen.queryByTestId("gltf-legend-value-tick")).not.toBeInTheDocument();
+    expect(screen.getByTestId("legend-marked-value")).toHaveTextContent("Selected feature: 25.00 mm");
+    rerender(
+      <GraphicsWindowVisualsContext.Provider
+        value={{ colorRamps: {}, meshClockTime: Date.UTC(2004, 5, 1, 2), selectedCZMLPoint: basin }}
+      >
+        <LegendCard dataset={dataset} uniqueId="Nwt_mm" />
+      </GraphicsWindowVisualsContext.Provider>
+    );
+    expect(screen.getByTestId("legend-marked-value")).toHaveTextContent("Selected feature: 0.0040 mm"); // not "0.00"
   });
 
   it("writes no time while the values are loading, and labels a variable without a range like the server did", () => {
@@ -234,5 +296,40 @@ describe("legend layout", () => {
     renderCard({ dataset: { ...mesh, viz: { ...mesh.viz, type: "czml", variables: undefined } }, uniqueId: mesh.id });
     expect(screen.getByTestId("legend-owner")).toHaveTextContent("Mesh");
     expect(screen.queryByTestId("legend-variable")).not.toBeInTheDocument();
+  });
+});
+
+describe("picking the variable on the legend", () => {
+  it("shows the variable the legend is for in a picker of the layer's variables", () => {
+    const dataset = makeValueLayer(); // Nwt_mm and Srf_mm
+    renderCard({ dataset, uniqueId: "Nwt_mm" });
+    expect(screen.getByLabelText("Variable")).toBeInTheDocument();
+    expect(screen.getByTestId("legend-variable")).toHaveTextContent("Nwt");
+  });
+
+  it("selects the picked variable on the map and hands it the clock when it varies in time", async () => {
+    const dataset = makeValueLayer();
+    const { setCZMLLayer, setActiveTimeSeries } = renderCard({ dataset, uniqueId: "Nwt_mm" });
+    await select(screen.getByLabelText("Variable"), /Srf/, { container: document.body });
+    expect(setCZMLLayer).toHaveBeenCalledWith(dataset.id, "Srf_mm");
+    expect(setActiveTimeSeries).toHaveBeenCalledWith(
+      expect.objectContaining({ datasetId: dataset.id, variableName: "Srf_mm" })
+    );
+  });
+
+  it("picks a variable of a glTF mesh too", async () => {
+    const dataset = makeTimeSeriesMesh(); // Mu and Nwt
+    const { setCZMLLayer, setActiveTimeSeries } = renderCard({ dataset, uniqueId: "Mu", variable: dataset.viz.variables[0] });
+    await select(screen.getByLabelText("Variable"), /Nwt/, { container: document.body });
+    expect(setCZMLLayer).toHaveBeenCalledWith(dataset.id, "Nwt");
+    expect(setActiveTimeSeries).toHaveBeenCalledWith(expect.objectContaining({ datasetId: dataset.id, variableName: "Nwt" }));
+  });
+
+  it("writes the variable's name without a picker when there is nothing to choose from", () => {
+    const base = makeValueLayer();
+    const dataset = { ...base, viz: { ...base.viz, variables: [base.viz.variables[0]] } };
+    renderCard({ dataset, uniqueId: "Nwt_mm" });
+    expect(screen.queryByLabelText("Variable")).not.toBeInTheDocument();
+    expect(screen.getByTestId("legend-variable")).toHaveTextContent("Nwt");
   });
 });

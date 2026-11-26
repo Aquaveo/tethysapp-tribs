@@ -95,3 +95,13 @@ export function normalize(value, min, max) {
   if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) return 0;
   return Math.min(1, Math.max(0, (value - min) / (max - min)));
 }
+
+/**
+ * The value of one feature (by the id of its entity) in a row of a values file; null when the file does not have
+ * the feature or the feature has no value there.
+ */
+export function featureValue(values, featureId, row) {
+  const index = values?.ids?.indexOf(featureId) ?? -1;
+  if (index < 0) return null;
+  return values.values[index]?.[row] ?? null;
+}

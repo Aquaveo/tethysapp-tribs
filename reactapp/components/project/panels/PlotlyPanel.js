@@ -9,6 +9,10 @@ import PlotSettingsMenu from "components/project/panels/PlotSettingsMenu";
 import { AppContext, GraphicsWindowVisualsContext, SidePanelContext } from "react-tethys/context";
 import { PLOT_SHEET_HEIGHT_FRACTION, VARIABLE_SEPARATOR, isSelectionOf, selectionDatasetId } from "constants/PlotConstants";
 import { DO_NOT_SET_LAYER } from "constants/GraphicsWindowConstants";
+import { useClockTime } from "lib/clockTime";
+import { findValueVariable } from "lib/layerValues";
+import { variablesPanelId as variablesPanelIdOf } from "lib/sidePanels";
+import { isoToUtcMs } from "lib/meshTimeSeries";
 import { describeLayer, variableTitle, variableLabel, variableUnits } from "lib/outputVariables";
 
 // The plot fills the bottom half of the window (see PLOT_SHEET_STYLE), so the margins are kept tight: the bottom
@@ -152,6 +156,41 @@ function hoursToDateConverter(date, h) {
   return `${dateString} ${timeString}`;
 }
 
+const MS_PER_HOUR = 60 * 60 * 1000;
+// The color of the current-time marker on the timeline (graphics-window/timeline.css)
+export const TIME_BAR_COLOR = "#ffc107";
+const TIME_BAR_LINE = { color: TIME_BAR_COLOR, width: 3 };
+
+/** The run's start on the map's clock, which reads the run's dates as UTC: the start date's own date and time. */
+const runStartOnClock = (startDate) => Date.UTC(
+  startDate.getFullYear(), startDate.getMonth(), startDate.getDate(),
+  startDate.getHours(), startDate.getMinutes(), startDate.getSeconds()
+);
+
+/**
+ * The time of the map's clock as a vertical line across the plot (a Plotly layout shape), or null when there is
+ * no clock time (no layer drives the clock) or no series.
+ *
+ * The line is placed by hours since the start of the run, the unit the series arrives in. For a value layer the
+ * first row of the variable's values is at `variable.start` on the clock and at `hours[0]` in the series, which
+ * ties the two time axes together without assuming how the browser reads the run's start date. Other layers fall
+ * back on that start date.
+ *
+ * Before the first time of the series and after the last the line waits on that time, as the map shows the first
+ * and the last row there (the clock may start earlier when another layer drives it, and runs one step past the
+ * last row).
+ */
+export function plotTimeBar({ clockMs, variable, hours, startDate }) {
+  if (clockMs === null || clockMs === undefined || !hours?.length || !startDate) return null;
+  const firstRowMs = isoToUtcMs(variable?.start ?? null);
+  const hoursNow = firstRowMs !== null
+    ? hours[0] + (clockMs - firstRowMs) / MS_PER_HOUR
+    : (clockMs - runStartOnClock(startDate)) / MS_PER_HOUR;
+  const shown = Math.min(Math.max(hoursNow, hours[0]), hours[hours.length - 1]);
+  const x = hoursToDateConverter(startDate, shown);
+  return { type: "line", xref: "x", yref: "paper", x0: x, x1: x, y0: 0, y1: 1, line: TIME_BAR_LINE };
+}
+
 // The backend keeps one handler per action (Backend.on replaces it) and every CZML dataset has a plot sheet, so the
 // sheets share one handler that passes a series on to the sheet of the dataset it was read from. A reply without
 // a dataset id (an older backend) goes to the sheet that was rendered last, which is the one that asked.
@@ -188,6 +227,7 @@ const PlotlyPanel = ({
   }
   const [currentData, setCurrentData] = useState(null);
   const plottedVariableRef = useRef(null); // the variable of the series on the plot
+  const [seriesHours, setSeriesHours] = useState(null); // the times of the series, in hours since the run start
   const [plotLayout, setPlotLayout] = useState(layout);
   const yAxisScale = plotLayout.yaxis?.type ?? "linear"; // what the settings menu shows as current
 
@@ -255,13 +295,14 @@ const PlotlyPanel = ({
     )
     const layerName = plotData.name ?? visibleCZMLObject?.[dataset.id];
     const titles = seriesTitles(dataset, layerName, plotData);
+    setSeriesHours(plotData.x);
     setCurrentData({
       x: timeConverted,
       y: plotData.y,
       name: titles.label,
       type: "scatter",
-      mode: "lines+markers",
-      marker: {color: 'red'},
+      mode: "lines", // no markers: an hourly series is thousands of them, hiding the line
+      line: { color: "red" },
     });
     // Another variable has another range: frame its whole series, whatever zoom was left from the previous one.
     // Another feature of the same variable keeps the zoom, so features can be compared over the same window.
@@ -300,7 +341,7 @@ const PlotlyPanel = ({
     }));
   };
 
-  const variablesPanelId = `slide-panel-${dataset.id}`;
+  const variablesPanelId = variablesPanelIdOf(dataset.id);
   const variablesPanelOpen = visibleSidePanel.includes(variablesPanelId);
   const handleToggleVariablesPanel = () => {
     if (variablesPanelOpen) {
@@ -311,6 +352,16 @@ const PlotlyPanel = ({
   };
 
   const plotData = currentData ? [currentData] : [];
+
+  // The time shown on the map, as a line on the plot. Only an open sheet follows the clock.
+  const shown = visibleSidePanel.includes(panelId);
+  const clockMs = useClockTime(shown && currentData !== null);
+  const timeBar = plotTimeBar({
+    clockMs,
+    variable: findValueVariable(dataset, visibleCZMLObject?.[dataset.id]),
+    hours: seriesHours,
+    startDate: startDates?.[realizationIndex],
+  });
   const title = `${visibleCZMLObject?.[dataset.id] ? seriesTitles(dataset, visibleCZMLObject[dataset.id]).label : "Empty"} Plot`;
 
   return (
@@ -324,7 +375,7 @@ const PlotlyPanel = ({
           onToggleVariablesPanel={handleToggleVariablesPanel}
         />
       }
-      show={visibleSidePanel.includes(panelId)}
+      show={shown}
       placement={placement}
       onClose={handleClose}
       style={{ ...PLOT_SHEET_STYLE, ...style }}
@@ -333,7 +384,7 @@ const PlotlyPanel = ({
     >
       <StyledPlot
         data={plotData}
-        layout={{ ...plotLayout, showlegend: showLegend(plotData) }}
+        layout={{ ...plotLayout, showlegend: showLegend(plotData), shapes: timeBar ? [timeBar] : [] }}
         config={plotConfig}
         // react-plotly's default style is an inline-block div with no width, which Plotly sizes to its 700px
         // default; an explicit full-size block (plus the resize handler) makes the plot track the sheet.

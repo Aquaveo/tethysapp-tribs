@@ -66,6 +66,11 @@ const datasetProps = {
       PropTypes.object, // The keys to this object are dynamically created so this is as granular as it can get
       PropTypes.string,
     ]),
+    // Basin output: the surface of the mesh as a glTF file, drawn in the basin's color (see CzmlLayers.js)
+    surface: PropTypes.shape({
+      url: PropTypes.string,
+      origin: PropTypes.arrayOf(PropTypes.number), // longitude, latitude and height of the model's origin
+    }),
     // One entry per variable/layer (see lib/outputVariables.js); glTF mesh output adds the time steps of each
     // variable (see lib/meshTimeSeries.js), node/outlet/basin output the url of its values (lib/layerValues.js)
     variables: PropTypes.arrayOf(

@@ -1077,9 +1077,13 @@ async def test_dataset_receive_mrf_timeseries_labels_and_converts_sheet_variable
         payload = await _request_output_timeseries(communicator, dataset, 'MGW')
         assert (payload['name'], payload['label'], payload['units']) == ('MGW', 'Depth to Groundwater', 'm')
         assert payload['dataset_id'] == str(dataset.id) and 'point_id' not in payload
-        assert len(payload['y']) == len(raw) == len(payload['x'])
-        assert payload['y'] == pytest.approx([v / 1000 for v in raw])
+        # The file of this 700 hour run has 704 rows: the four written after the run's end are left off the plot
+        # (the adapter's read_basin_series, which the map layer uses too)
+        assert len(raw) == 704
+        assert len(payload['y']) == len(payload['x']) == 700
+        assert payload['y'] == pytest.approx([v / 1000 for v in raw[:700]])
         assert payload['x'][:3] == [1.0, 2.0, 3.0]
+        assert payload['x'][-1] == 700.0
 
         # A variable without a conversion keeps its values; units come from the sheet
         payload = await _request_output_timeseries(communicator, dataset, 'MAP')

@@ -2,18 +2,31 @@ import PropTypes from "prop-types";
 import { useId } from "react";
 
 import { legendTicks, rampStops } from "lib/colorRamps";
+import { normalize } from "lib/layerValues";
 
 const BAR_X = 10;
 const BAR_WIDTH = 300;
+// The gold of the current-time marker on the timeline and of the time bar on the plots
+export const MARKER_COLOR = "#ffc107";
 
 /**
  * Legend for a glTF mesh variable drawn with a user-selected color ramp (see lib/colorRamps): a gradient bar of
  * the ramp labelled from the variable's minimum to its maximum, like the server-drawn PNG of the default ramp.
  * Datasets generated before the value range was recorded get the bar without labels and a note.
+ *
+ * `marker` is a value to point out on the bar (the value a selected feature has at the time shown): a line across
+ * the bar at its place in the range, in the gold of the timeline's marker on a dark outline so it shows on every
+ * ramp. `ticks` are further values (those of the layer's other features) drawn as thin ticks under it.
  */
-const GltfLegend = ({ rampName, min, max, variableName, title }) => {
+const GltfLegend = ({ rampName, min, max, variableName, title, marker, ticks: valueTicks = [] }) => {
   const gradientId = `gltf-legend-gradient-${useId().replace(/:/g, "")}`;
   const ticks = legendTicks(min, max);
+  const barX = (value) => {
+    const at = normalize(value, min, max); // null without a value
+    return at === null ? null : BAR_X + BAR_WIDTH * at;
+  };
+  const markerX = barX(marker);
+  const tickXs = valueTicks.map(barX).filter((x) => x !== null);
   const anchor = (i) => (i === 0 ? "start" : i === ticks.length - 1 ? "end" : "middle");
 
   return (
@@ -32,6 +45,18 @@ const GltfLegend = ({ rampName, min, max, variableName, title }) => {
           </linearGradient>
         </defs>
         <rect x={BAR_X} y="5" width={BAR_WIDTH} height="25" fill={`url(#${gradientId})`} stroke="#999" strokeWidth="0.5" />
+        {tickXs.map((x, i) => (
+          <g key={i} data-testid="gltf-legend-value-tick" data-x={x}>
+            <line x1={x} x2={x} y1="5" y2="30" stroke="#fff" strokeWidth="3" strokeOpacity="0.8" />
+            <line x1={x} x2={x} y1="5" y2="30" stroke="#212529" strokeWidth="1" />
+          </g>
+        ))}
+        {markerX !== null && (
+          <g data-testid="gltf-legend-marker" data-x={markerX} data-color={MARKER_COLOR}>
+            <line x1={markerX} x2={markerX} y1="1" y2="34" stroke="#212529" strokeWidth="5" />
+            <line x1={markerX} x2={markerX} y1="2" y2="33" stroke={MARKER_COLOR} strokeWidth="3" />
+          </g>
+        )}
         {ticks.map((value, i) => (
           <text
             key={i}
@@ -60,6 +85,8 @@ GltfLegend.propTypes = {
   max: PropTypes.number,
   variableName: PropTypes.string,
   title: PropTypes.string, // "Root-Zone Soil Moisture (% saturation)"
+  marker: PropTypes.number, // a value to point out on the bar
+  ticks: PropTypes.arrayOf(PropTypes.number), // further values, drawn as thin ticks
 };
 
 export default GltfLegend;

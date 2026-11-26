@@ -511,3 +511,41 @@ it("Hands the Cesium clock to a value layer when it is revealed", async () => {
   );
 });
 
+
+describe("a shown layer and a clock nobody drives", () => {
+  it("takes the clock with its selected variable when it is already shown as the project loads", async () => {
+    const { dataset, setActiveTimeSeries } = await renderGltfWithLegendRegistry({
+      visible: true, selectedLayer: "Srf_mm", dataset: makeValueLayer(),
+    });
+    expect(setActiveTimeSeries).toHaveBeenCalledWith(
+      expect.objectContaining({ datasetId: dataset.id, variableName: "Srf_mm", start: "2004-06-01T01:00:00Z" })
+    );
+  });
+
+  it("takes the clock as a glTF mesh with a time series too", async () => {
+    const { dataset, setActiveTimeSeries } = await renderGltfWithLegendRegistry({ visible: true, selectedLayer: "Nwt" });
+    expect(setActiveTimeSeries).toHaveBeenCalledWith(expect.objectContaining({ datasetId: dataset.id, variableName: "Nwt" }));
+  });
+
+  it("leaves the clock alone while it is hidden", async () => {
+    const { setActiveTimeSeries } = await renderGltfWithLegendRegistry({
+      visible: false, selectedLayer: "Nwt_mm", dataset: makeValueLayer(),
+    });
+    expect(setActiveTimeSeries).not.toHaveBeenCalled();
+  });
+
+  it("leaves the clock alone while another layer drives it", async () => {
+    const { setActiveTimeSeries } = await renderGltfWithLegendRegistry({
+      visible: true, selectedLayer: "Srf_mm", dataset: makeValueLayer(), clockDatasetId: newUUID(),
+    });
+    // (the dataset's Variables panel hands over its first variable, Nwt_mm, as it mounts; that is not this rule)
+    expect(setActiveTimeSeries).not.toHaveBeenCalledWith(expect.objectContaining({ variableName: "Srf_mm" }));
+  });
+
+  it("leaves the clock alone without a selected variable", async () => {
+    const { setActiveTimeSeries } = await renderGltfWithLegendRegistry({
+      visible: true, selectedLayer: DO_NOT_SET_LAYER, dataset: makeValueLayer(),
+    });
+    expect(setActiveTimeSeries).not.toHaveBeenCalled();
+  });
+});

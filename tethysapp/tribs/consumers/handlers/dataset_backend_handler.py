@@ -6,7 +6,7 @@ from pathlib import Path
 
 from tribs_adapter.resources import Dataset
 from tribs_adapter.common.node_timeseries import BASIN_TIME_COLUMN, NODE_TIME_COLUMN, pixel_files_by_node, \
-    qout_files_by_point, read_basin_file, read_node_file
+    qout_files_by_point, read_basin_series, read_node_file
 from tribs_adapter.common.output_variables import describe as describe_variable, kind_for_dataset_type, \
     split_unit_suffix
 from tribs_adapter.resources.dataset import DatasetTypes
@@ -255,7 +255,8 @@ class DatasetBackendHandler(RBH):
             if not selected_out_file:
                 raise ValueError(f'Output file not found in dataset with ID: "{dataset_id}".')
 
-            df, units = read_basin_file(selected_out_file)
+            # The series as the map layer shows it: without the rows tRIBS writes after the end of the run
+            df, units = read_basin_series(selected_out_file)
             if variable not in df.columns:
                 raise ValueError(
                     f'Variable "{variable}" not found in {os.path.basename(selected_out_file)} of dataset with '

@@ -67,6 +67,30 @@ export function getHillshadeShader() {
   return hillshadeShader;
 }
 
+const colorVector = (color) => new Cartesian3(color.red, color.green, color.blue);
+
+/**
+ * Shader for a mesh drawn in one color with the relief shading: the surface of basin averaged output, which has a
+ * single value. The color is a uniform, so it changes (see setSolidColor) without the model being built again.
+ */
+export function makeSolidColorShader(color) {
+  return new CustomShader({
+    lightingModel: LightingModel.UNLIT,
+    uniforms: { u_color: { type: UniformType.VEC3, value: colorVector(color) } },
+    fragmentShaderText: `
+      ${HILLSHADE_GLSL}
+      void fragmentMain(FragmentInput fsInput, inout czm_modelMaterial material) {
+        material.diffuse = u_color * hillshade(fsInput.attributes.normalEC);
+      }
+    `,
+  });
+}
+
+/** Change the color of a shader made by makeSolidColorShader. */
+export function setSolidColor(shader, color) {
+  shader.setUniform("u_color", colorVector(color));
+}
+
 const rampShaders = new Map();
 
 /**

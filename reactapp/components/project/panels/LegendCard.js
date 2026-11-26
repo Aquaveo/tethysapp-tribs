@@ -6,14 +6,15 @@ import Select from "react-select";
 
 import MinimalButton from "components/buttons/MinimalButton";
 import GltfLegend from "components/project/panels/GltfLegend";
+import { getLayerItems } from "components/project/panels/VariablesPanel";
 import { datasetPropTypes } from "components/tree/propTypes";
 import { DATASET_VIZ_TYPES } from "constants/GraphicsWindowConstants";
 import { GraphicsWindowVisualsContext } from "react-tethys/context";
 import useLayerValues from "hooks/useLayerValues";
 import { DEFAULT_RAMP, isDefaultRamp, rampOptions, rampStops, resolveRampName } from "lib/colorRamps";
-import { findValueVariable, hasValues, rowIndexForTime, rowTime } from "lib/layerValues";
-import { formatTimestepTime } from "lib/meshTimeSeries";
-import { describeLayer, isLayerOf, variableLabel, variableUnits } from "lib/outputVariables";
+import { featureValue, findValueVariable, hasValues, rowIndexForTime, rowTime } from "lib/layerValues";
+import { formatTimestepTime, isTimeDynamic, makeActiveTimeSeries } from "lib/meshTimeSeries";
+import { describeLayer, groupByTier, isLayerOf, variableLabel, variableUnits } from "lib/outputVariables";
 
 /** A select option with a swatch of the ramp's gradient in front of its label. */
 const RampOptionLabel = ({ value, label }) => {
@@ -37,6 +38,11 @@ RampOptionLabel.propTypes = {
   label: PropTypes.string.isRequired,
 };
 
+/** A value as the legend's own labels write it, with more digits for a small one that would read as 0.00. */
+const formatMarkedValue = (value) => (
+  value !== 0 && Math.abs(value) < 0.01 ? value.toPrecision(2) : value.toFixed(2)
+);
+
 /**
  * One layer's legend in the global Legends panel: a collapsible card headed by the realization (if any) and the
  * dataset name, with the variable, the color scale (a ramp selector and browser-drawn scale for glTF meshes and
@@ -53,7 +59,9 @@ const LegendCard = ({
   defaultOpen = true,
 }) => {
   const TETHYS_MEDIA_URL = process.env.TETHYS_MEDIA_URL;
-  const { colorRamps, setColorRamp, meshClockTime } = useContext(GraphicsWindowVisualsContext);
+  const {
+    colorRamps, setColorRamp, meshClockTime, selectedCZMLPoint, setCZMLLayer, setActiveTimeSeries,
+  } = useContext(GraphicsWindowVisualsContext);
   const [open, setOpen] = useState(defaultOpen);
   const bodyId = `legend-card-body-${useId().replace(/:/g, "")}`;
 
@@ -71,7 +79,41 @@ const LegendCard = ({
   // legend names the time of that row.
   const valueVariable = isValueLayer ? findValueVariable(dataset, uniqueId) : null;
   const layerValues = useLayerValues(valueVariable ? TETHYS_MEDIA_URL + valueVariable.values : null);
-  const valueTime = layerValues ? rowTime(layerValues, rowIndexForTime(layerValues, meshClockTime)) : null;
+  const valueRow = layerValues ? rowIndexForTime(layerValues, meshClockTime) : null;
+  const valueTime = layerValues ? rowTime(layerValues, valueRow) : null;
+  // The value pointed out on the legend: that of the selected feature in the row shown.
+  const markedFeature = selectedCZMLPoint;
+  const markedValue = layerValues ? featureValue(layerValues, markedFeature, valueRow) : null;
+  // Every other feature of the layer (nodes, outlets, or the basin while it is not selected) gets a tick at its
+  // value, so the legend shows where they all are in the range at the time shown.
+  const otherValues = layerValues
+    ? layerValues.ids
+      .filter((id) => id !== markedFeature)
+      .map((id) => featureValue(layerValues, id, valueRow))
+      .filter((value) => value !== null)
+    : [];
+
+  // The variables of the layer can be picked here as in the dataset's Variables panel: priority variables first,
+  // the secondary ones of a tiered output in a group of their own.
+  const variableOptions = useMemo(() => {
+    const toOption = (item) => ({ value: item.key, label: item.label, item });
+    const { primary, more } = groupByTier(getLayerItems(dataset));
+    const options = primary.map(toOption);
+    return more.length > 0
+      ? [{ label: "Variables", options }, { label: "More variables", options: more.map(toOption) }]
+      : options;
+  }, [dataset]);
+  const flatVariableOptions = variableOptions.flatMap((option) => option.options ?? [option]);
+  const selectedVariableOption = flatVariableOptions.find((option) => option.value === uniqueId);
+  const picksVariable = flatVariableOptions.length > 1 && Boolean(selectedVariableOption);
+
+  const handleVariableChange = ({ item }) => {
+    setCZMLLayer?.(dataset.id, item.key);
+    if (item.variable && isTimeDynamic(item.variable)) {
+      // The most recently selected time series variable drives the Cesium clock (as in the Variables panel)
+      setActiveTimeSeries?.(makeActiveTimeSeries(dataset, item.variable));
+    }
+  };
 
   const handleRampChange = (option) => {
     setColorRamp?.(dataset.id, option.value); // applied to the mesh right away
@@ -147,7 +189,22 @@ const LegendCard = ({
                 />
               </div>
             )}
-            {variableName && (
+            {picksVariable && (
+              <div className="mb-2" data-testid="legend-variable">
+                <label htmlFor={`legend-variable-${dataset.id}`} style={{ fontSize: "0.85em" }}>Variable</label>
+                <Select
+                  inputId={`legend-variable-${dataset.id}`}
+                  aria-label="Variable"
+                  options={variableOptions}
+                  // shown as the legend names the variable; its units are written under the color scale
+                  value={{ ...selectedVariableOption, label: variableName ?? selectedVariableOption.label }}
+                  onChange={handleVariableChange}
+                  menuPortalTarget={typeof document === "undefined" ? null : document.body}
+                  styles={{ menuPortal: (base) => ({ ...base, zIndex: 2000 }) }}
+                />
+              </div>
+            )}
+            {!picksVariable && variableName && (
               <div data-testid="legend-variable" style={{ fontSize: "0.95em", marginBottom: "0.25rem" }}>
                 {variableName}
               </div>
@@ -158,6 +215,8 @@ const LegendCard = ({
                 min={legendVariable?.min ?? undefined}
                 max={legendVariable?.max ?? undefined}
                 variableName={legendVariable?.name}
+                marker={markedValue ?? undefined}
+                ticks={otherValues}
               />
             )}
             {!drawsOwnLegend && legend_urls.map((legend_url, i) => {
@@ -186,6 +245,12 @@ const LegendCard = ({
             {unitsText && (
               <div data-testid="legend-units" style={{ fontSize: "0.85em", color: "#555", textAlign: "center" }}>
                 {unitsText}
+              </div>
+            )}
+            {markedValue !== null && (
+              <div data-testid="legend-marked-value" style={{ fontSize: "0.85em", marginTop: "0.25rem" }}>
+                Selected feature: {formatMarkedValue(markedValue)}
+                {unitsText ? ` ${unitsText}` : ""}
               </div>
             )}
             {subtitleText && (

@@ -2,6 +2,7 @@ import { FRAME_OBJECT, HOME } from "constants/GraphicsWindowConstants";
 import PropTypes from "prop-types";
 import { createContext, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { sameLegendEntry } from "lib/legends";
+import { withPanelShown } from "lib/sidePanels";
 
 export const AppContext = createContext();
 
@@ -390,9 +391,8 @@ const AppContextProvider = ({ children }) => {
   };
 
   const showPanel = (panelId) => {
-    setVisibleSidePanel((prevPanels) => {
-      return [ ...prevPanels, panelId ];
-    });
+    // Showing a Variables pane closes the one of any other layer
+    setVisibleSidePanel((prevPanels) => withPanelShown(prevPanels, panelId));
   }
 
   const SidePanelContextValue = {

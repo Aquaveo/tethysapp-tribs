@@ -1,5 +1,5 @@
 import PropTypes from "prop-types";
-import { useContext, useEffect } from "react";
+import { useContext, useEffect, useRef } from "react";
 
 import { GraphicsWindowVisualsContext, ProjectContext, SidePanelContext } from "react-tethys/context";
 import SlideSheet from "components/dialogs/SlideSheet";
@@ -35,6 +35,12 @@ const VariablesPanel = ({ dataset, panelId }) => {
   const handleClose = () => {
     hideSidePanel(panelId);
   }
+
+  // A dataset that leaves the tree (it was deleted) must not leave its pane listed as open: the map selection
+  // moves an open Variables pane to the selected layer, and would open one for a pane nobody can see.
+  const hideSidePanelRef = useRef(hideSidePanel);
+  hideSidePanelRef.current = hideSidePanel;
+  useEffect(() => () => hideSidePanelRef.current?.(panelId), [panelId]);
 
   const items = getLayerItems(dataset);
   // Priority (and untiered) variables are listed up front; secondary ones wait in a collapsed group.
