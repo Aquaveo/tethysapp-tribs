@@ -1,6 +1,7 @@
 import logging
 import math
 import os
+import re
 import aioshutil
 from pathlib import Path
 
@@ -21,6 +22,44 @@ def _plot_values(series):
     """The values of a series for a plot: a list with None where the file has no number (nan, inf), which JSON cannot
     carry."""
     return [float(value) if math.isfinite(value) else None for value in series]
+
+
+# The run length in the name of a basin averaged file: salas0240_00.mrf is the file of a 240 hour run
+_BASIN_FILE_RUN_LENGTH = re.compile(r'(?P<hours>\d{4})_(?P<minutes>\d{2})\.mrf$')
+
+
+def _run_hours(basin_file):
+    """The length of the run in hours, from the name of its basin averaged file; None when the name does not say."""
+    match = _BASIN_FILE_RUN_LENGTH.search(os.path.basename(str(basin_file)))
+    if match is None:
+        return None
+    return int(match.group('hours')) + int(match.group('minutes')) / 60
+
+
+def _within_run(frame, time_column, run_hours):
+    """The rows of a basin file up to the end of the run.
+
+    tRIBS writes a few more rows after the run's last hour (salas0240_00.mrf has rows for hours 241 to 244) in which
+    most variables are zero, some hold a filler value and the rest fade out: a plot shows every variable dropping at
+    the end. Without a run length the rows are returned as they are.
+    """
+    if run_hours is None:
+        return frame
+    return frame[frame[time_column] <= run_hours]
+
+
+def _without_zero_tail(frame, time_column):
+    """The rows of a basin file without the last ones in which every variable is zero.
+
+    tRIBS can end the basin averaged file with a few rows of zeros (a model engine error at the end of a run), which
+    a plot shows as every variable dropping to zero. Rows of zeros before the last row with a value are kept, and so
+    is a file with nothing but zeros.
+    """
+    values = frame.drop(columns=[time_column])
+    has_value = (values != 0).any(axis=1).to_numpy()
+    if not has_value.any():
+        return frame
+    return frame.iloc[:len(has_value) - has_value[::-1].argmax()]
 
 
 class DatasetBackendHandler(RBH):
@@ -256,6 +295,9 @@ class DatasetBackendHandler(RBH):
                 raise ValueError(f'Output file not found in dataset with ID: "{dataset_id}".')
 
             df, units = read_basin_file(selected_out_file)
+            if dataset.dataset_type == Dataset.DatasetTypes.TRIBS_OUT_MRF:
+                df = _within_run(df, BASIN_TIME_COLUMN, _run_hours(selected_out_file))
+                df = _without_zero_tail(df, BASIN_TIME_COLUMN)
             if variable not in df.columns:
                 raise ValueError(
                     f'Variable "{variable}" not found in {os.path.basename(selected_out_file)} of dataset with '
