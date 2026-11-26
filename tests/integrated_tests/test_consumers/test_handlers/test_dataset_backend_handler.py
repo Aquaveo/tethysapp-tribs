@@ -1060,46 +1060,6 @@ async def _request_output_timeseries(communicator, dataset, variable):
     return response["payload"]
 
 
-def _basin_frame(rows):
-    import pandas as pd
-    return pd.DataFrame(rows, columns=['Time', 'MAP', 'MSM'])
-
-
-def test_without_zero_tail_drops_the_last_rows_in_which_every_variable_is_zero():
-    from tethysapp.tribs.consumers.handlers.dataset_backend_handler import _without_zero_tail
-    frame = _basin_frame([[1, 0.0, 0.4], [2, 0.0, 0.0], [3, 2.5, 0.0], [4, 0.0, 0.0], [5, 0.0, 0.0]])
-
-    trimmed = _without_zero_tail(frame, 'Time')
-
-    # the zero row at hour 2 is inside the run and stays; the time column never counts as a value
-    assert trimmed['Time'].tolist() == [1, 2, 3]
-
-
-def test_without_zero_tail_keeps_a_file_that_ends_with_values_and_one_with_only_zeros():
-    from tethysapp.tribs.consumers.handlers.dataset_backend_handler import _without_zero_tail
-    ends_with_values = _basin_frame([[1, 0.0, 0.0], [2, 0.0, 0.1]])
-    only_zeros = _basin_frame([[1, 0.0, 0.0], [2, 0.0, 0.0]])
-
-    assert _without_zero_tail(ends_with_values, 'Time')['Time'].tolist() == [1, 2]
-    assert _without_zero_tail(only_zeros, 'Time')['Time'].tolist() == [1, 2]
-
-
-def test_run_hours_reads_the_run_length_from_the_basin_file_name():
-    from tethysapp.tribs.consumers.handlers.dataset_backend_handler import _run_hours
-    assert _run_hours('/files/hyd/salas0240_00.mrf') == 240
-    assert _run_hours('cedar_flats0012_30.mrf') == 12.5
-    assert _run_hours('basin.mrf') is None
-
-
-def test_within_run_drops_the_rows_written_after_the_last_hour_of_the_run():
-    from tethysapp.tribs.consumers.handlers.dataset_backend_handler import _within_run
-    # as tRIBS ends a 3 hour run: a fading value and a filler value in the extra rows, not only zeros
-    frame = _basin_frame([[1, 0.2, 0.4], [2, 0.1, 0.4], [3, 0.05, 0.4], [4, 0.01, 9999.99], [5, 0.0, 9999.99]])
-
-    assert _within_run(frame, 'Time', 3)['Time'].tolist() == [1, 2, 3]
-    assert _within_run(frame, 'Time', None)['Time'].tolist() == [1, 2, 3, 4, 5]
-
-
 @pytest.mark.asyncio
 async def test_dataset_receive_mrf_timeseries_labels_and_converts_sheet_variables(
     a_session, a_mrf_dataset_with_files, make_communicator, test_files
@@ -1118,6 +1078,7 @@ async def test_dataset_receive_mrf_timeseries_labels_and_converts_sheet_variable
         assert (payload['name'], payload['label'], payload['units']) == ('MGW', 'Depth to Groundwater', 'm')
         assert payload['dataset_id'] == str(dataset.id) and 'point_id' not in payload
         # The file of this 700 hour run has 704 rows: the four written after the run's end are left off the plot
+        # (the adapter's read_basin_series, which the map layer uses too)
         assert len(raw) == 704
         assert len(payload['y']) == len(payload['x']) == 700
         assert payload['y'] == pytest.approx([v / 1000 for v in raw[:700]])
